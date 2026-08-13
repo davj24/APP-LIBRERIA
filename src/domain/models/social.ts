@@ -1,62 +1,69 @@
-export type PostType = 'update' | 'review' | 'quote' | 'milestone';
+export type PrivacyLevel = 'public' | 'friends' | 'private';
 
-export type ReactionType = 'like' | 'fire' | 'claps' | 'bookmark';
+export type LoanStatus = 'richiesto' | 'in_prestito' | 'restituito';
 
-export interface Comment {
+export interface AccountabilityPartner {
   id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  content: string;
-  createdAt: string;
-}
-
-export interface SocialPost {
-  id: string;
-  type: PostType;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  userBadge?: string;
-  bookTitle?: string;
-  bookAuthor?: string;
-  bookCover?: string;
-  rating?: number; // per le recensioni (1-5)
-  progressPage?: number; // per aggiornamenti di lettura (es. pag 145/380)
-  totalPages?: number;
-  content: string; // Testo del post o citazione
-  quoteAuthor?: string;
-  createdAt: string;
-  reactions: Record<ReactionType, number>;
-  userReactions: Record<ReactionType, boolean>;
-  comments: Comment[];
-}
-
-export interface BookClub {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  icon: string;
-  coverUrl: string;
-  membersCount: number;
-  isJoined: boolean;
-  currentBook: {
-    title: string;
-    author: string;
-    coverUrl: string;
-    progressPercentage: number;
-  };
-  activeDiscussionCount: number;
-}
-
-export interface ReaderLeaderboardUser {
-  id: string;
-  name: string;
-  avatarUrl: string;
-  booksReadThisMonth: number;
-  pagesReadThisMonth: number;
+  partnerName: string;
+  partnerAvatar: string;
+  partnerBadge: string;
   streakDays: number;
-  isFollowing: boolean;
-  rank: number;
+  userReadToday: boolean;
+  partnerReadToday: boolean;
+  lastMissedDate?: string;
+}
+
+export interface BookLoan {
+  id: string;
+  bookTitle: string;
+  bookAuthor: string;
+  bookCover: string;
+  borrowerName: string;
+  borrowerAvatar: string;
+  loanDate: string;
+  daysElapsed: number;
+  status: LoanStatus;
+  isMine: boolean; // True se il libro è mio prestato ad altri, false se l'ho chiesto io
+}
+
+export interface BookTakeaway {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  bookTitle: string;
+  bookAuthor: string;
+  bookCover?: string;
+  rating: number; // Valutazione 1-5 stelle
+  content: string; // Concetto chiave, appunto o regola
+  quoteAuthor?: string;
+  privacy: PrivacyLevel;
+  likesCount: number;
+  isLiked: boolean;
+  createdAt: string;
+}
+
+export interface LivePresence {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  bookTitle: string;
+  bookAuthor: string;
+  bookCover: string;
+  progressPage: number;
+  totalPages: number;
+  isReadingNow: boolean;
+  lastPingEmoji?: string;
+  lastPingFrom?: string;
+}
+
+export interface SecretWishlistItem {
+  id: string;
+  title: string;
+  author: string;
+  coverUrl: string;
+  price?: string;
+  isReservedByFriend: boolean;
+  reservedByUserName?: string;
 }
