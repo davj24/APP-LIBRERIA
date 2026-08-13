@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { motion, type PanInfo } from 'framer-motion';
-import { LayoutDashboard, BookOpen, Users, BarChart2, User, ScanLine } from 'lucide-react';
+import { BookOpen, Users, BarChart2, User, ScanLine } from 'lucide-react';
 
-export type TabType = 0 | 1 | 2 | 3 | 4;
+export type TabType = 0 | 1 | 2 | 3;
 
 interface BottomNavProps {
   activeTab: TabType;
@@ -21,11 +21,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const tabs = [
-    { id: 0 as TabType, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 1 as TabType, label: 'Libreria', icon: BookOpen },
-    { id: 2 as TabType, label: 'Social', icon: Users },
-    { id: 3 as TabType, label: 'Statistiche', icon: BarChart2 },
-    { id: 4 as TabType, label: 'Profilo', icon: User },
+    { id: 0 as TabType, label: 'Libreria', icon: BookOpen },
+    { id: 1 as TabType, label: 'Social', icon: Users },
+    { id: 2 as TabType, label: 'Statistiche', icon: BarChart2 },
+    { id: 3 as TabType, label: 'Profilo', icon: User },
   ];
 
   const handlePan = (_: any, info: PanInfo) => {

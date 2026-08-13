@@ -10,6 +10,7 @@ import { CameraScannerModal } from '../components/books/CameraScannerModal';
 import { BookDetailModal } from '../components/books/BookDetailModal';
 import { SearchBar, type FormattedBookResult } from '../components/books/SearchBar';
 import { BookSheet, type BookSheetBook } from '../components/books/BookSheet';
+import { CurrentlyReadingCard } from '../components/dashboard/CurrentlyReadingCard';
 import { useBooks } from '../hooks/useBooks';
 import { BookOpen, Clock, CheckCircle2, Users, Tag } from 'lucide-react';
 
@@ -37,6 +38,7 @@ export const LibraryPage: React.FC = () => {
     addBook,
     deleteBook,
     updateBookStatus,
+    updateBookPages,
     updateBook
   } = useBooks();
 
@@ -169,6 +171,15 @@ export const LibraryPage: React.FC = () => {
             {/* Tab Content */}
             {activeSubTab === 'books' && (
               <>
+                {/* Hero Card Lettura in Corso (se attiva e nessuna ricerca pendente) */}
+                {!trimmedQuery && selectedFilter === 'Tutti' && (
+                  <CurrentlyReadingCard
+                    books={books}
+                    onUpdateStatus={updateBookStatus}
+                    onUpdatePages={updateBookPages}
+                  />
+                )}
+
                 {/* Summary Pills */}
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-[#FCFBF8] dark:bg-[#33302D] border border-[#EBE5D9] dark:border-[#4A4743]/60 rounded-2xl p-2.5 text-center shadow-sm shadow-[#DCD5C6]/50 dark:shadow-none transition-colors">

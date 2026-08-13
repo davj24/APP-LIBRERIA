@@ -4,7 +4,6 @@ import { ThemeProvider } from './presentation/context/ThemeContext';
 import { ModalProvider, useModal } from './presentation/context/ModalContext';
 import { MainLayout } from './presentation/components/layout/MainLayout';
 import type { TabType } from './presentation/components/layout/BottomNav';
-import { DashboardPage } from './presentation/pages/DashboardPage';
 import { LibraryPage } from './presentation/pages/LibraryPage';
 import { SocialPage } from './presentation/pages/SocialPage';
 import { StatsPage } from './presentation/pages/StatsPage';
@@ -20,7 +19,7 @@ function AppContent() {
 
     const threshold = 50;
     if (info.offset.x < -threshold) {
-      setActiveTab((prev) => Math.min(prev + 1, 4) as TabType);
+      setActiveTab((prev) => Math.min(prev + 1, 3) as TabType);
     } else if (info.offset.x > threshold) {
       setActiveTab((prev) => Math.max(prev - 1, 0) as TabType);
     }
@@ -29,17 +28,15 @@ function AppContent() {
   const renderActivePage = () => {
     switch (activeTab) {
       case 0:
-        return <DashboardPage />;
-      case 1:
         return <LibraryPage />;
-      case 2:
+      case 1:
         return <SocialPage />;
-      case 3:
+      case 2:
         return <StatsPage />;
-      case 4:
+      case 3:
         return <ProfilePage />;
       default:
-        return <DashboardPage />;
+        return <LibraryPage />;
     }
   };
 

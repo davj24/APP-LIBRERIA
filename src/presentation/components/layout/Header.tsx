@@ -16,17 +16,15 @@ export const Header: React.FC<HeaderProps> = ({
   const getPageTitle = (tab: TabType): string => {
     switch (tab) {
       case 0:
-        return 'Home';
-      case 1:
         return 'La mia Libreria';
+      case 1:
+        return 'BiblioSocial';
       case 2:
-        return 'Social';
-      case 3:
         return 'Statistiche';
-      case 4:
+      case 3:
         return 'Profilo';
       default:
-        return 'Home';
+        return 'La mia Libreria';
     }
   };
 

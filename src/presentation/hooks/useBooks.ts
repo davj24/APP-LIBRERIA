@@ -67,6 +67,15 @@ export function useBooks() {
     return book.status === selectedFilter;
   });
 
+  const updateBookPages = (id: string, pagesRead: number) => {
+    setBooks(prev => prev.map(book => {
+      if (book.id === id) {
+        return { ...book, pagesRead };
+      }
+      return book;
+    }));
+  };
+
   return {
     books,
     filteredBooks,
@@ -75,6 +84,7 @@ export function useBooks() {
     addBook,
     deleteBook,
     updateBookStatus,
+    updateBookPages,
     updateBook
   };
 }
