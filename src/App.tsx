@@ -6,6 +6,7 @@ import { MainLayout } from './presentation/components/layout/MainLayout';
 import type { TabType } from './presentation/components/layout/BottomNav';
 import { DashboardPage } from './presentation/pages/DashboardPage';
 import { LibraryPage } from './presentation/pages/LibraryPage';
+import { SocialPage } from './presentation/pages/SocialPage';
 import { StatsPage } from './presentation/pages/StatsPage';
 import { ProfilePage } from './presentation/pages/ProfilePage';
 
@@ -19,7 +20,7 @@ function AppContent() {
 
     const threshold = 50;
     if (info.offset.x < -threshold) {
-      setActiveTab((prev) => Math.min(prev + 1, 3) as TabType);
+      setActiveTab((prev) => Math.min(prev + 1, 4) as TabType);
     } else if (info.offset.x > threshold) {
       setActiveTab((prev) => Math.max(prev - 1, 0) as TabType);
     }
@@ -32,8 +33,10 @@ function AppContent() {
       case 1:
         return <LibraryPage />;
       case 2:
-        return <StatsPage />;
+        return <SocialPage />;
       case 3:
+        return <StatsPage />;
+      case 4:
         return <ProfilePage />;
       default:
         return <DashboardPage />;

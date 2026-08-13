@@ -20,8 +20,10 @@ export const Header: React.FC<HeaderProps> = ({
       case 1:
         return 'La mia Libreria';
       case 2:
-        return 'Statistiche';
+        return 'Social';
       case 3:
+        return 'Statistiche';
+      case 4:
         return 'Profilo';
       default:
         return 'Home';

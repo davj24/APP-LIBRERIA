@@ -34,7 +34,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#2A2826] text-[#4A4743] dark:text-[#E0DCD3] flex flex-col antialiased transition-colors duration-200 selection:bg-[#B0BEA9]/30 selection:text-[#31362F] overflow-x-hidden">
       <Header
         activeTab={activeTab}
-        onOpenProfile={() => setActiveTab(3)}
+        onOpenProfile={() => setActiveTab(4)}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
