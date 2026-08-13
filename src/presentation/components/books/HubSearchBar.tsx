@@ -146,7 +146,7 @@ export const HubSearchBar: React.FC<HubSearchBarProps> = ({
                 ? 'bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] shadow-xs'
                 : 'text-[#7A756D] dark:text-[#A09A90] hover:text-[#4A4743] dark:hover:text-[#E0DCD3]'
             }`}
-            title="Cerca nel catalogo globale Google Books"
+            title="Cerca nel catalogo globale Open Library"
           >
             <Globe className="w-3 h-3" />
             <span>Online</span>

@@ -8,11 +8,10 @@ import { AddBookChoiceModal } from '../components/books/AddBookChoiceModal';
 import { AddBookModal } from '../components/books/AddBookModal';
 import { CameraScannerModal } from '../components/books/CameraScannerModal';
 import { BookDetailModal } from '../components/books/BookDetailModal';
-import { GoogleBooksSearchModal } from '../components/books/GoogleBooksSearchModal';
 import { SearchBar, type FormattedBookResult } from '../components/books/SearchBar';
 import { BookSheet, type BookSheetBook } from '../components/books/BookSheet';
 import { useBooks } from '../hooks/useBooks';
-import { Globe, BookOpen, Clock, CheckCircle2, Users, Tag } from 'lucide-react';
+import { BookOpen, Clock, CheckCircle2, Users, Tag } from 'lucide-react';
 
 export type LibrarySubTab = 'books' | 'authors' | 'genres';
 
@@ -30,7 +29,6 @@ export const LibraryPage: React.FC = () => {
   const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
-  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
 
   const {
     books,
@@ -63,9 +61,9 @@ export const LibraryPage: React.FC = () => {
   const toReadCount = books.filter(b => b.status === 'Da leggere').length;
   const readCount = books.filter(b => b.status === 'Letto').length;
 
-  // Fetch secondario dei dettagli volume al click sul libro selezionato
-  const handleBookSelect = async (baseBook: FormattedBookResult) => {
-    const initialSheetBook: BookSheetBook = {
+  // Selezione libro dai risultati di ricerca
+  const handleBookSelect = (baseBook: FormattedBookResult) => {
+    const sheetBook: BookSheetBook = {
       id: baseBook.id || String(Math.random()),
       title: baseBook.title || 'Titolo Sconosciuto',
       author: baseBook.author || 'Autore Sconosciuto',
@@ -80,49 +78,9 @@ export const LibraryPage: React.FC = () => {
       rawItem: baseBook.rawItem || baseBook
     };
 
-    // 1. Apri subito la scheda con i dati parziali (per dare feedback immediato)
-    setSelectedBookDetails(initialSheetBook);
+    setSelectedBookDetails(sheetBook);
     setIsSheetOpen(true);
-    setIsLoadingDetails(true);
-
-    try {
-      // 2. Chiama l'endpoint del volume specifico usando l'ID di Google Books
-      const response = await fetch(`https://www.googleapis.com/books/v1/volumes/${baseBook.id}`);
-      
-      if (!response.ok) throw new Error("Errore recupero dettagli volume");
-      
-      const data = await response.json();
-      const vi = data.volumeInfo || {};
-      
-      // 3. Estrai la descrizione completa in modo assoluto
-      let exactDescription = vi.description;
-      
-      // Pulizia estrema da tag HTML se presenti (Google Books li usa per la formattazione)
-      if (exactDescription) {
-         exactDescription = exactDescription
-           .replace(/<br\s*\/?>/gi, '\n') // Mantiene gli a capo
-           .replace(/<[^>]+>/g, ''); // Rimuove gli altri tag
-      }
-
-      // 4. Aggiorna il libro selezionato con la descrizione PERFETTA
-      setSelectedBookDetails(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          description: exactDescription || prev.description || 'Nessuna descrizione disponibile per questa specifica edizione.',
-          pages: vi.pageCount || prev.pages,
-          category: vi.categories?.[0] || prev.category,
-          year: vi.publishedDate ? vi.publishedDate.substring(0, 4) : prev.year,
-          rating: vi.averageRating || prev.rating
-        };
-      });
-
-    } catch (error) {
-      console.error("Fallito il fetch dei dettagli esatti:", error);
-      // In caso di errore di rete, il componente mostrerà comunque i dati base già presenti in baseBook
-    } finally {
-      setIsLoadingDetails(false);
-    }
+    setIsLoadingDetails(false);
   };
 
   const handleAddFromSheet = (bSheet: BookSheetBook) => {
@@ -160,19 +118,12 @@ export const LibraryPage: React.FC = () => {
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="space-y-4"
           >
-            {/* Invito alla ricerca globale se nessun libro locale corrisponde */}
+            {/* Invito alla ricerca se nessun libro locale corrisponde */}
             {trimmedQuery && localFilteredBooks.length === 0 && (
-              <div className="bg-[#EBE5D9]/60 dark:bg-[#383532]/60 rounded-2xl p-3 text-center space-y-2 border border-[#DCD5C6] dark:border-[#4A4743]/50 max-w-md mx-auto">
+              <div className="bg-[#EBE5D9]/60 dark:bg-[#383532]/60 rounded-2xl p-3 text-center border border-[#DCD5C6] dark:border-[#4A4743]/50 max-w-md mx-auto">
                 <p className="text-xs text-[#7A756D] dark:text-[#A09A90] font-medium">
-                  Nessun libro trovato nella tua libreria locale per "{searchQuery}".
+                  Nessun libro trovato nella tua libreria per "{searchQuery}".
                 </p>
-                <button
-                  onClick={() => setIsGoogleModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold shadow-xs hover:bg-[#A0AF99] transition-all"
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Cerca "{searchQuery}" nel catalogo globale Google Books</span>
-                </button>
               </div>
             )}
 
@@ -288,13 +239,6 @@ export const LibraryPage: React.FC = () => {
         onDeleteBook={deleteBook}
       />
 
-      {/* Google Books Search Modal */}
-      <GoogleBooksSearchModal
-        isOpen={isGoogleModalOpen}
-        initialQuery={searchQuery}
-        onClose={() => setIsGoogleModalOpen(false)}
-        onAddBook={addBook}
-      />
 
       {/* Add Modals */}
       <AddBookChoiceModal

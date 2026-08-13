@@ -167,7 +167,7 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
     };
   }, []);
 
-  // Logica di Fetching Ibrida (Google Books con Fallback Immediato Open Library)
+  // Logica di Fetching tramite Open Library
   useEffect(() => {
     const searchTerm = query.trim();
     if (!searchTerm || searchTerm.length < 3) {
@@ -182,48 +182,11 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
 
     const fetchBooks = async () => {
       try {
-        // TENTATIVO 1: GOOGLE BOOKS
-        const googleRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchTerm)}&maxResults=15`);
-        const googleData = await googleRes.json();
-
-        if (googleData.items && googleData.items.length > 0) {
-          const formattedResults: FormattedBookResult[] = googleData.items.map((item: any) => {
-            const vi = item.volumeInfo || {};
-            let coverUrl = vi.imageLinks?.thumbnail || vi.imageLinks?.smallThumbnail || null;
-            if (coverUrl) coverUrl = coverUrl.replace(/^http:/i, 'https:').replace('&edge=curl', '');
-            
-            let rawDesc = vi.description || item.searchInfo?.textSnippet || '';
-            const cleanDesc = rawDesc.replace(/<[^>]+>/g, '').trim() || null;
-
-            return {
-              id: item.id,
-              title: vi.title || 'Titolo Sconosciuto',
-              author: vi.authors && vi.authors.length > 0 ? vi.authors[0] : 'Autore Sconosciuto',
-              cover: coverUrl,
-              description: cleanDesc,
-              pages: vi.pageCount || null,
-              year: vi.publishedDate ? vi.publishedDate.substring(0, 4) : null,
-              category: vi.categories && vi.categories.length > 0 ? vi.categories[0] : null,
-              rating: vi.averageRating || null,
-              isbn: vi.industryIdentifiers?.find((id: any) => id.type === 'ISBN_13' || id.type === 'ISBN_10')?.identifier || null,
-              rawItem: item
-            };
-          });
-          setResults(formattedResults);
-          setStatus("success");
-          return; // Esce se Google ha successo
-        }
-      } catch (error) {
-        console.warn('Google Books fallito, provo Open Library:', error);
-      }
-
-      // TENTATIVO 2: FALLBACK OPEN LIBRARY SE GOOGLE FALLISCE O NON TROVA NULLA
-      try {
         const openLibRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchTerm)}&limit=15`);
         const openLibData = await openLibRes.json();
         
         if (openLibData.docs && openLibData.docs.length > 0) {
-          const fallbackResults: FormattedBookResult[] = openLibData.docs.map((doc: any) => ({
+          const formattedResults: FormattedBookResult[] = openLibData.docs.map((doc: any) => ({
             id: doc.key,
             title: doc.title,
             author: doc.author_name ? doc.author_name[0] : 'Autore Sconosciuto',
@@ -236,14 +199,14 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
             isbn: doc.isbn ? doc.isbn[0] : null,
             rawItem: doc
           }));
-          setResults(fallbackResults);
+          setResults(formattedResults);
           setStatus("success");
         } else {
-          setResults([]); // Davvero nessun risultato
+          setResults([]);
           setStatus("error");
         }
-      } catch (fallbackError) {
-        console.error('Anche Open Library ha fallito:', fallbackError);
+      } catch (error) {
+        console.error('Errore durante la ricerca libri:', error);
         setResults([]);
         setStatus("error");
       }

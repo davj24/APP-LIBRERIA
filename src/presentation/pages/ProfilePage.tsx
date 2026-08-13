@@ -12,7 +12,6 @@ import {
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useBooks } from '../hooks/useBooks';
 import { useRegisterModal } from '../context/ModalContext';
-import { GoogleBooksSearchModal } from '../components/books/GoogleBooksSearchModal';
 
 interface WishlistItem {
   id: string;
@@ -368,9 +367,6 @@ export const ProfilePage: React.FC = () => {
   const [isAllCollectionsModalOpen, setIsAllCollectionsModalOpen] = useState(false);
   const [searchCollectionQuery, setSearchCollectionQuery] = useState('');
 
-  // Modale Ricerca Google Books (Per codice ISBN o testo)
-  const [isGoogleSearchOpen, setIsGoogleSearchOpen] = useState(false);
-
   // Modale Nuova Raccolta State
   const [showCreateCollectionModal, setShowCreateCollectionModal] = useState(false);
   const [newCollName, setNewCollName] = useState('');
@@ -379,7 +375,7 @@ export const ProfilePage: React.FC = () => {
   const [newCollCover, setNewCollCover] = useState<string>(COVER_PRESETS[0].class);
 
   // Registra l'apertura di qualsiasi overlay per disabilitare lo swipe dei tab in App.tsx
-  const isAnyOverlayOpen = isEditing || showWidgetLibraryModal || isGoogleSearchOpen || showCreateCollectionModal || isAllCollectionsModalOpen || openedCollection !== null || editingCollection !== null || imagePickerType !== null;
+  const isAnyOverlayOpen = isEditing || showWidgetLibraryModal || showCreateCollectionModal || isAllCollectionsModalOpen || openedCollection !== null || editingCollection !== null || imagePickerType !== null;
   useRegisterModal(isAnyOverlayOpen);
 
   const [profile, setProfile] = useState({
@@ -545,28 +541,6 @@ export const ProfilePage: React.FC = () => {
     setImagePickerType(null);
   };
 
-  // AGGIUNTA LIBRO DA RICERCA GOOGLE BOOKS ALLA RACCOLTA APERTA
-  const handleAddSearchedBookToCollection = (bookData: any) => {
-    if (!openedCollection) return;
-
-    const item: WishlistItem = {
-      id: Date.now().toString(),
-      title: bookData.title,
-      author: bookData.author,
-      coverUrl: bookData.coverUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
-      price: `${bookData.totalPages || 300} pag.`
-    };
-
-    setCollections(prev => prev.map(c => {
-      if (c.id === openedCollection.id) {
-        return { ...c, items: [item, ...c.items] };
-      }
-      return c;
-    }));
-
-    setOpenedCollection(prev => prev ? { ...prev, items: [item, ...prev.items] } : null);
-    setIsGoogleSearchOpen(false);
-  };
 
   // CREAZIONE NUOVA RACCOLTA
   const handleCreateCollection = (e: React.FormEvent) => {
@@ -970,20 +944,13 @@ export const ProfilePage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                  {/* Tasto Modifica Raccolta */}
                   <button
                     onClick={() => setEditingCollection(openedCollection)}
                     className="p-2 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
                     title="Modifica Nome, Icona e Stile Raccolta"
                   >
                     <PenLine size={16} />
-                  </button>
-                  <button
-                    onClick={() => setIsGoogleSearchOpen(true)}
-                    className="px-3 py-1.5 rounded-full bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold flex items-center gap-1 transition-transform active:scale-95 shadow-sm cursor-pointer hover:bg-[#A0AF99]"
-                    title="Cerca e aggiungi libro"
-                  >
-                    <Plus size={15} />
-                    <span>Cerca</span>
                   </button>
                 </div>
               </div>
@@ -999,28 +966,7 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Tasto Cerca e Aggiungi Libro */}
-                <button
-                  onClick={() => setIsGoogleSearchOpen(true)}
-                  className="w-full p-4 rounded-2xl border-2 border-dashed border-neutral-200 dark:border-neutral-700/80 hover:border-[#B0BEA9] dark:hover:border-[#5C6B55] flex items-center justify-between text-left transition-all cursor-pointer group bg-neutral-50/50 dark:bg-neutral-800/30"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0">
-                      <Search size={20} />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-neutral-900 dark:text-white group-hover:text-[#5C6B55] transition-colors">
-                        Cerca Libro da Inserire
-                      </div>
-                      <div className="text-[11px] text-neutral-400">
-                        Cerca per Titolo, Autore o Codice ISBN
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-2 rounded-full bg-white dark:bg-neutral-800 text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors shadow-xs">
-                    <Plus size={16} />
-                  </div>
-                </button>
+
 
                 {/* Elenco dei Libri nella Raccolta */}
                 <div className="space-y-3 pt-2">
@@ -1534,12 +1480,7 @@ export const ProfilePage: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Ricerca Google Books per Testo o Codice ISBN */}
-      <GoogleBooksSearchModal
-        isOpen={isGoogleSearchOpen}
-        onClose={() => setIsGoogleSearchOpen(false)}
-        onAddBook={handleAddSearchedBookToCollection}
-      />
+
 
       {/* MODALE LIBRERIA WIDGET COMPLETA */}
       <AnimatePresence>
