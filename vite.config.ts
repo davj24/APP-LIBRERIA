@@ -11,7 +11,7 @@ export default defineConfig({
     port: 5173
   },
   plugins: [
-    basicSsl(),
+    // basicSsl(),
     react(),
     tailwindcss(),
     VitePWA({
