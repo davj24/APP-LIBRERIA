@@ -10,7 +10,7 @@ import { StatsPage } from './presentation/pages/StatsPage';
 import { ProfilePage } from './presentation/pages/ProfilePage';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<TabType>(0);
+  const [activeTab, setActiveTab] = useState<TabType>(1);
   const { isModalOpen } = useModal();
 
   const handlePanEnd = (_: any, info: PanInfo) => {
