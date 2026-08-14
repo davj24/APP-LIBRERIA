@@ -38,7 +38,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-24 pb-32 overflow-hidden">
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-24 pb-32 overflow-x-hidden">
         {children}
       </main>
 

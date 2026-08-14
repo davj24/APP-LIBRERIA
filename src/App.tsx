@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from './presentation/context/ThemeContext';
-import { ModalProvider, useModal } from './presentation/context/ModalContext';
+import { ModalProvider } from './presentation/context/ModalContext';
 import { MainLayout } from './presentation/components/layout/MainLayout';
 import type { TabType } from './presentation/components/layout/BottomNav';
 import { LibraryPage } from './presentation/pages/LibraryPage';
@@ -11,19 +11,6 @@ import { ProfilePage } from './presentation/pages/ProfilePage';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>(1);
-  const { isModalOpen } = useModal();
-
-  const handlePanEnd = (_: any, info: PanInfo) => {
-    // Se un modale, sheet o editor è aperto, disabilita lo swipe tra i tab principali
-    if (isModalOpen) return;
-
-    const threshold = 50;
-    if (info.offset.x < -threshold) {
-      setActiveTab((prev) => Math.min(prev + 1, 3) as TabType);
-    } else if (info.offset.x > threshold) {
-      setActiveTab((prev) => Math.max(prev - 1, 0) as TabType);
-    }
-  };
 
   const renderActivePage = () => {
     switch (activeTab) {
@@ -49,8 +36,7 @@ function AppContent() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -15 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          onPanEnd={handlePanEnd}
-          className="w-full touch-pan-y"
+          className="w-full"
         >
           {renderActivePage()}
         </motion.div>
