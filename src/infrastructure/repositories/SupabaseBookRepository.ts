@@ -2,8 +2,11 @@ import { supabase } from '../supabase/client';
 
 export class SupabaseBookRepository {
   /**
-   * Recupera la libreria personale dell'utente eseguendo una query alla tabella `user_books`
-   * in JOIN con la tabella `books` per ottenere titolo, autore e cover_url.
+   * Recupera la libreria dell'utente dalla tabella `user_books`
+   * effettuando una JOIN con la tabella `books` per ottenere titolo e autore (e copertina).
+   *
+   * @param userId - ID dell'utente
+   * @returns I dati della libreria utente o lancia un errore in caso di fallimento
    */
   async getUserLibrary(userId: string) {
     const { data, error } = await supabase
@@ -25,8 +28,8 @@ export class SupabaseBookRepository {
       .eq('user_id', userId);
 
     if (error) {
-      console.error('Errore nella query Supabase (getUserLibrary):', error);
-      throw new Error(`Errore nel caricamento della libreria per l'utente ${userId}: ${error.message}`);
+      console.error('Errore durante la select da user_books:', error);
+      throw error;
     }
 
     return data;
