@@ -6,11 +6,13 @@ import type { AccountabilityPartner } from '../../../domain/models/social';
 interface AccountabilityPartnerCardProps {
   partnerData: AccountabilityPartner;
   onCheckInToday: () => void;
+  onOpenFriendProfile?: (userId: string) => void;
 }
 
 export const AccountabilityPartnerCard: React.FC<AccountabilityPartnerCardProps> = ({
   partnerData,
-  onCheckInToday
+  onCheckInToday,
+  onOpenFriendProfile
 }) => {
   const isBothCompleted = partnerData.userReadToday && partnerData.partnerReadToday;
 
@@ -66,11 +68,14 @@ export const AccountabilityPartnerCard: React.FC<AccountabilityPartnerCardProps>
         </div>
 
         {/* Amico (Elena) */}
-        <div className={`p-3 rounded-2xl border transition-all ${
-          partnerData.partnerReadToday 
-            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300' 
-            : 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300'
-        }`}>
+        <button
+          onClick={() => onOpenFriendProfile?.('user-elena')}
+          className={`p-3 rounded-2xl border transition-all text-left cursor-pointer hover:opacity-90 ${
+            partnerData.partnerReadToday 
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300' 
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
               <img
@@ -78,7 +83,7 @@ export const AccountabilityPartnerCard: React.FC<AccountabilityPartnerCardProps>
                 alt={partnerData.partnerName}
                 className="w-4 h-4 rounded-full object-cover"
               />
-              <span className="text-[11px] font-extrabold truncate max-w-[80px]">
+              <span className="text-[11px] font-extrabold truncate max-w-[80px] hover:underline">
                 {partnerData.partnerName.split(' ')[0]}
               </span>
             </div>
@@ -91,7 +96,7 @@ export const AccountabilityPartnerCard: React.FC<AccountabilityPartnerCardProps>
           <p className="text-xs font-bold">
             {partnerData.partnerReadToday ? 'Ha già letto oggi! 📖' : 'In attesa che legga...'}
           </p>
-        </div>
+        </button>
       </div>
 
       {/* Regola della Fiamma / Warning */}

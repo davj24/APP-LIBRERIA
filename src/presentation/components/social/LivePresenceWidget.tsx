@@ -6,11 +6,13 @@ import type { LivePresence } from '../../../domain/models/social';
 interface LivePresenceWidgetProps {
   presences: LivePresence[];
   onSendPing: (presenceId: string, emoji: string) => void;
+  onOpenFriendProfile?: (userId: string) => void;
 }
 
 export const LivePresenceWidget: React.FC<LivePresenceWidgetProps> = ({
   presences,
-  onSendPing
+  onSendPing,
+  onOpenFriendProfile
 }) => {
   const [activePings, setActivePings] = useState<Record<string, string>>({});
 
@@ -60,20 +62,27 @@ export const LivePresenceWidget: React.FC<LivePresenceWidgetProps> = ({
             >
               {/* Info Lettore + Libro */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="relative shrink-0">
+                <button
+                  onClick={() => onOpenFriendProfile?.(presence.userId)}
+                  className="relative shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                  title={`Vedi profilo di ${presence.userName}`}
+                >
                   <img
                     src={presence.userAvatar}
                     alt={presence.userName}
                     className="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-500/60"
                   />
                   <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#383532]" />
-                </div>
+                </button>
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                    <button
+                      onClick={() => onOpenFriendProfile?.(presence.userId)}
+                      className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] truncate hover:underline text-left cursor-pointer"
+                    >
                       {presence.userName}
-                    </h4>
+                    </button>
                   </div>
                   <p className="text-[11px] font-medium text-[#7A756D] dark:text-[#A09A90] truncate">
                     Sta leggendo <span className="font-bold text-[#31362F] dark:text-[#E0DCD3]">"{presence.bookTitle}"</span> (pag. {presence.progressPage}/{presence.totalPages})

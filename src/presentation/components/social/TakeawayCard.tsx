@@ -6,11 +6,13 @@ import type { BookTakeaway, PrivacyLevel } from '../../../domain/models/social';
 interface TakeawayCardProps {
   takeaway: BookTakeaway;
   onLike: (takeawayId: string) => void;
+  onOpenFriendProfile?: (userId: string) => void;
 }
 
 export const TakeawayCard: React.FC<TakeawayCardProps> = ({
   takeaway,
-  onLike
+  onLike,
+  onOpenFriendProfile
 }) => {
   const getPrivacyBadge = (privacy: PrivacyLevel) => {
     switch (privacy) {
@@ -44,21 +46,25 @@ export const TakeawayCard: React.FC<TakeawayCardProps> = ({
     >
       {/* Header Autore + Privacy Tag */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+        <button
+          onClick={() => onOpenFriendProfile?.(takeaway.userId)}
+          className="flex items-center gap-2.5 text-left cursor-pointer hover:opacity-80 transition-opacity"
+          title={`Vedi profilo di ${takeaway.userName}`}
+        >
           <img
             src={takeaway.userAvatar}
             alt={takeaway.userName}
             className="w-9 h-9 rounded-full object-cover ring-2 ring-[#B0BEA9] dark:ring-[#5C6B55]"
           />
           <div>
-            <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3]">
+            <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] hover:underline">
               {takeaway.userName}
             </h4>
             <span className="text-[10px] text-[#7A756D] dark:text-[#A09A90]">
               {takeaway.createdAt}
             </span>
           </div>
-        </div>
+        </button>
 
         {getPrivacyBadge(takeaway.privacy)}
       </div>
