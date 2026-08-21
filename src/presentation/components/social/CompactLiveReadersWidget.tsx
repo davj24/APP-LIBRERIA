@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Check, BookOpen } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check } from 'lucide-react';
 import type { LivePresence } from '../../../domain/models/social';
 
 interface CompactLiveReadersWidgetProps {
@@ -177,14 +177,6 @@ export const CompactLiveReadersWidget: React.FC<CompactLiveReadersWidgetProps> =
                           </div>
                         )}
                       </AnimatePresence>
-
-                      <button
-                        onClick={() => onOpenFriendProfile?.(presence.userId)}
-                        className="p-1.5 rounded-xl bg-[#5C6B55]/10 text-[#4D5A46] dark:text-[#A8BB9C] hover:bg-[#5C6B55]/20 text-xs font-bold transition-colors cursor-pointer"
-                        title="Vedi profilo"
-                      >
-                        <BookOpen size={14} />
-                      </button>
                     </div>
                   </div>
                 );

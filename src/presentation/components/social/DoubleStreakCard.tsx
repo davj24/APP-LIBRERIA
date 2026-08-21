@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Flame, CheckCircle2, AlertCircle, Sparkles, ChevronRight } from 'lucide-react';
+import { Flame, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import type { AccountabilityPartner } from '../../../domain/models/social';
 
 interface DoubleStreakCardProps {
@@ -114,18 +114,11 @@ export const DoubleStreakCard: React.FC<DoubleStreakCardProps> = ({
                 </button>
 
                 {/* Badge Fiamma Condivisa col Partner */}
-                <div className="flex flex-col items-end shrink-0 space-y-1">
+                <div className="flex flex-col items-end shrink-0">
                   <div className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-700 dark:text-amber-400 font-extrabold text-xs flex items-center gap-1">
                     <Flame size={13} className="fill-amber-500 text-amber-500" />
                     <span>{pact.streakDays} gg</span>
                   </div>
-
-                  <button
-                    onClick={() => onOpenFriendProfile?.('user-elena')}
-                    className="text-[10px] font-bold text-[#5C6B55] dark:text-[#A8BB9C] hover:underline flex items-center gap-0.5"
-                  >
-                    Scheda <ChevronRight size={10} />
-                  </button>
                 </div>
               </motion.div>
             );

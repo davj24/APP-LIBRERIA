@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookmarkPlus, BookmarkCheck, Users, ChevronRight, BookOpen, Star } from 'lucide-react';
+import { BookmarkPlus, BookmarkCheck, Users, Star } from 'lucide-react';
 import { MOCK_FRIENDS } from '../../infrastructure/mock/mockFriendsData';
 import { INITIAL_ACCOUNTABILITY_PARTNER, INITIAL_LIVE_PRESENCES } from '../../infrastructure/mock/mockSocialData';
 import { DoubleStreakCard } from '../components/social/DoubleStreakCard';
@@ -175,6 +175,7 @@ export const SocialPage: React.FC = () => {
                 <button
                   onClick={() => handleOpenFriendProfile(takeaway.userId, 'profile')}
                   className="flex items-center gap-2.5 text-left cursor-pointer group"
+                  title={`Vedi profilo di ${takeaway.friend}`}
                 >
                   <img
                     src={takeaway.avatar}
@@ -189,15 +190,6 @@ export const SocialPage: React.FC = () => {
                       {takeaway.date}
                     </span>
                   </div>
-                </button>
-
-                {/* Pulsante "Vai alla Libreria dell'amico" */}
-                <button
-                  onClick={() => handleOpenFriendProfile(takeaway.userId, 'library')}
-                  className="px-2.5 py-1 rounded-full bg-[#5C6B55]/10 hover:bg-[#5C6B55]/20 text-[#4D5A46] dark:text-[#A8BB9C] text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <BookOpen size={12} />
-                  <span>Libreria</span>
                 </button>
               </div>
 
@@ -239,13 +231,6 @@ export const SocialPage: React.FC = () => {
                       <span>Salva negli appunti</span>
                     </>
                   )}
-                </button>
-
-                <button
-                  onClick={() => handleOpenFriendProfile(takeaway.userId, 'profile')}
-                  className="text-xs font-bold text-[#5C6B55] dark:text-[#A8BB9C] hover:underline flex items-center gap-0.5 cursor-pointer"
-                >
-                  Profilo <ChevronRight size={14} />
                 </button>
               </div>
             </article>
