@@ -19,9 +19,13 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>(0);
 
   useEffect(() => {
-    // 1. Recupera la sessione iniziale di Supabase
+    // 1. Recupera la sessione iniziale di Supabase con gestione degli errori
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      setLoading(false);
+    }).catch((err) => {
+      console.error("Errore nel recupero della sessione Supabase:", err);
+      setSession(null);
       setLoading(false);
     });
 
