@@ -6,6 +6,7 @@ import {
   BookMarked, Flame, ArrowLeft, Send
 } from 'lucide-react';
 import type { FriendProfile, FriendBookStatus } from '../../../domain/models/friend';
+import { useRegisterModal } from '../../context/ModalContext';
 
 interface FriendProfileModalProps {
   friend: FriendProfile | null;
@@ -20,6 +21,7 @@ export const FriendProfileModal: React.FC<FriendProfileModalProps> = ({
   onClose,
   initialTab = 'profile'
 }) => {
+  useRegisterModal(isOpen);
   const [activeTab, setActiveTab] = useState<'profile' | 'library'>(initialTab);
   const [statusFilter, setStatusFilter] = useState<FriendBookStatus | 'tutti'>('tutti');
   const [searchQuery, setSearchQuery] = useState('');

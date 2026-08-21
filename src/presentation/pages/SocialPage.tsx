@@ -1,12 +1,33 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, BookmarkPlus, BookmarkCheck, Users, Radio, ChevronRight, BookOpen, Star } from 'lucide-react';
+import { BookmarkPlus, BookmarkCheck, Users, ChevronRight, BookOpen, Star } from 'lucide-react';
 import { MOCK_FRIENDS } from '../../infrastructure/mock/mockFriendsData';
+import { INITIAL_ACCOUNTABILITY_PARTNER, INITIAL_LIVE_PRESENCES } from '../../infrastructure/mock/mockSocialData';
+import { DoubleStreakCard } from '../components/social/DoubleStreakCard';
+import { CompactLiveReadersWidget } from '../components/social/CompactLiveReadersWidget';
 import { FriendProfileModal } from '../components/social/FriendProfileModal';
+import type { AccountabilityPartner, LivePresence } from '../../domain/models/social';
 
 export const SocialPage: React.FC = () => {
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
   const [initialModalTab, setInitialModalTab] = useState<'profile' | 'library'>('profile');
+
+  // Patti di Costanza (Multi-streak support)
+  const [pacts, setPacts] = useState<AccountabilityPartner[]>([
+    INITIAL_ACCOUNTABILITY_PARTNER,
+    {
+      id: 'patto-damiano',
+      partnerName: 'Damiano Rinaldi',
+      partnerAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
+      partnerBadge: 'Storico di Biblioteca',
+      streakDays: 5,
+      userReadToday: true,
+      partnerReadToday: false
+    }
+  ]);
+
+  // Presenze Live (Amici in lettura ora)
+  const [livePresences, setLivePresences] = useState<LivePresence[]>(INITIAL_LIVE_PRESENCES);
 
   const [takeaways, setTakeaways] = useState([
     {
@@ -52,6 +73,18 @@ export const SocialPage: React.FC = () => {
     setInitialModalTab(tab);
   };
 
+  const handleCheckInPact = (pactId: string) => {
+    setPacts(prev =>
+      prev.map(p => p.id === pactId ? { ...p, userReadToday: true, streakDays: p.streakDays + 1 } : p)
+    );
+  };
+
+  const handleSendPing = (presenceId: string, emoji: string) => {
+    setLivePresences(prev =>
+      prev.map(p => p.id === presenceId ? { ...p, lastPingEmoji: emoji } : p)
+    );
+  };
+
   const handleToggleSave = (id: number) => {
     setTakeaways(prev => prev.map(t => t.id === id ? { ...t, saved: !t.saved } : t));
   };
@@ -60,7 +93,7 @@ export const SocialPage: React.FC = () => {
   const selectedFriend = selectedFriendId ? MOCK_FRIENDS[selectedFriendId] || null : null;
 
   return (
-    <div className="min-h-screen px-4 sm:px-6 pt-6 pb-28 max-w-xl mx-auto text-[#31362F] dark:text-[#E0DCD3] font-sans space-y-8">
+    <div className="min-h-screen px-4 sm:px-6 pt-6 pb-28 max-w-xl mx-auto text-[#31362F] dark:text-[#E0DCD3] font-sans space-y-6">
       
       {/* 1. HEADER CON TITOLO */}
       <header className="flex items-center justify-between pt-2">
@@ -74,19 +107,26 @@ export const SocialPage: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. CAROUSEL AMICI (CLICCA PER APRIRE LA SCHEDA O LA LIBRERIA DELL'AMICO) */}
-      <section className="space-y-3">
+      {/* 2. COMPACT LIVE READERS PILL WIDGET (Partendo da una pillola più piccola ed espandibile) */}
+      <CompactLiveReadersWidget
+        presences={livePresences}
+        onSendPing={handleSendPing}
+        onOpenFriendProfile={(id) => handleOpenFriendProfile(id, 'profile')}
+      />
+
+      {/* 3. CAROUSEL AMICI */}
+      <section className="space-y-2.5">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
             <Users size={15} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
             I Tuoi Amici ({friendsList.length})
           </h2>
           <span className="text-[11px] text-[#888277] dark:text-[#888277] font-semibold">
-            Tocca per vedere la scheda
+            Tocca per la scheda
           </span>
         </div>
 
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar">
+        <div className="flex items-center gap-3 overflow-x-auto pb-1.5 no-scrollbar">
           {friendsList.map((friend) => (
             <motion.button
               key={friend.id}
@@ -99,7 +139,7 @@ export const SocialPage: React.FC = () => {
                 <img
                   src={friend.avatar}
                   alt={friend.name}
-                  className="w-14 h-14 rounded-full object-cover ring-2 ring-[#5C6B55]/40 group-hover:ring-[#5C6B55] transition-all shadow-sm"
+                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-full object-cover ring-2 ring-[#5C6B55]/40 group-hover:ring-[#5C6B55] transition-all shadow-sm"
                 />
                 <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-[#F7F4EE] dark:ring-[#201E1C]" />
               </div>
@@ -111,96 +151,15 @@ export const SocialPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. WIDGET PATTO DI COSTANZA (STREAK CONDIVISO) */}
-      <section className="bg-gradient-to-br from-[#EAE4D7] to-[#E3DCCF] dark:from-[#2C2926] dark:to-[#221F1D] p-4 sm:p-5 rounded-3xl border border-[#DCD5C6] dark:border-[#3B3733] shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-              <Flame size={18} className="fill-amber-500 animate-pulse" />
-            </div>
-            <div>
-              <h3 className="text-sm font-extrabold text-[#31362F] dark:text-[#E0DCD3]">
-                Patto di Costanza
-              </h3>
-              <p className="text-xs text-[#7A756D] dark:text-[#9A9488]">
-                Streak condiviso con Elena Rostagno
-              </p>
-            </div>
-          </div>
-
-          <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-full font-black text-xs">
-            14 Giorni 🔥
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <div className="text-xs text-[#524D44] dark:text-[#BFB9AC]">
-            Entrambi avete letto oggi! La fiamma è al sicuro.
-          </div>
-          <button
-            onClick={() => handleOpenFriendProfile('user-elena', 'profile')}
-            className="text-xs font-extrabold text-[#5C6B55] dark:text-[#A8BB9C] hover:underline flex items-center gap-0.5 cursor-pointer"
-          >
-            Vedi Profilo <ChevronRight size={14} />
-          </button>
-        </div>
-      </section>
-
-      {/* 4. SEZIONE IN LETTURA ORA (LIVE PRESENCE) */}
-      <section className="bg-[#EFECE6] dark:bg-[#272422] p-4 sm:p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
-            <Radio size={15} className="text-emerald-500 animate-pulse" />
-            Amici in Lettura Ora
-          </h3>
-          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-            2 Attivi
-          </span>
-        </div>
-
-        <div className="space-y-2.5">
-          {friendsList.filter(f => f.currentlyReading.length > 0).map((friend) => {
-            const currentBook = friend.currentlyReading[0];
-            return (
-              <div 
-                key={friend.id}
-                className="bg-[#F7F4EE] dark:bg-[#201E1C] p-3 rounded-2xl border border-[#E8E3D8] dark:border-[#312E2A] flex items-center justify-between gap-3 shadow-xs"
-              >
-                <button
-                  onClick={() => handleOpenFriendProfile(friend.id, 'profile')}
-                  className="flex items-center gap-3 min-w-0 text-left group cursor-pointer flex-1"
-                >
-                  <img
-                    src={friend.avatar}
-                    alt={friend.name}
-                    className="w-10 h-10 rounded-full object-cover ring-2 ring-emerald-500/60 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] group-hover:underline truncate">
-                      {friend.name}
-                    </h4>
-                    <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate">
-                      Sta leggendo <span className="font-bold text-[#31362F] dark:text-[#E0DCD3]">"{currentBook.title}"</span>
-                    </p>
-                  </div>
-                </button>
-
-                {/* Pulsante diretto per vedere la libreria dell'amico */}
-                <button
-                  onClick={() => handleOpenFriendProfile(friend.id, 'library')}
-                  className="px-3 py-1.5 rounded-xl bg-[#EBE5D9] dark:bg-[#2E2B28] hover:bg-[#E0D9C8] text-[#4A463F] dark:text-[#D1CBBF] text-xs font-bold shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <BookOpen size={13} />
-                  <span className="hidden sm:inline">Vedi Libreria</span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {/* 4. DESIGN DOPPIA STREAK (PATTO DI COSTANZA CON EFFETTO PONTE DI FUOCO & SCALABILITÀ MULTI-STREAK) */}
+      <DoubleStreakCard
+        pacts={pacts}
+        onCheckInToday={handleCheckInPact}
+        onOpenFriendProfile={(id) => handleOpenFriendProfile(id, 'profile')}
+      />
 
       {/* 5. FEED SPUNTI E REVISIONI */}
-      <section className="space-y-4">
+      <section className="space-y-3.5 pt-2">
         <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488]">
           Spunti & Recenti dalla Cerchia
         </h2>
@@ -294,7 +253,7 @@ export const SocialPage: React.FC = () => {
         </div>
       </section>
 
-      {/* FRIEND PROFILE MODAL */}
+      {/* FRIEND PROFILE MODAL (Hides bottom nav when open via ModalContext) */}
       <FriendProfileModal
         friend={selectedFriend}
         isOpen={!!selectedFriendId}
