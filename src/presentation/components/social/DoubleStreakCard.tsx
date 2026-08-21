@@ -9,6 +9,7 @@ interface DoubleStreakCardProps {
   onOpenFriendProfile?: (friendId: string) => void;
   userAvatar?: string;
   userName?: string;
+  userPersonalStreak?: number;
 }
 
 export const DoubleStreakCard: React.FC<DoubleStreakCardProps> = ({
@@ -16,13 +17,13 @@ export const DoubleStreakCard: React.FC<DoubleStreakCardProps> = ({
   onCheckInToday,
   onOpenFriendProfile,
   userAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-  userName = 'Tu'
+  userName = 'Davide Belluzzo',
+  userPersonalStreak = 14
 }) => {
   if (!pacts || pacts.length === 0) return null;
 
   // Contiamo quanti patti hanno entrambi completato oggi
   const allCompleted = pacts.every(p => p.userReadToday);
-  const totalStreakDays = pacts.reduce((acc, p) => acc + p.streakDays, 0);
 
   return (
     <div className="space-y-3">
@@ -30,14 +31,11 @@ export const DoubleStreakCard: React.FC<DoubleStreakCardProps> = ({
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-extrabold text-[#7A756D] dark:text-[#9A9488] uppercase tracking-wider flex items-center gap-1.5">
           <Flame size={15} className="text-amber-500 fill-amber-500 animate-pulse" />
-          Costellazione di Costanza ({pacts.length} Patti)
+          Streak Condivisa
         </h3>
-        <span className="text-[11px] font-semibold text-[#888277] dark:text-[#888277]">
-          Matrice di Lettura
-        </span>
       </div>
 
-      {/* CARD OPZIONE 2: COSTELLAZIONE DI LETTURA (NODO CENTRALE + RAMI PATTI) */}
+      {/* CARD COSTELLAZIONE STREAK CONDIVISA */}
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -60,17 +58,18 @@ export const DoubleStreakCard: React.FC<DoubleStreakCardProps> = ({
             </div>
           </div>
 
-          <div className="text-center">
-            <h4 className="text-sm font-extrabold text-[#31362F] dark:text-[#E0DCD3]">
-              {userName} (Centro Costellazione)
+          <div className="text-center space-y-1">
+            <h4 className="text-sm font-black text-[#31362F] dark:text-[#E0DCD3]">
+              {userName}
             </h4>
-            <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
-              🔥 {totalStreakDays} giorni totali alimentati
-            </span>
+            <div className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-3 py-0.5 rounded-full border border-amber-500/20">
+              <Flame size={12} className="fill-amber-500 text-amber-500" />
+              <span>{userPersonalStreak} gg — Streak Personale</span>
+            </div>
           </div>
         </div>
 
-        {/* 2. RAMIFICAZIONI COSTELLAZIONE VERSO I PARTNER */}
+        {/* 2. RAMIFICAZIONI PATTI CON GLI AMICI */}
         <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
           {pacts.map((pact) => {
             return (
@@ -79,7 +78,7 @@ export const DoubleStreakCard: React.FC<DoubleStreakCardProps> = ({
                 whileHover={{ y: -2 }}
                 className="relative bg-[#F7F4EE] dark:bg-[#201E1C] p-3.5 rounded-2xl border border-[#E8E3D8] dark:border-[#312E2A] flex items-center justify-between gap-3 shadow-xs"
               >
-                {/* Indicatore visivo di connessione / Raggio di energia */}
+                {/* Indicatore visivo di connessione */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -top-3 w-0.5 h-3 bg-gradient-to-b from-amber-500 to-transparent opacity-40 sm:hidden" />
 
                 {/* Info Partner Node */}
@@ -133,7 +132,7 @@ export const DoubleStreakCard: React.FC<DoubleStreakCardProps> = ({
           })}
         </div>
 
-        {/* 3. PULSANTE AZIONE AZIONE CHECK-IN GLOBALE */}
+        {/* 3. PULSANTE AZIONE CHECK-IN GLOBALE */}
         <div className="pt-1">
           {!allCompleted ? (
             <button
@@ -141,12 +140,12 @@ export const DoubleStreakCard: React.FC<DoubleStreakCardProps> = ({
               className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
             >
               <Flame size={16} />
-              <span>Registra Lettura per Alimentare la Costellazione 🔥</span>
+              <span>Registra Lettura di Oggi per Mantenere le Streak 🔥</span>
             </button>
           ) : (
             <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-center text-xs font-extrabold flex items-center justify-center gap-1.5">
               <CheckCircle2 size={16} className="text-emerald-500" />
-              <span>Tutti i patti della costellazione sono protetti per oggi!</span>
+              <span>Tutte le tue streak condivise sono al sicuro per oggi!</span>
             </div>
           )}
         </div>
