@@ -107,14 +107,7 @@ export const SocialPage: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. COMPACT LIVE READERS PILL WIDGET (Partendo da una pillola più piccola ed espandibile) */}
-      <CompactLiveReadersWidget
-        presences={livePresences}
-        onSendPing={handleSendPing}
-        onOpenFriendProfile={(id) => handleOpenFriendProfile(id, 'profile')}
-      />
-
-      {/* 3. CAROUSEL AMICI */}
+      {/* 2. LISTA AMICI (SOPRA) */}
       <section className="space-y-2.5">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
@@ -151,7 +144,14 @@ export const SocialPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. DESIGN DOPPIA STREAK (PATTO DI COSTANZA CON EFFETTO PONTE DI FUOCO & SCALABILITÀ MULTI-STREAK) */}
+      {/* 3. AMICI IN LETTURA ORA (COMPATTO, DIRECTLY UNDER FRIENDS LIST) */}
+      <CompactLiveReadersWidget
+        presences={livePresences}
+        onSendPing={handleSendPing}
+        onOpenFriendProfile={(id) => handleOpenFriendProfile(id, 'profile')}
+      />
+
+      {/* 4. DESIGN DOPPIA STREAK (PATTI DI COSTANZA CON PALETTE COERENTE E TUTTI I PATTI VISIBILI SENZA SWIPE) */}
       <DoubleStreakCard
         pacts={pacts}
         onCheckInToday={handleCheckInPact}
@@ -253,7 +253,7 @@ export const SocialPage: React.FC = () => {
         </div>
       </section>
 
-      {/* FRIEND PROFILE MODAL (Hides bottom nav when open via ModalContext) */}
+      {/* FRIEND PROFILE MODAL */}
       <FriendProfileModal
         friend={selectedFriend}
         isOpen={!!selectedFriendId}
