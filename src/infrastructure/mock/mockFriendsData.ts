@@ -330,5 +330,90 @@ export const MOCK_FRIENDS: Record<string, FriendProfile> = {
         pageCount: 576
       }
     ]
+  },
+  'user-giulia': {
+    id: 'user-giulia',
+    name: 'Giulia Bianchi',
+    handle: '@giulia_reads',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
+    bio: 'Appassionata di antropologia, saggi divulgativi e narrativa di viaggio.',
+    badge: 'Divulgatrice Scientifica 🧪',
+    location: 'Roma, Italia',
+    joinedDate: 'Membro dal Feb 2024',
+    stats: {
+      booksRead: 52,
+      pagesRead: 16800,
+      streakDays: 22,
+      currentlyReadingCount: 1,
+      loanCount: 4
+    },
+    favoriteGenres: ['Saggistica', 'Antropologia', 'Biografie'],
+    isFriend: false,
+    currentlyReading: [],
+    recentTakeaways: [
+      {
+        id: 'tk-g1',
+        bookTitle: 'Sapiens: Da animali a dèi',
+        content: 'La capacità di credere in finzioni condivise (denaro, leggi, nazioni) è ciò che ha reso l\'Homo Sapiens padrone del pianeta.',
+        rating: 5,
+        createdAt: '45 min fa'
+      }
+    ],
+    library: [
+      {
+        id: 'gb-1',
+        title: 'Sapiens: Da animali a dèi',
+        author: 'Yuval Noah Harari',
+        coverUrl: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400',
+        status: 'letto',
+        rating: 5,
+        review: 'Sguardo illuminante e sintetico sull\'evoluzione umana.',
+        genre: 'Saggistica',
+        canBorrow: true,
+        pageCount: 540
+      }
+    ]
+  },
+  'user-marco': {
+    id: 'user-marco',
+    name: 'Marco Rossi',
+    handle: '@marco_habits',
+    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200',
+    bio: 'Sperimentatore di routine, crescita personale e psicologia comportamentale.',
+    badge: 'Coach di Abitudini ⚡',
+    location: 'Verona, Italia',
+    joinedDate: 'Membro dal Apr 2024',
+    stats: {
+      booksRead: 27,
+      pagesRead: 8500,
+      streakDays: 11,
+      currentlyReadingCount: 1,
+      loanCount: 1
+    },
+    favoriteGenres: ['Crescita Personale', 'Psicologia', 'Business'],
+    isFriend: false,
+    currentlyReading: [],
+    recentTakeaways: [
+      {
+        id: 'tk-m1',
+        bookTitle: 'Atomic Habits',
+        content: 'Non cadi mai al livello dei tuoi obiettivi, cadi al livello dei tuoi sistemi.',
+        rating: 5,
+        createdAt: '3 ore fa'
+      }
+    ],
+    library: [
+      {
+        id: 'mr-1',
+        title: 'Atomic Habits',
+        author: 'James Clear',
+        coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
+        status: 'letto',
+        rating: 5,
+        genre: 'Crescita Personale',
+        canBorrow: true,
+        pageCount: 320
+      }
+    ]
   }
 };

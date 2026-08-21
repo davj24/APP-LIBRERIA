@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookmarkPlus, BookmarkCheck, Users, Star } from 'lucide-react';
+import { BookmarkPlus, BookmarkCheck, Users, Globe, Star } from 'lucide-react';
 import { MOCK_FRIENDS } from '../../infrastructure/mock/mockFriendsData';
 import { INITIAL_ACCOUNTABILITY_PARTNER, INITIAL_LIVE_PRESENCES } from '../../infrastructure/mock/mockSocialData';
 import { DoubleStreakCard } from '../components/social/DoubleStreakCard';
@@ -11,6 +11,7 @@ import type { AccountabilityPartner, LivePresence } from '../../domain/models/so
 export const SocialPage: React.FC = () => {
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
   const [initialModalTab, setInitialModalTab] = useState<'profile' | 'library'>('profile');
+  const [feedFilter, setFeedFilter] = useState<'amici' | 'globale'>('amici');
 
   // Patti di Costanza (Multi-streak support)
   const [pacts, setPacts] = useState<AccountabilityPartner[]>([
@@ -29,7 +30,8 @@ export const SocialPage: React.FC = () => {
   // Presenze Live (Amici in lettura ora)
   const [livePresences, setLivePresences] = useState<LivePresence[]>(INITIAL_LIVE_PRESENCES);
 
-  const [takeaways, setTakeaways] = useState([
+  // Spunti Amici (Limitati a quelli recenti)
+  const [friendsTakeaways, setFriendsTakeaways] = useState([
     {
       id: 1,
       userId: 'user-elena',
@@ -68,6 +70,46 @@ export const SocialPage: React.FC = () => {
     }
   ]);
 
+  // Spunti Feed Globale (Community globale, recenti)
+  const [globalTakeaways, setGlobalTakeaways] = useState([
+    {
+      id: 101,
+      userId: 'user-giulia',
+      bookTitle: 'Sapiens: Da animali a dèi',
+      author: 'Yuval Noah Harari',
+      friend: 'Giulia Bianchi',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
+      note: 'La capacità di credere in finzioni condivise (denaro, nazioni, imperi) è ciò che ha permesso alla nostra specie di cooperare su scala globale.',
+      date: '45 min fa',
+      rating: 5,
+      saved: false
+    },
+    {
+      id: 102,
+      userId: 'user-marco',
+      bookTitle: 'Atomic Habits',
+      author: 'James Clear',
+      friend: 'Marco Rossi',
+      avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200',
+      note: '«Non cadi mai al livello dei tuoi obiettivi, cadi al livello dei tuoi sistemi.» Cambiare l\'identità prima del risultato.',
+      date: '3 ore fa',
+      rating: 5,
+      saved: false
+    },
+    {
+      id: 103,
+      userId: 'user-elena',
+      bookTitle: 'Fahrenheit 451',
+      author: 'Ray Bradbury',
+      friend: 'Elena Rostagno',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+      note: '«Non devi bruciare i libri per distruggere una cultura. Basta fare in modo che la gente smetta di leggerli.»',
+      date: '5 ore fa',
+      rating: 4,
+      saved: false
+    }
+  ]);
+
   const handleOpenFriendProfile = (friendId: string, tab: 'profile' | 'library' = 'profile') => {
     setSelectedFriendId(friendId);
     setInitialModalTab(tab);
@@ -85,12 +127,17 @@ export const SocialPage: React.FC = () => {
     );
   };
 
-  const handleToggleSave = (id: number) => {
-    setTakeaways(prev => prev.map(t => t.id === id ? { ...t, saved: !t.saved } : t));
+  const handleToggleSave = (id: number, isGlobal: boolean) => {
+    if (isGlobal) {
+      setGlobalTakeaways(prev => prev.map(t => t.id === id ? { ...t, saved: !t.saved } : t));
+    } else {
+      setFriendsTakeaways(prev => prev.map(t => t.id === id ? { ...t, saved: !t.saved } : t));
+    }
   };
 
   const friendsList = Object.values(MOCK_FRIENDS);
   const selectedFriend = selectedFriendId ? MOCK_FRIENDS[selectedFriendId] || null : null;
+  const currentTakeawaysList = feedFilter === 'amici' ? friendsTakeaways : globalTakeaways;
 
   return (
     <div className="min-h-screen px-4 sm:px-6 pt-6 pb-28 max-w-xl mx-auto text-[#31362F] dark:text-[#E0DCD3] font-sans space-y-6">
@@ -112,7 +159,7 @@ export const SocialPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
             <Users size={15} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
-            I Tuoi Amici ({friendsList.length})
+            I Tuoi Amici ({friendsList.filter(f => f.isFriend).length})
           </h2>
           <span className="text-[11px] text-[#888277] dark:text-[#888277] font-semibold">
             Tocca per la scheda
@@ -120,7 +167,7 @@ export const SocialPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3 overflow-x-auto pb-1.5 no-scrollbar">
-          {friendsList.map((friend) => (
+          {friendsList.filter(f => f.isFriend).map((friend) => (
             <motion.button
               key={friend.id}
               whileHover={{ scale: 1.05 }}
@@ -151,21 +198,50 @@ export const SocialPage: React.FC = () => {
         onOpenFriendProfile={(id) => handleOpenFriendProfile(id, 'profile')}
       />
 
-      {/* 4. DESIGN DOPPIA STREAK (PATTI DI COSTANZA CON PALETTE COERENTE E TUTTI I PATTI VISIBILI SENZA SWIPE) */}
+      {/* 4. DESIGN STREAK CONDIVISA */}
       <DoubleStreakCard
         pacts={pacts}
         onCheckInToday={handleCheckInPact}
         onOpenFriendProfile={(id) => handleOpenFriendProfile(id, 'profile')}
       />
 
-      {/* 5. FEED SPUNTI E REVISIONI */}
+      {/* 5. FEED SPUNTI E REVISIONI CON PILLOLA COMMUTAZIONE (AMICI / FEED GLOBALE) */}
       <section className="space-y-3.5 pt-2">
-        <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488]">
-          Spunti & Recenti dalla Cerchia
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488]">
+            Spunti Recenti
+          </h2>
 
+          {/* PILLOLA DI COMMUTAZIONE AMICI / FEED GLOBALE */}
+          <div className="flex items-center p-1 bg-[#EBE5D9] dark:bg-[#2A2724] rounded-full border border-[#DCD5C6] dark:border-[#383430] self-start sm:self-auto">
+            <button
+              onClick={() => setFeedFilter('amici')}
+              className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                feedFilter === 'amici'
+                  ? 'bg-[#5C6B55] text-white shadow-xs'
+                  : 'text-[#7A756D] dark:text-[#9A9488] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
+              }`}
+            >
+              <Users size={13} />
+              <span>Amici</span>
+            </button>
+            <button
+              onClick={() => setFeedFilter('globale')}
+              className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                feedFilter === 'globale'
+                  ? 'bg-[#5C6B55] text-white shadow-xs'
+                  : 'text-[#7A756D] dark:text-[#9A9488] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
+              }`}
+            >
+              <Globe size={13} />
+              <span>Feed Globale</span>
+            </button>
+          </div>
+        </div>
+
+        {/* LISTA SPUNTI FILTRATA */}
         <div className="space-y-4">
-          {takeaways.map((takeaway) => (
+          {currentTakeawaysList.map((takeaway) => (
             <article 
               key={takeaway.id}
               className="bg-[#EFECE6] dark:bg-[#272422] p-4 sm:p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs space-y-3"
@@ -191,6 +267,12 @@ export const SocialPage: React.FC = () => {
                     </span>
                   </div>
                 </button>
+
+                {feedFilter === 'globale' && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#5C6B55]/10 border border-[#5C6B55]/20 text-[#4D5A46] dark:text-[#A8BB9C]">
+                    Community Globale
+                  </span>
+                )}
               </div>
 
               {/* Libro + Valutazione */}
@@ -217,7 +299,7 @@ export const SocialPage: React.FC = () => {
               {/* Actions Footer */}
               <div className="flex items-center justify-between pt-1">
                 <button
-                  onClick={() => handleToggleSave(takeaway.id)}
+                  onClick={() => handleToggleSave(takeaway.id, feedFilter === 'globale')}
                   className="flex items-center gap-1.5 text-xs font-semibold text-[#7A756D] dark:text-[#9A9488] hover:text-[#31362F] dark:hover:text-[#E0DCD3] transition-colors cursor-pointer"
                 >
                   {takeaway.saved ? (
