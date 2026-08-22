@@ -7,7 +7,7 @@ import { SBNAdapter } from '../adapters/SBNAdapter';
 /**
  * Orchestratore per la ricerca federata a due fasi (Lazy Hydration).
  * Esegue le chiamate in parallelo verso Google Books, Open Library e SBN,
- * applicando un timeout rigoroso di 3000ms a ciascuna fonte e rimuovendo i duplicati.
+ * applicando un timeout di 1500ms a ciascuna fonte per risposte fulminee.
  */
 export class BookSearchAggregator {
   private googleAdapter: BookSearchPort;
@@ -25,9 +25,9 @@ export class BookSearchAggregator {
   }
 
   /**
-   * Applica un timeout di 3000ms a una singola Promise di ricerca
+   * Applica un timeout di 1500ms a una singola Promise di ricerca per non rallentare l'UI
    */
-  private withTimeout<T>(promise: Promise<T>, timeoutMs = 3000): Promise<T> {
+  private withTimeout<T>(promise: Promise<T>, timeoutMs = 1500): Promise<T> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`Timeout di ${timeoutMs}ms superato per la richiesta`));
@@ -46,17 +46,17 @@ export class BookSearchAggregator {
   }
 
   /**
-   * Esegue la ricerca aggregata in parallelo su tutte le sorgenti
+   * Esegue la ricerca aggregata in parallelo su tutte le sorgenti (Max 1500ms totali)
    */
   async aggregateSearch(query: string): Promise<BookSnippet[]> {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return [];
 
-    // Lancio in parallelo con Promise.allSettled e timeout a 3000ms per ciascuna sorgente
+    // Lancio in parallelo veloci
     const results = await Promise.allSettled([
-      this.withTimeout(this.googleAdapter.search(trimmedQuery)),
-      this.withTimeout(this.openLibraryAdapter.search(trimmedQuery)),
-      this.withTimeout(this.sbnAdapter.search(trimmedQuery)),
+      this.withTimeout(this.googleAdapter.search(trimmedQuery), 1500),
+      this.withTimeout(this.openLibraryAdapter.search(trimmedQuery), 1500),
+      this.withTimeout(this.sbnAdapter.search(trimmedQuery), 1200),
     ]);
 
     const rawSnippets: BookSnippet[] = [];
@@ -64,17 +64,14 @@ export class BookSearchAggregator {
     for (const result of results) {
       if (result.status === 'fulfilled' && Array.isArray(result.value)) {
         rawSnippets.push(...result.value);
-      } else if (result.status === 'rejected') {
-        console.warn('[BookSearchAggregator] Una sorgente di ricerca ha fallito o è andata in timeout:', result.reason);
       }
     }
 
-    // Rimuove i duplicati e restituisce l'array pulito
     return this.removeDuplicates(rawSnippets);
   }
 
   /**
-   * Recupera i dettagli completi del libro dalla sorgente specificata (o tramite fallback Google Books)
+   * Recupera i dettagli completi del libro in modo mirato e veloce
    */
   async getDetails(
     id: string,
@@ -83,40 +80,48 @@ export class BookSearchAggregator {
     title?: string,
     author?: string
   ): Promise<BookDetail> {
-    let detail: BookDetail;
+    let adapter: BookSearchPort;
 
-    switch (source) {
-      case 'Google':
-        detail = await this.googleAdapter.getDetails(id, isbn, title, author);
-        break;
-      case 'OpenLibrary':
-        detail = await this.openLibraryAdapter.getDetails(id, isbn, title, author);
-        break;
-      case 'SBN':
-        detail = await this.sbnAdapter.getDetails(id, isbn, title, author);
-        break;
-      default:
-        detail = await this.googleAdapter.getDetails(id, isbn, title, author);
-        break;
+    if (source === 'OpenLibrary') {
+      adapter = this.openLibraryAdapter;
+    } else if (source === 'SBN') {
+      adapter = this.sbnAdapter;
+    } else {
+      adapter = this.googleAdapter;
     }
 
-    // Se la sorgente specifica non ha restituito una descrizione, usiamo GoogleBooksAdapter come super-fallback
-    if (!detail.description && (isbn || title)) {
-      try {
-        const fallbackDetail = await this.googleAdapter.getDetails(id, isbn, title, author);
-        if (fallbackDetail.description) {
-          detail.description = fallbackDetail.description;
-          if (!detail.pageCount) detail.pageCount = fallbackDetail.pageCount;
-          if (!detail.publisher) detail.publisher = fallbackDetail.publisher;
-          if (!detail.publishedYear) detail.publishedYear = fallbackDetail.publishedYear;
-          if (!detail.coverUrl) detail.coverUrl = fallbackDetail.coverUrl;
-        }
-      } catch (e) {
-        console.warn('[BookSearchAggregator] Fallback Google Books non riuscito:', e);
+    try {
+      const detail = await this.withTimeout(
+        adapter.getDetails(id, isbn, title, author),
+        1500
+      );
+      if (detail && detail.description) {
+        return detail;
       }
+    } catch (e) {
+      console.warn('[BookSearchAggregator] Impossibile recuperare dettagli dalla sorgente primaria:', e);
     }
 
-    return detail;
+    // Se la sorgente primaria fallisce, usa GoogleBooksAdapter con timeout rapido
+    try {
+      return await this.withTimeout(
+        this.googleAdapter.getDetails(id, isbn, title, author),
+        1500
+      );
+    } catch (e) {
+      return {
+        id,
+        isbn: isbn || null,
+        title: title || 'Titolo non disponibile',
+        author: author || 'Autore non disponibile',
+        source,
+        coverUrl: null,
+        description: null,
+        pageCount: null,
+        publisher: null,
+        publishedYear: null,
+      };
+    }
   }
 
   /**
@@ -129,7 +134,7 @@ export class BookSearchAggregator {
   }
 
   /**
-   * Pulisce e normalizza i campi di testo per il fallback di deduplicazione
+   * Normalizza stringhe per la deduplicazione
    */
   private normalizeText(text: string): string {
     return text
@@ -139,15 +144,13 @@ export class BookSearchAggregator {
   }
 
   /**
-   * Rimuove i duplicati usando l'ISBN come chiave principale (in una Map)
-   * o la combinazione titolo + autore come fallback.
+   * Rimuove i duplicati in una singola passata Map
    */
   private removeDuplicates(snippets: BookSnippet[]): BookSnippet[] {
     const deduplicatedMap = new Map<string, BookSnippet>();
 
     for (const snippet of snippets) {
       const cleanIsbn = this.normalizeIsbn(snippet.isbn);
-      
       const key = cleanIsbn
         ? `isbn:${cleanIsbn}`
         : `text:${this.normalizeText(snippet.title)}|${this.normalizeText(snippet.author)}`;

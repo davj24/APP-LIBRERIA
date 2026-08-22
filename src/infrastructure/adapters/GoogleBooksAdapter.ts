@@ -27,7 +27,7 @@ export class GoogleBooksAdapter implements BookSearchPort {
   }
 
   /**
-   * Fase 1: Ricerca di libri leggeri (BookSnippet) arricchiti con i dati pronti
+   * Fase 1: Ricerca di libri leggeri (BookSnippet) arricchiti con le info già disponibili
    */
   async search(query: string): Promise<BookSnippet[]> {
     const trimmed = query.trim();
@@ -38,7 +38,6 @@ export class GoogleBooksAdapter implements BookSearchPort {
     try {
       const response = await fetch(url);
       if (!response.ok) {
-        console.warn(`[GoogleBooksAdapter] HTTP error! status: ${response.status}`);
         return [];
       }
 
@@ -70,62 +69,51 @@ export class GoogleBooksAdapter implements BookSearchPort {
         };
       });
     } catch (error) {
-      console.error('[GoogleBooksAdapter] Errore durante la ricerca:', error);
+      console.warn('[GoogleBooksAdapter] Errore durante la ricerca:', error);
       return [];
     }
   }
 
   /**
-   * Fase 2: Caricamento dettagli completi (BookDetail) con pulizia dell'ID e fallback robusti
+   * Fase 2: Caricamento dettagli completi (BookDetail)
    */
   async getDetails(id: string, isbn?: string, title?: string, author?: string): Promise<BookDetail> {
     const apiKeyParam = this.getApiKeyParam();
-    // Rimuove eventuali prefissi 'gb-', 'ol-', 'sbn-' per ottenere il vero volume ID Google
     const cleanId = id.replace(/^(gb-|ol-|sbn-)/, '');
 
-    try {
-      // 1. Prova prima il recupero diretto tramite Volume ID
-      if (cleanId && !cleanId.includes('-')) {
+    // 1. Prova prima la chiamata rapida per ID volume
+    if (cleanId && !cleanId.includes('-')) {
+      try {
         const url = `${this.baseUrl}/${encodeURIComponent(cleanId)}${apiKeyParam ? '?' + apiKeyParam.replace('&', '') : ''}`;
         const response = await fetch(url);
         if (response.ok) {
           const item = await response.json();
-          const detail = this.mapToDetail(item);
-          if (detail.description) return detail;
+          const mapped = this.mapToDetail(item);
+          if (mapped.description) return mapped;
         }
+      } catch (e) {
+        console.warn(`[GoogleBooksAdapter] HTTP error per ID ${cleanId}:`, e);
       }
-
-      // 2. Fallback per ISBN se la chiamata per ID fallisce o non ha descrizione
-      if (isbn && isbn.trim()) {
-        const searchUrl = `${this.baseUrl}?q=isbn:${encodeURIComponent(isbn.trim())}${apiKeyParam}`;
-        const isbnResp = await fetch(searchUrl);
-        if (isbnResp.ok) {
-          const isbnData = await isbnResp.json();
-          if (isbnData.items && isbnData.items.length > 0) {
-            return this.mapToDetail(isbnData.items[0]);
-          }
-        }
-      }
-
-      // 3. Fallback per Titolo e Autore se l'ISBN non ha dato risultati
-      if (title && title.trim()) {
-        const searchTerms = `${title.trim()} ${author ? author.trim() : ''}`.trim();
-        const searchUrl = `${this.baseUrl}?q=${encodeURIComponent(searchTerms)}&maxResults=5${apiKeyParam}`;
-        const textResp = await fetch(searchUrl);
-        if (textResp.ok) {
-          const textData = await textResp.json();
-          if (textData.items && textData.items.length > 0) {
-            // Cerca il primo risultato che abbia una descrizione
-            const withDesc = textData.items.find((it: any) => it.volumeInfo?.description);
-            return this.mapToDetail(withDesc || textData.items[0]);
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(`[GoogleBooksAdapter] Errore dettagli per ID ${id}:`, error);
     }
 
-    // Struttura base di ripiego se tutto fallisce
+    // 2. Se manca la descrizione, ricerca per Titolo + Autore
+    if (title || isbn) {
+      try {
+        const searchTerms = isbn ? `isbn:${isbn}` : `${title || ''} ${author || ''}`.trim();
+        const searchUrl = `${this.baseUrl}?q=${encodeURIComponent(searchTerms)}&maxResults=5${apiKeyParam}`;
+        const resp = await fetch(searchUrl);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.items && data.items.length > 0) {
+            const matchWithDesc = data.items.find((it: any) => it.volumeInfo?.description);
+            return this.mapToDetail(matchWithDesc || data.items[0]);
+          }
+        }
+      } catch (e) {
+        console.warn('[GoogleBooksAdapter] Search fallback error:', e);
+      }
+    }
+
     return {
       id,
       isbn: isbn || null,

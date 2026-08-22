@@ -66,7 +66,7 @@ export const SearchPage: React.FC = () => {
       } finally {
         setIsWebSearching(false);
       }
-    }, 400);
+    }, 350);
 
     return () => clearTimeout(timer);
   }, [trimmedQuery]);
@@ -79,7 +79,7 @@ export const SearchPage: React.FC = () => {
     }
   }, [toast]);
 
-  // FASE 2 (Lazy Hydration): Apertura BookSheet con caricamento dettagli completo
+  // FASE 2 (Lazy Hydration): Apertura Istantanea BookSheet + Idratazione Background se necessario
   const handleOpenWebBookSheet = async (webBook: WebBook) => {
     const initialSheetBook: BookSheetBook = {
       id: webBook.id,
@@ -95,35 +95,40 @@ export const SearchPage: React.FC = () => {
       genre: webBook.genre || 'Generico'
     };
 
+    // Mostra ISTANTANEAMENTE la scheda con i dati disponibili!
     setSelectedSheetBook(initialSheetBook);
     setIsSheetOpen(true);
-    setIsLoadingDetails(!webBook.description);
 
-    try {
-      const details = await getBookDetail(
-        webBook.id,
-        webBook.source,
-        webBook.isbn,
-        webBook.title,
-        webBook.author
-      );
+    const needsDetailFetch = !webBook.description || !webBook.publisher;
+    setIsLoadingDetails(needsDetailFetch);
 
-      setSelectedSheetBook((prev) =>
-        prev
-          ? {
-              ...prev,
-              description: details.description || prev.description || null,
-              pages: details.pageCount || prev.pages || null,
-              publisher: details.publisher || prev.publisher || null,
-              year: details.publishedYear || prev.year || null,
-              isbn: details.isbn || prev.isbn
-            }
-          : null
-      );
-    } catch (err) {
-      console.warn('Errore durante l\'idratazione dei dettagli del libro:', err);
-    } finally {
-      setIsLoadingDetails(false);
+    if (needsDetailFetch) {
+      try {
+        const details = await getBookDetail(
+          webBook.id,
+          webBook.source,
+          webBook.isbn,
+          webBook.title,
+          webBook.author
+        );
+
+        setSelectedSheetBook((prev) =>
+          prev
+            ? {
+                ...prev,
+                description: details.description || prev.description || null,
+                pages: details.pageCount || prev.pages || null,
+                publisher: details.publisher || prev.publisher || null,
+                year: details.publishedYear || prev.year || null,
+                isbn: details.isbn || prev.isbn
+              }
+            : null
+        );
+      } catch (err) {
+        console.warn('Errore durante l\'idratazione dei dettagli del libro:', err);
+      } finally {
+        setIsLoadingDetails(false);
+      }
     }
   };
 
