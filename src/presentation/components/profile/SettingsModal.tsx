@@ -26,15 +26,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Stato per l'Area Sviluppatore
   const [isDevOpen, setIsDevOpen] = useState(false);
-  const [isDevUnlocked, setIsDevUnlocked] = useState<boolean>(() => {
-    return sessionStorage.getItem('bibliodesk_dev_unlocked') === 'true';
-  });
+  const [isDevUnlocked, setIsDevUnlocked] = useState(false);
   const [devPasswordInput, setDevPasswordInput] = useState('');
   const [devErrorMsg, setDevErrorMsg] = useState<string | null>(null);
+  const [userDevKey, setUserDevKey] = useState<string | null>(null);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+  // Recupera l'ID dell'utente autenticato per verificare lo sblocco personale
+  React.useEffect(() => {
+    if (isOpen) {
+      supabase.auth.getUser().then(({ data }) => {
+        if (data?.user) {
+          const storageKey = `bibliodesk_dev_unlocked_${data.user.id}`;
+          setUserDevKey(storageKey);
+          setIsDevUnlocked(localStorage.getItem(storageKey) === 'true');
+        } else {
+          setUserDevKey(null);
+          setIsDevUnlocked(false);
+        }
+      }).catch(() => {
+        setUserDevKey(null);
+        setIsDevUnlocked(false);
+      });
+    }
+  }, [isOpen]);
 
   const handleUnlockDev = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +60,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     if (devPasswordInput === DEV_PASSWORD) {
       setIsDevUnlocked(true);
-      sessionStorage.setItem('bibliodesk_dev_unlocked', 'true');
+      if (userDevKey) {
+        localStorage.setItem(userDevKey, 'true');
+      }
       setDevPasswordInput('');
     } else {
       setDevErrorMsg('Password errata. Riprova.');
@@ -51,7 +71,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const handleLockDev = () => {
     setIsDevUnlocked(false);
-    sessionStorage.removeItem('bibliodesk_dev_unlocked');
+    if (userDevKey) {
+      localStorage.removeItem(userDevKey);
+    }
     setDevPasswordInput('');
     setDevErrorMsg(null);
   };
@@ -241,7 +263,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                           <input
                             type="password"
                             required
-                            placeholder="Password di accesso (es. dev2026)"
+                            placeholder="Inserisci password"
                             value={devPasswordInput}
                             onChange={(e) => setDevPasswordInput(e.target.value)}
                             className="w-full pl-9 pr-3 py-2 bg-[#FCFBF8] dark:bg-[#33302D] border border-[#EBE5D9] dark:border-[#4A4743] rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55]"
