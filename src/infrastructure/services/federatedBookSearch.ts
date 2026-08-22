@@ -1,4 +1,5 @@
 import { BookSearchAggregator } from './BookSearchAggregator';
+import type { BookDetail } from '../../domain/models/Book';
 
 export interface WebBook {
   id: string;
@@ -10,18 +11,15 @@ export interface WebBook {
   genre?: string | null;
   isbn?: string | null;
   publishedYear?: string | null;
+  publisher?: string | null;
   source: 'google' | 'openlibrary' | 'sbn';
 }
 
 const searchAggregator = new BookSearchAggregator();
 
 /**
- * federatedBookSearch - Ricerca ibrida aggregata nei 3 cataloghi web principali:
- * 1. Google Books API
- * 2. Open Library API
- * 3. OPAC SBN (Servizio Bibliotecario Nazionale)
- * 
- * Esegue le query in parallelo con timeout di 3000ms e rimuove automaticamente i duplicati.
+ * Fase 1: Ricerca ibrida aggregata nei 3 cataloghi web principali (Google Books + Open Library + OPAC SBN)
+ * Esegue le query in parallelo con timeout di 3000ms e rimuove i duplicati.
  */
 export async function federatedBookSearch(query: string): Promise<WebBook[]> {
   const searchTerm = query.trim();
@@ -43,4 +41,20 @@ export async function federatedBookSearch(query: string): Promise<WebBook[]> {
       source: mappedSource,
     };
   });
+}
+
+/**
+ * Fase 2 (Lazy Hydration): Recupera i dettagli completi del libro (BookDetail)
+ * invocando l'adapter corrispondente alla sorgente.
+ */
+export async function getBookDetail(
+  id: string,
+  source: 'google' | 'openlibrary' | 'sbn',
+  isbn?: string | null
+): Promise<BookDetail> {
+  let mappedSource: 'Google' | 'OpenLibrary' | 'SBN' = 'Google';
+  if (source === 'openlibrary') mappedSource = 'OpenLibrary';
+  if (source === 'sbn') mappedSource = 'SBN';
+
+  return searchAggregator.getDetails(id, mappedSource, isbn || undefined);
 }

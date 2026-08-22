@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { BookOpen, Heart, Share2, Plus, Check, X, Loader2 } from 'lucide-react';
+import { BookOpen, Heart, Share2, Plus, Check, X, Loader2, ExternalLink, Building2 } from 'lucide-react';
+import { generateShopLinks, type ShopLink } from '../../../infrastructure/helpers/ShopLinksHelper';
 
 export interface BookSheetBook {
   id: string;
@@ -11,11 +12,13 @@ export interface BookSheetBook {
   description?: string | null;
   pages?: number | string | null;
   year?: number | string | null;
+  publisher?: string | null;
   genre?: string;
   isbn?: string | null;
   category?: string | null;
   rating?: number | null;
   isFavorite?: boolean;
+  source?: string;
   rawItem?: any;
 }
 
@@ -65,6 +68,7 @@ export const BookSheet: React.FC<BookSheetProps> = ({
   if (!book) return null;
 
   const cleanCoverUrl = getValidImageUrl(book.cover);
+  const shopLinks = generateShopLinks(book.isbn, book.title);
 
   const handleAdd = () => {
     if (onAddBook) {
@@ -169,7 +173,7 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                   {book.author}
                 </p>
 
-                {/* BADGE METADATA (Anno, Pagine, Categoria, Rating) */}
+                {/* BADGE METADATA (Anno, Pagine, Editore, Categoria, Rating) */}
                 <div className="flex flex-wrap items-center justify-center gap-2 mb-6 px-4">
                   {book.year && (
                     <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-3 py-1 text-xs font-medium text-neutral-600 dark:text-neutral-300">
@@ -181,9 +185,20 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                       {book.pages} p.
                     </span>
                   )}
+                  {book.publisher && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#EBE5D9] dark:bg-[#383532] px-3 py-1 text-xs font-medium text-[#4A4743] dark:text-[#E0DCD3]">
+                      <Building2 className="w-3 h-3 text-[#7A756D] dark:text-[#A09A90]" />
+                      {book.publisher}
+                    </span>
+                  )}
                   {(book.category || book.genre) && (
                     <span className="rounded-full border border-neutral-200 dark:border-neutral-700 px-3 py-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">
                       {book.category || book.genre}
+                    </span>
+                  )}
+                  {book.isbn && (
+                    <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-3 py-1 text-xs font-mono text-neutral-500 dark:text-neutral-400">
+                      ISBN: {book.isbn}
                     </span>
                   )}
                   {book.rating && (
@@ -235,6 +250,29 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                 </button>
               </div>
 
+              {/* SEZIONE LINK D'ACQUISTO / CONFRONTA PREZZI */}
+              {shopLinks.length > 0 && (
+                <div className="bg-[#F4F1EA] dark:bg-[#2A2826] p-4 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-2">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#7A756D] dark:text-[#A09A90]">
+                    Acquista Online / Confronta Prezzi
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {shopLinks.map((shop: ShopLink) => (
+                      <a
+                        key={shop.name}
+                        href={shop.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-2 px-2 rounded-xl bg-[#FCFBF8] dark:bg-[#33302D] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-[#DCD5C6] dark:border-[#4A4743]/60 text-center"
+                      >
+                        <ExternalLink className="w-3 h-3 text-[#5C6B55] dark:text-[#A0AF99] shrink-0" />
+                        <span className="truncate">{shop.name}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* SEZIONE SINOSSI / TRAMA CON SKELETON LOADING */}
               <div className="mt-6 mb-8 px-2">
                 <h3 className="mb-3 text-lg font-bold text-neutral-900 dark:text-white flex items-center justify-between">
@@ -242,7 +280,7 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                   {isLoadingDetails && (
                     <span className="inline-flex items-center gap-1.5 text-xs text-[#7A756D] dark:text-[#A09A90] font-normal animate-pulse">
                       <Loader2 className="w-3.5 h-3.5 animate-spin text-[#B0BEA9] dark:text-[#5C6B55]" />
-                      <span>Caricamento testo completo...</span>
+                      <span>Caricamento dettagli completi...</span>
                     </span>
                   )}
                 </h3>

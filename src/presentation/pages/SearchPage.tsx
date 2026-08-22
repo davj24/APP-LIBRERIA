@@ -4,7 +4,8 @@ import { useBooks } from '../hooks/useBooks';
 import type { Book } from '../../domain/models/Book';
 import { BookCard } from '../components/books/BookCard';
 import { BookDetailModal } from '../components/books/BookDetailModal';
-import { federatedBookSearch, type WebBook } from '../../infrastructure/services/federatedBookSearch';
+import { BookSheet, type BookSheetBook } from '../components/books/BookSheet';
+import { federatedBookSearch, getBookDetail, type WebBook } from '../../infrastructure/services/federatedBookSearch';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const SearchPage: React.FC = () => {
@@ -15,6 +16,11 @@ export const SearchPage: React.FC = () => {
   const [webResults, setWebResults] = useState<WebBook[]>([]);
   const [isWebSearching, setIsWebSearching] = useState(false);
   const [addingWebBookId, setAddingWebBookId] = useState<string | null>(null);
+
+  // Stato per BookSheet (Fase 2: Lazy Hydration per dettagli e shop links)
+  const [selectedSheetBook, setSelectedSheetBook] = useState<BookSheetBook | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   // Toast Notification State
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -40,7 +46,7 @@ export const SearchPage: React.FC = () => {
       })
     : [];
 
-  // FASE 2.4: Ricerca Web Async con federatedBookSearch (Google Books + Open Library)
+  // FASE 2.4: Ricerca Web Async con federatedBookSearch (Google Books + Open Library + SBN)
   useEffect(() => {
     if (!trimmedQuery || trimmedQuery.length < 2) {
       setWebResults([]);
@@ -73,6 +79,43 @@ export const SearchPage: React.FC = () => {
     }
   }, [toast]);
 
+  // FASE 2 (Lazy Hydration): Apertura BookSheet con caricamento dettagli completo
+  const handleOpenWebBookSheet = async (webBook: WebBook) => {
+    const initialSheetBook: BookSheetBook = {
+      id: webBook.id,
+      title: webBook.title,
+      author: webBook.author,
+      cover: webBook.coverUrl,
+      isbn: webBook.isbn,
+      source: webBook.source,
+      genre: webBook.genre || 'Generico'
+    };
+
+    setSelectedSheetBook(initialSheetBook);
+    setIsSheetOpen(true);
+    setIsLoadingDetails(true);
+
+    try {
+      const details = await getBookDetail(webBook.id, webBook.source, webBook.isbn);
+      setSelectedSheetBook((prev) =>
+        prev
+          ? {
+              ...prev,
+              description: details.description || null,
+              pages: details.pageCount || null,
+              publisher: details.publisher || null,
+              year: details.publishedYear || null,
+              isbn: details.isbn || prev.isbn
+            }
+          : null
+      );
+    } catch (err) {
+      console.warn('Errore durante l\'idratazione dei dettagli del libro:', err);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
   // FASE 3: Salvataggio in Cloud con Optimistic UI e Rollback
   const handleSelectWebBook = async (webBook: WebBook) => {
     setAddingWebBookId(webBook.id);
@@ -95,7 +138,6 @@ export const SearchPage: React.FC = () => {
     setAddingWebBookId(null);
 
     if (!result.success) {
-      // FASE 3.8: Mostra Toast di errore se Supabase fallisce (il rollback è stato eseguito da useBooks)
       setToast({
         type: 'error',
         message: result.error || 'Impossibile salvare in cloud per assenza di rete. Modifica annullata.'
@@ -176,7 +218,7 @@ export const SearchPage: React.FC = () => {
                 Ricerca Ibrida (Locale + Web)
               </h3>
               <p className="text-xs text-[#7A756D] dark:text-[#A09A90] font-medium leading-relaxed">
-                Digita per cercare sia nei libri salvati offline che nei cataloghi globali di Google Books ed Open Library.
+                Digita per cercare nei libri salvati e nei cataloghi di Google Books, Open Library e OPAC SBN.
               </p>
             </div>
           </div>
@@ -214,16 +256,16 @@ export const SearchPage: React.FC = () => {
               )}
             </div>
 
-            {/* SEZIONE 2: Dal Web (Online - Google Books + Open Library) */}
+            {/* SEZIONE 2: Dal Web (Online - Google Books + Open Library + OPAC SBN) */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] px-1 border-b border-[#EBE5D9] dark:border-[#4A4743]/50 pb-2">
                 <span className="flex items-center gap-1.5">
                   <Globe className="w-4 h-4 text-[#5C6B55] dark:text-[#A0AF99]" />
-                  <span>Dal Web (Google Books + Open Library)</span>
+                  <span>Dal Web (Google Books + Open Library + OPAC SBN)</span>
                 </span>
                 {isWebSearching && (
                   <span className="flex items-center gap-1 text-[11px] font-semibold text-[#5C6B55] dark:text-[#A0AF99] animate-pulse">
-                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     Ricerca in corso...
                   </span>
                 )}
@@ -242,13 +284,14 @@ export const SearchPage: React.FC = () => {
                   {webResults.map((webBook) => (
                     <div
                       key={webBook.id}
-                      className="bg-[#FCFBF8] dark:bg-[#33302D] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 flex items-center gap-3 shadow-xs hover:border-[#5C6B55]/40 transition-all"
+                      onClick={() => handleOpenWebBookSheet(webBook)}
+                      className="bg-[#FCFBF8] dark:bg-[#33302D] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 flex items-center gap-3 shadow-xs hover:border-[#5C6B55]/60 hover:shadow-md transition-all cursor-pointer group"
                     >
                       {webBook.coverUrl ? (
                         <img
                           src={webBook.coverUrl}
                           alt={webBook.title}
-                          className="w-12 h-16 object-cover rounded-xl border border-[#EBE5D9] dark:border-[#4A4743]/60 shrink-0 shadow-xs"
+                          className="w-12 h-16 object-cover rounded-xl border border-[#EBE5D9] dark:border-[#4A4743]/60 shrink-0 shadow-xs group-hover:scale-105 transition-transform"
                           onError={(e) => {
                             (e.target as HTMLElement).style.display = 'none';
                           }}
@@ -262,7 +305,7 @@ export const SearchPage: React.FC = () => {
                       <div className="flex-1 min-w-0 space-y-0.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 text-[#5C6B55] dark:text-[#A0AF99]">
-                            {webBook.source === 'google' ? 'Google Books' : 'Open Library'}
+                            {webBook.source === 'google' ? 'Google Books' : webBook.source === 'openlibrary' ? 'Open Library' : 'OPAC SBN'}
                           </span>
                           {webBook.publishedYear && (
                             <span className="text-[10px] text-[#7A756D] dark:text-[#A09A90]">
@@ -271,7 +314,7 @@ export const SearchPage: React.FC = () => {
                           )}
                         </div>
 
-                        <h4 className="font-bold text-xs text-[#31362F] dark:text-[#E0DCD3] truncate">
+                        <h4 className="font-bold text-xs text-[#31362F] dark:text-[#E0DCD3] truncate group-hover:text-[#5C6B55] dark:group-hover:text-[#A0AF99] transition-colors">
                           {webBook.title}
                         </h4>
                         <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90] truncate">
@@ -279,10 +322,13 @@ export const SearchPage: React.FC = () => {
                         </p>
                       </div>
 
-                      {/* Pulsante 'Seleziona' (FASE 3: Optimistic UI + Supabase insert) */}
+                      {/* Pulsante 'Seleziona' / Aggiunta rapida */}
                       <button
                         type="button"
-                        onClick={() => handleSelectWebBook(webBook)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectWebBook(webBook);
+                        }}
                         disabled={addingWebBookId === webBook.id}
                         className="px-3.5 py-2 rounded-xl bg-[#5C6B55] hover:bg-[#4A5744] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95 disabled:opacity-50"
                       >
@@ -306,6 +352,31 @@ export const SearchPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Book Sheet per i dettagli completi dei libri dal Web (Fase 2: Lazy Hydration + Shop Links) */}
+      <BookSheet
+        isOpen={isSheetOpen}
+        onClose={() => {
+          setIsSheetOpen(false);
+          setSelectedSheetBook(null);
+        }}
+        book={selectedSheetBook}
+        isLoadingDetails={isLoadingDetails}
+        onAddBook={async (bSheet) => {
+          const webBookItem: WebBook = {
+            id: bSheet.id,
+            title: bSheet.title,
+            author: bSheet.author,
+            coverUrl: bSheet.cover || null,
+            isbn: bSheet.isbn,
+            totalPages: bSheet.pages ? Number(bSheet.pages) : undefined,
+            genre: bSheet.genre,
+            publishedYear: bSheet.year ? String(bSheet.year) : undefined,
+            source: (bSheet.source as any) || 'google'
+          };
+          await handleSelectWebBook(webBookItem);
+        }}
+      />
 
       {/* Book Detail Modal per la consultazione dei libri locali */}
       <BookDetailModal
