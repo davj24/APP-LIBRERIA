@@ -19,7 +19,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>(0);
 
   useEffect(() => {
-    // 1. Recupera la sessione iniziale di Supabase con gestione degli errori
+    // 1. Recupera la sessione iniziale di Supabase al montaggio dell'app
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -29,7 +29,8 @@ function AppContent() {
       setLoading(false);
     });
 
-    // 2. Ascolta i cambiamenti di autenticazione (login/logout)
+    // 2. Listener globale con supabase.auth.onAuthStateChange per intercettare
+    // sia i cambiamenti manuali (login/logout) sia i redirect OAuth da Google
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -40,7 +41,7 @@ function AppContent() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Spinner di caricamento stato auth iniziale
+  // Spinner durante l'inizializzazione dello stato di autenticazione
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#2A2826] flex items-center justify-center">
@@ -56,12 +57,12 @@ function AppContent() {
     );
   }
 
-  // Se l'utente non è autenticato, renderizza esclusivamente la AuthPage
+  // Se l'utente non è autenticato (no session), mostra la AuthPage (con pulsante Google)
   if (!session) {
     return <AuthPage />;
   }
 
-  // Se l'utente è autenticato, mostra le 4 schede di navigazione
+  // Se l'utente è autenticato (session presente), mostra la Dashboard/Layout principale
   const renderActivePage = () => {
     switch (activeTab) {
       case 0:

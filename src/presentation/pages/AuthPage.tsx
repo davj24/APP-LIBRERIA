@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Mail, Lock, Eye, EyeOff, Sparkles, AlertCircle, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
 import { supabase } from '../../infrastructure/supabase/client';
+import { GoogleAuthButton } from '../components/auth/GoogleAuthButton';
 
 export const AuthPage: React.FC = () => {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -126,6 +127,18 @@ export const AuthPage: React.FC = () => {
           </button>
         </div>
 
+        {/* Pulsante Google OAuth */}
+        <div className="relative z-10 space-y-4">
+          <GoogleAuthButton onError={(err) => setErrorMsg(err)} />
+
+          <div className="relative flex items-center justify-center">
+            <div className="border-t border-[#E2DDD2] dark:border-[#36322E] w-full" />
+            <span className="bg-[#F7F4EE] dark:bg-[#201E1C] px-3 text-[11px] font-bold text-[#8C867B] dark:text-[#888277] uppercase tracking-wider absolute">
+              oppure con email
+            </span>
+          </div>
+        </div>
+
         {/* Error / Success Feedback Alerts */}
         <AnimatePresence mode="wait">
           {errorMsg && (
@@ -224,3 +237,4 @@ export const AuthPage: React.FC = () => {
     </div>
   );
 };
+

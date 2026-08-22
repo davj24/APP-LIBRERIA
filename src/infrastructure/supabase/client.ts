@@ -1,8 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ftxtrhwceaguwivdkexe.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_fkZA3HE1xU1lR2ixP4ntJg_H8Ugv1UN';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const baseUrl = supabaseUrl.replace(/\/rest\/v1\/?$/, '');
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('ATTENZIONE: VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY non definite nelle variabili d\'ambiente.');
+}
 
-export const supabase = createClient(baseUrl, supabaseAnonKey);
+const baseUrl = (supabaseUrl || '').replace(/\/rest\/v1\/?$/, '');
+
+export const supabase = createClient(baseUrl, supabaseAnonKey || '');
