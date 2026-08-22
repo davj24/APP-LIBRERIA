@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
-  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2, ShieldCheck, Upload
+  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2, ShieldCheck, Upload, ChevronDown
 } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import type { UserProfile } from '../../hooks/useUserProfile';
@@ -75,6 +75,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
 
   // Tab per la modalità avatar (iniziale vs foto caricata)
   const [avatarTab, setAvatarTab] = useState<'initial' | 'custom'>('initial');
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
 
   // Form State: Il nome parte COMPLETAMENTE VUOTO come richiesto
   const [formData, setFormData] = useState<Partial<UserProfile>>({
@@ -263,27 +264,48 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     className="hidden"
                   />
 
-                  {/* Sezione Selettore Colori iOS Minimal */}
+                  {/* Pillola per i Colori che si espande */}
                   {avatarTab === 'initial' ? (
-                    <div className="space-y-1 text-center">
-                      <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block">
-                        Palette Colori Minimal iOS:
-                      </span>
-                      <div className="flex items-center justify-center flex-wrap gap-2 max-w-[280px]">
-                        {IOS_AVATAR_PRESETS.map((preset) => (
-                          <button
-                            key={preset.name}
-                            type="button"
-                            onClick={() => {
-                              setFormData({ ...formData, avatarColor: preset.color, avatarUrl: undefined });
-                            }}
-                            className={`w-6 h-6 rounded-full ${preset.color} border-2 ${
-                              formData.avatarColor === preset.color && !formData.avatarUrl ? 'border-[#31362F] dark:border-white scale-110 shadow-xs' : 'border-transparent'
-                            } transition-all cursor-pointer`}
-                            title={preset.name}
-                          />
-                        ))}
-                      </div>
+                    <div className="flex flex-col items-center space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
+                        className="px-3.5 py-1.5 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <div className={`w-3.5 h-3.5 rounded-full ${IOS_AVATAR_PRESETS.find(p => p.color === formData.avatarColor)?.color || IOS_AVATAR_PRESETS[0].color}`} />
+                        <span>Colore Avatar ({IOS_AVATAR_PRESETS.find(p => p.color === formData.avatarColor)?.name || 'Indaco'})</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-[#7A756D] dark:text-[#A09A90] transition-transform duration-200 ${isColorPickerOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Griglia Colori Espandibile con Animazione */}
+                      <AnimatePresence>
+                        {isColorPickerOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                            exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-w-[280px]"
+                          >
+                            <div className="flex items-center justify-center flex-wrap gap-2">
+                              {IOS_AVATAR_PRESETS.map((preset) => (
+                                <button
+                                  key={preset.name}
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({ ...formData, avatarColor: preset.color, avatarUrl: undefined });
+                                    setIsColorPickerOpen(false);
+                                  }}
+                                  className={`w-7 h-7 rounded-full ${preset.color} border-2 ${
+                                    formData.avatarColor === preset.color && !formData.avatarUrl ? 'border-[#31362F] dark:border-white scale-110 shadow-md' : 'border-transparent opacity-85 hover:opacity-100'
+                                  } transition-all cursor-pointer`}
+                                  title={preset.name}
+                                />
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   ) : (
                     /* Sezione Foto Personalizzata con Avviso Sicurezza & Permessi Browser */
