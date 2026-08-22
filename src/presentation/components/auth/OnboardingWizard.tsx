@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
-  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2, ShieldCheck, ChevronDown
+  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2, ShieldCheck, ChevronDown,
+  Flame, Trophy, Clock, Library, Brain
 } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import type { UserProfile } from '../../hooks/useUserProfile';
@@ -12,15 +13,32 @@ interface OnboardingWizardProps {
   userEmail?: string;
 }
 
+// 24 Generi Letterari Principali
 const GENRE_TAGS = [
   '📚 Narrativa',
   '🐉 Fantasy',
-  '🔍 Gialli',
-  '💡 Saggi',
-  '🏛️ Storia',
-  '🎨 Manga',
-  '🚀 Sci-Fi',
-  '💖 Romance'
+  '🔍 Gialli & Thriller',
+  '💡 Saggistica',
+  '🏛️ Romanzi Storici',
+  '🎨 Manga & Fumetti',
+  '🚀 Fantascienza',
+  '💖 Romance',
+  '📜 Classici',
+  '🧠 Filosofia',
+  '🎭 Poesia & Teatro',
+  '👻 Horror',
+  '👤 Biografie',
+  '📈 Economia & Business',
+  '🌿 Natura & Scienza',
+  '🧘 Crescita Personale',
+  '🎨 Arte & Design',
+  '🧭 Avventura & Viaggi',
+  '✨ Young Adult',
+  '🔬 Tech & Informatica',
+  '🍿 Pop Culture',
+  '🧙 Realismo Magico',
+  '🍿 Cinema & Serie',
+  '🙏 Spiritualità'
 ];
 
 // 10 Colori Minimal in Stile iOS con Nomi Corrispondenti 100% al Colore Reale
@@ -37,6 +55,7 @@ const IOS_AVATAR_PRESETS = [
   { name: 'Marrone Moka', color: 'bg-gradient-to-tr from-stone-700 to-amber-900' }
 ];
 
+// 10 Widget di Profilo Selezionabili
 const WIDGET_OPTIONS = [
   {
     id: 'read_count',
@@ -57,7 +76,7 @@ const WIDGET_OPTIONS = [
     title: '% Avanzamento',
     desc: '% ultimo libro aperto',
     icon: PieChart,
-    iconColor: 'text-indigo-500'
+    iconColor: 'text-emerald-500'
   },
   {
     id: 'total_pages',
@@ -65,6 +84,48 @@ const WIDGET_OPTIONS = [
     desc: 'Totale pagine lette',
     icon: Bookmark,
     iconColor: 'text-sky-500'
+  },
+  {
+    id: 'annual_goal',
+    title: 'Obiettivo Annuale',
+    desc: 'Avanzamento target 2026',
+    icon: Target,
+    iconColor: 'text-rose-500'
+  },
+  {
+    id: 'reading_streak',
+    title: 'Streak Lettura',
+    desc: 'Giorni consecutivi',
+    icon: Flame,
+    iconColor: 'text-orange-500'
+  },
+  {
+    id: 'top_genre',
+    title: 'Genere Dominante',
+    desc: 'Categoria più letta',
+    icon: Brain,
+    iconColor: 'text-teal-500'
+  },
+  {
+    id: 'average_pace',
+    title: 'Ritmo Medio',
+    desc: 'Pagine al giorno',
+    icon: Clock,
+    iconColor: 'text-purple-500'
+  },
+  {
+    id: 'to_read_backlog',
+    title: 'Da Iniziare / Backlog',
+    desc: 'Libri nello scaffale',
+    icon: Library,
+    iconColor: 'text-amber-600'
+  },
+  {
+    id: 'max_streak',
+    title: 'Record Assoluto',
+    desc: 'Striscia di giorni max',
+    icon: Trophy,
+    iconColor: 'text-amber-400'
   }
 ];
 
@@ -77,12 +138,16 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   const [avatarTab, setAvatarTab] = useState<'initial' | 'custom'>('initial');
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
 
+  // Stato per le pillole espandibili nel Passo 2
+  const [isGenresOpen, setIsGenresOpen] = useState(false);
+  const [isWidgetsOpen, setIsWidgetsOpen] = useState(false);
+
   // Form State: Il nome parte COMPLETAMENTE VUOTO come richiesto
   const [formData, setFormData] = useState<Partial<UserProfile>>({
-    name: '', // Vuoto! Nessun nome pre-impostato
+    name: '',
     bio: 'Lettore appassionato di libri e saggi',
     readingGoal: 24,
-    avatarColor: 'bg-gradient-to-tr from-indigo-600 to-violet-500',
+    avatarColor: 'bg-gradient-to-tr from-indigo-600 to-violet-600',
     avatarUrl: undefined,
     selectedWidgets: ['read_count', 'reading_count']
   });
@@ -102,7 +167,6 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
     }
   };
 
-  // Caricamento Immagine con adattamento e ridimensionamento
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -350,7 +414,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
               </motion.div>
             )}
 
-            {/* STEP 2: Bio, Generi Preferiti & Widget Integrazione (STEP 2 + 4 UNIFICATI) */}
+            {/* STEP 2: Bio, Generi Preferiti Espandibili & Widget Espandibili */}
             {step === 2 && (
               <motion.div
                 key="step-2"
@@ -361,8 +425,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                 className="space-y-4"
               >
                 <div className="text-center space-y-1">
-                  <h2 className="text-lg font-black text-[#31362F] dark:text-[#E0DCD3]">Bio & Widget Profilo 📝</h2>
-                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Personalizza la tua descrizione ed i 2 widget in evidenza:</p>
+                  <h2 className="text-lg font-black text-[#31362F] dark:text-[#E0DCD3]">Bio, Generi & Widget Profilo 📝</h2>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Personalizza la tua bio, sfoglia i generi e scegli i widget:</p>
                 </div>
 
                 {/* Input Bio */}
@@ -377,70 +441,129 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   />
                 </div>
 
-                {/* Tag Generi Preferiti */}
-                <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-[#7A756D] dark:text-[#A09A90] block">
-                    Generi preferiti:
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    {GENRE_TAGS.map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => toggleTag(tag)}
-                        className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] transition-all cursor-pointer active:scale-95"
+                {/* Pillola Espandibile: Generi Preferiti */}
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsGenresOpen(!isGenresOpen)}
+                    className="w-full px-3.5 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all flex items-center justify-between cursor-pointer shadow-xs"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-base">📚</span>
+                      <span>Generi Preferiti</span>
+                    </span>
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-[#7A756D] dark:text-[#A09A90]">
+                      <span>Esplora (24 generi)</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isGenresOpen ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+
+                  <AnimatePresence>
+                    {isGenresOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-48 overflow-y-auto custom-scrollbar"
                       >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
+                        <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
+                          Clicca sui generi per aggiungerli o rimuoverli dalla tua Bio:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {GENRE_TAGS.map((tag) => {
+                            const cleanTag = tag.replace(/^[^\s]+\s/, '');
+                            const isIncluded = (formData.bio || '').includes(cleanTag);
+
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => toggleTag(tag)}
+                                className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer active:scale-95 ${
+                                  isIncluded
+                                    ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs'
+                                    : 'bg-[#FCFBF8] dark:bg-[#33302D] border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3]'
+                                }`}
+                              >
+                                {tag}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                {/* Widget In Evidenza (Scegli 2) */}
-                <div className="space-y-1.5 pt-1">
-                  <span className="text-[11px] font-bold text-[#7A756D] dark:text-[#A09A90] flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <LayoutGrid className="w-3 h-3 text-[#5C6B55]" /> Scegli 2 Widget per il profilo:
+                {/* Pillola Espandibile: Widget di Profilo */}
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsWidgetsOpen(!isWidgetsOpen)}
+                    className="w-full px-3.5 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all flex items-center justify-between cursor-pointer shadow-xs"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <LayoutGrid className="w-4 h-4 text-[#5C6B55]" />
+                      <span>Widget in Evidenza</span>
                     </span>
-                    <span className="text-[10px] font-extrabold text-[#5C6B55] dark:text-[#A0AF99]">
-                      {(formData.selectedWidgets || []).length}/2 selezionati
-                    </span>
-                  </span>
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-[#7A756D] dark:text-[#A09A90]">
+                      <span className="font-extrabold text-[#5C6B55] dark:text-[#A0AF99]">
+                        {(formData.selectedWidgets || []).length}/2 selezionati
+                      </span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isWidgetsOpen ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {WIDGET_OPTIONS.map((w) => {
-                      const isSelected = (formData.selectedWidgets || []).includes(w.id);
-                      const IconComp = w.icon;
+                  <AnimatePresence>
+                    {isWidgetsOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-56 overflow-y-auto custom-scrollbar"
+                      >
+                        <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
+                          Scegli fino a 2 widget da evidenziare in alto sul tuo profilo:
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          {WIDGET_OPTIONS.map((w) => {
+                            const isSelected = (formData.selectedWidgets || []).includes(w.id);
+                            const IconComp = w.icon;
 
-                      return (
-                        <button
-                          key={w.id}
-                          type="button"
-                          onClick={() => toggleWidget(w.id)}
-                          className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
-                            isSelected
-                              ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55] shadow-xs'
-                              : 'bg-[#F4F1EA] dark:bg-[#2A2826] border-[#EBE5D9] dark:border-[#4A4743]/60'
-                          }`}
-                        >
-                          <div className={`w-7 h-7 rounded-xl bg-white dark:bg-[#33302D] flex items-center justify-center shrink-0 shadow-xs ${w.iconColor}`}>
-                            <IconComp className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">{w.title}</span>
-                              {isSelected && (
-                                <span className="w-4 h-4 rounded-full bg-[#5C6B55] text-white flex items-center justify-center shrink-0 ml-1">
-                                  <Check className="w-2.5 h-2.5" />
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[9px] text-[#7A756D] dark:text-[#A09A90] truncate">{w.desc}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                            return (
+                              <button
+                                key={w.id}
+                                type="button"
+                                onClick={() => toggleWidget(w.id)}
+                                className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55] shadow-xs'
+                                    : 'bg-[#FCFBF8] dark:bg-[#33302D] border-[#EBE5D9] dark:border-[#4A4743]/60'
+                                }`}
+                              >
+                                <div className={`w-7 h-7 rounded-xl bg-white dark:bg-[#2A2826] flex items-center justify-center shrink-0 shadow-xs ${w.iconColor}`}>
+                                  <IconComp className="w-3.5 h-3.5" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">{w.title}</span>
+                                    {isSelected && (
+                                      <span className="w-4 h-4 rounded-full bg-[#5C6B55] text-white flex items-center justify-center shrink-0 ml-1">
+                                        <Check className="w-2.5 h-2.5" />
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[9px] text-[#7A756D] dark:text-[#A09A90] truncate">{w.desc}</p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             )}
