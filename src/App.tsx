@@ -36,6 +36,11 @@ function AppContent() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
+
+      // Pulisce l'URL dall'hash token se l'utente è stato autenticato da OAuth
+      if (session && window.location.hash.includes('access_token')) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     });
 
     return () => subscription.unsubscribe();
