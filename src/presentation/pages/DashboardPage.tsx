@@ -107,6 +107,7 @@ export const DashboardPage: React.FC = () => {
         isOpen={isCameraModalOpen}
         onClose={() => setIsCameraModalOpen(false)}
         onBookScanned={addBook}
+        onOpenManualEntry={() => setIsManualModalOpen(true)}
       />
 
       <AddBookModal

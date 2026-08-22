@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Book } from '../../../domain/models/Book';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Html5Qrcode } from 'html5-qrcode';
-import { X, Camera, RefreshCw, Sparkles, Check, Upload, AlertCircle, PenTool } from 'lucide-react';
+import { X, Camera, RefreshCw, Check, AlertCircle, PenTool } from 'lucide-react';
 import { useRegisterModal } from '../../context/ModalContext';
+import { federatedBookSearch } from '../../../infrastructure/services/federatedBookSearch';
 
 interface CameraScannerModalProps {
   isOpen: boolean;
@@ -84,7 +85,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       console.warn("Scanner camera init error:", err);
       setIsScanning(false);
       setScannerError(
-        "Impossibile accedere alla fotocamera posteriore. Assicurati che i permessi siano concessi o prova a caricare una foto del codice a barre."
+        "Impossibile accedere alla fotocamera. Premi 'Scatta Foto' o usa l'inserimento manuale."
       );
     }
   };
@@ -108,46 +109,39 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     setIsLoadingBook(true);
 
     try {
-      // Simula ricerca da API Google Books per ISBN
-      setTimeout(() => {
-        setIsLoadingBook(false);
+      const searchResults = await federatedBookSearch(isbn);
+      setIsLoadingBook(false);
+
+      if (searchResults && searchResults.length > 0) {
+        const book = searchResults[0];
         setScannedBook({
-          title: `Libro ISBN (${isbn})`,
-          author: 'Autore Rilevato da Scansione',
+          title: book.title,
+          author: book.author,
+          coverUrl: book.coverUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: '',
+          status: 'Da leggere',
+          totalPages: book.totalPages || 300,
+          pagesRead: 0,
+          genre: book.genre || 'Rilevato da Scansione'
+        });
+      } else {
+        setScannedBook({
+          title: `Libro (ISBN: ${isbn})`,
+          author: 'Autore non specificato',
           coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
           startDate: new Date().toISOString().split('T')[0],
           endDate: '',
           status: 'Da leggere',
-          totalPages: 320,
+          totalPages: 300,
           pagesRead: 0,
           genre: 'Scansionato da Fotocamera'
         });
-      }, 1200);
+      }
     } catch (err) {
       setIsLoadingBook(false);
-      setScannerError("Codice letto ma nessun dettaglio trovato nel database.");
+      setScannerError("Codice letto ma si è verificato un errore durante la ricerca del libro.");
     }
-  };
-
-  const handleSimulatedScan = () => {
-    stopScanner();
-    setIsLoadingBook(true);
-    setTimeout(() => {
-      setIsLoadingBook(false);
-      const mockBook = {
-        title: "Il Signore degli Anelli",
-        author: "J.R.R. Tolkien",
-        coverUrl: "https://images.unsplash.com/photo-1629992101753-56d196c8aea7?auto=format&fit=crop&q=80&w=400",
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: "",
-        status: "In lettura" as const,
-        totalPages: 576,
-        pagesRead: 45,
-        genre: "Fantasy Epico",
-        rating: 5
-      };
-      setScannedBook(mockBook);
-    }, 1000);
   };
 
   const handleConfirmAdd = () => {
@@ -157,30 +151,42 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      stopScanner();
-      setIsLoadingBook(true);
-      const reader = new FileReader();
-      reader.onload = () => {
-        setTimeout(() => {
-          setIsLoadingBook(false);
-          setScannedBook({
-            title: file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
-            author: 'Autore da Immagine',
-            coverUrl: reader.result as string,
-            startDate: new Date().toISOString().split('T')[0],
-            endDate: '',
-            status: 'Da leggere',
-            totalPages: 300,
-            pagesRead: 0,
-            genre: 'Riconosciuto da Immagine'
-          });
-        }, 1000);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    stopScanner();
+    setIsLoadingBook(true);
+
+    try {
+      if (html5QrcodeRef.current) {
+        const decodedText = await html5QrcodeRef.current.scanFile(file, true);
+        if (decodedText) {
+          await handleBarcodeDetected(decodedText);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Nessun codice a barre rilevato nell'immagine:", err);
     }
+
+    // Fallback con l'immagine selezionata/scattata
+    const reader = new FileReader();
+    reader.onload = () => {
+      setIsLoadingBook(false);
+      setScannedBook({
+        title: file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
+        author: 'Autore da Scatto',
+        coverUrl: reader.result as string,
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: '',
+        status: 'Da leggere',
+        totalPages: 300,
+        pagesRead: 0,
+        genre: 'Foto Fotocamera'
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -206,8 +212,8 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                   <Camera className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-[#4A4743] dark:text-[#E0DCD3]">Scanner Fotocamera ISBN</h2>
-                  <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90]">Inquadra il codice a barre del libro</p>
+                  <h2 className="text-base font-bold text-[#4A4743] dark:text-[#E0DCD3]">Scanner Fotocamera</h2>
+                  <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90]">Scatta una foto o inquadra il codice a barre</p>
                 </div>
               </div>
               <button
@@ -241,7 +247,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               {isLoadingBook && (
                 <div className="absolute inset-0 bg-[#31362F]/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 z-20">
                   <RefreshCw className="w-8 h-8 text-[#B0BEA9] dark:text-[#5C6B55] animate-spin" />
-                  <span className="text-xs font-semibold text-[#EBE5D9]">Ricerca codice ISBN in corso...</span>
+                  <span className="text-xs font-semibold text-[#EBE5D9]">Ricerca libro in corso...</span>
                 </div>
               )}
             </div>
@@ -270,44 +276,33 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               </div>
             )}
 
-            {/* Action Controls */}
-            <div className="space-y-2 mt-auto">
+            {/* Action Controls - Solo Tasto Scatta e Inserimento Manuale */}
+            <div className="grid grid-cols-2 gap-3 mt-auto pt-2">
+              <label className="py-3 px-4 bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] dark:hover:bg-[#4D5A46] text-[#31362F] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-[#B0BEA9]/30 active:scale-95 transition-all border border-[#A0AF99] dark:border-[#4D5A46] cursor-pointer">
+                <Camera className="w-4 h-4" />
+                <span>Scatta Foto</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+
               <button
-                onClick={handleSimulatedScan}
-                disabled={isLoadingBook}
-                className="w-full py-3 bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] hover:bg-[#A0AF99] dark:hover:bg-[#4D5A46] rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-[#B0BEA9]/30 active:scale-98 transition-all border border-[#A0AF99] dark:border-[#4D5A46]"
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onOpenManualEntry) {
+                    onOpenManualEntry();
+                  }
+                }}
+                className="py-3 px-4 bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer"
               >
-                <Sparkles className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                <span>Simula Scansione Rapida</span>
+                <PenTool className="w-4 h-4 text-[#7A756D] dark:text-[#A09A90]" />
+                <span>Inserimento Manuale</span>
               </button>
-
-              <div className="grid grid-cols-2 gap-2">
-                <label className="py-2.5 bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] rounded-2xl text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors border border-[#DCD5C6] dark:border-[#4A4743]/60">
-                  <Upload className="w-3.5 h-3.5 text-[#7A756D] dark:text-[#A09A90]" />
-                  <span>Carica Foto / Scatta</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    if (onOpenManualEntry) {
-                      onOpenManualEntry();
-                    }
-                  }}
-                  className="py-2.5 bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] rounded-2xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer"
-                >
-                  <PenTool className="w-3.5 h-3.5 text-[#7A756D] dark:text-[#A09A90]" />
-                  <span>Inserimento Manuale</span>
-                </button>
-              </div>
             </div>
           </motion.div>
         </motion.div>

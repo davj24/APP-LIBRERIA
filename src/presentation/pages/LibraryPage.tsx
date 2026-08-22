@@ -263,6 +263,7 @@ export const LibraryPage: React.FC = () => {
         isOpen={isCameraModalOpen}
         onClose={() => setIsCameraModalOpen(false)}
         onBookScanned={addBook}
+        onOpenManualEntry={() => setIsManualModalOpen(true)}
       />
 
       <AddBookModal
