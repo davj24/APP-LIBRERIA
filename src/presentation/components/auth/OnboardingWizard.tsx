@@ -331,7 +331,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     className="hidden"
                   />
 
-                  {/* Pillola per i Colori che si espande in modo fluido e senza scatti */}
+                  {/* Pillola per i Colori che si espande senza bordi sul contenitore di ritaglio */}
                   {avatarTab === 'initial' ? (
                     <div className="flex flex-col items-center space-y-2 w-full">
                       <button
@@ -344,7 +344,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                         <ChevronDown className={`w-3.5 h-3.5 text-[#7A756D] dark:text-[#A09A90] transition-transform duration-250 ease-out ${isColorPickerOpen ? 'rotate-180' : ''}`} />
                       </button>
 
-                      {/* Griglia Colori Espandibile con Contenitore Senza Padding per Evitare Scatti in Chiusura */}
+                      {/* Il contenitore animato outer NON ha bordi per consentire un azzeramento 0.0px perfetto */}
                       <AnimatePresence>
                         {isColorPickerOpen && (
                           <motion.div
@@ -352,9 +352,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.28, ease: iosEase }}
-                            className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-w-[280px] w-full transform-gpu"
+                            className="overflow-hidden max-w-[280px] w-full transform-gpu"
                           >
-                            <div className="p-3 flex items-center justify-center flex-wrap gap-2">
+                            <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 p-3 flex items-center justify-center flex-wrap gap-2">
                               {IOS_AVATAR_PRESETS.map((preset) => (
                                 <button
                                   key={preset.name}
@@ -417,7 +417,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
               </motion.div>
             )}
 
-            {/* STEP 2: Bio, Generi Preferiti Espandibili & Widget Espandibili (Accordion Ultra Smooth Senza Scatti) */}
+            {/* STEP 2: Bio, Generi Preferiti Espandibili & Widget Espandibili (Zero Micro-Scatti in Chiusura) */}
             {step === 2 && (
               <motion.div
                 key="step-2"
@@ -470,9 +470,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.28, ease: iosEase }}
-                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 transform-gpu"
+                        className="overflow-hidden transform-gpu"
                       >
-                        <div className="p-3 max-h-48 overflow-y-auto custom-scrollbar">
+                        <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 p-3 max-h-48 overflow-y-auto custom-scrollbar">
                           <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
                             Seleziona i generi letterari da mostrare sul tuo profilo:
                           </span>
@@ -529,9 +529,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.28, ease: iosEase }}
-                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 transform-gpu"
+                        className="overflow-hidden transform-gpu"
                       >
-                        <div className="p-3 max-h-56 overflow-y-auto custom-scrollbar">
+                        <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 p-3 max-h-56 overflow-y-auto custom-scrollbar">
                           <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
                             Scegli fino a 2 widget da evidenziare in alto sul tuo profilo:
                           </span>
