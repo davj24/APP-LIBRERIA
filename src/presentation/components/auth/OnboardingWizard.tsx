@@ -13,6 +13,9 @@ interface OnboardingWizardProps {
   userEmail?: string;
 }
 
+// Apple iOS Smooth Easing Curve
+const iosEase = [0.16, 1, 0.3, 1] as const;
+
 // 24 Generi Letterari Principali
 const GENRE_TAGS = [
   '📚 Narrativa',
@@ -142,15 +145,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   const [isGenresOpen, setIsGenresOpen] = useState(false);
   const [isWidgetsOpen, setIsWidgetsOpen] = useState(false);
 
-  // Form State: Tutto parte PULITO e VUOTO (nessun valore precompilato o preselezionato)
+  // Form State: Tutto parte PULITO e VUOTO
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     name: '',
-    bio: '', // Vuoto! Il testo appare solo come placeholder di esempio
+    bio: '',
     readingGoal: 24,
     avatarColor: 'bg-gradient-to-tr from-indigo-600 to-violet-600',
     avatarUrl: undefined,
-    selectedWidgets: [], // Nessun widget preselezionato di default
-    favoriteGenres: [] // Nessun genere preselezionato di default
+    selectedWidgets: [],
+    favoriteGenres: []
   });
 
   const handleNextStep = () => {
@@ -188,7 +191,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
     }
   };
 
-  // Toggle dei generi preferiti come entità separate nell'array
+  // Toggle dei generi preferiti come entità separate
   const toggleGenre = (genre: string) => {
     const current = formData.favoriteGenres || [];
     if (current.includes(genre)) {
@@ -214,12 +217,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   return (
     <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#2A2826] text-[#4A4743] dark:text-[#E0DCD3] flex flex-col items-center justify-center p-4 antialiased selection:bg-[#B0BEA9]/30">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-[#FCFBF8] dark:bg-[#33302D] rounded-3xl p-5 sm:p-7 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 relative overflow-hidden space-y-5"
+        transition={{ duration: 0.25, ease: iosEase }}
+        className="w-full max-w-md bg-[#FCFBF8] dark:bg-[#33302D] rounded-[2rem] p-5 sm:p-7 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 relative overflow-hidden isolate transform-gpu space-y-5"
       >
-        {/* Glow di Sfondo */}
-        <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#5C6B55]/20 rounded-full blur-3xl pointer-events-none" />
+        {/* Glow di Sfondo perfetto senza imperfezioni di ritaglio */}
+        <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#5C6B55]/20 rounded-full blur-3xl pointer-events-none z-0" />
 
         {/* Header Progress Wizard (4 Passi) */}
         <div className="space-y-2.5 relative z-10">
@@ -237,7 +241,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
               className="h-full bg-[#5C6B55] dark:bg-[#A0AF99] rounded-full"
               initial={{ width: '25%' }}
               animate={{ width: `${(step / 4) * 100}%` }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.25, ease: iosEase }}
             />
           </div>
         </div>
@@ -245,15 +249,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
         {/* Contenuto Dinamico per Step */}
         <div className="relative z-10 min-h-[320px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
-            {/* STEP 1: Nome e Icona Avatar (iOS Minimal & Caricamento Foto) */}
+            {/* STEP 1: Nome e Icona Avatar */}
             {step === 1 && (
               <motion.div
                 key="step-1"
-                initial={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-5"
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.22, ease: iosEase }}
+                className="space-y-5 transform-gpu"
               >
                 <div className="text-center space-y-1">
                   <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Benvenuto su BiblioDesk! 👋</h2>
@@ -263,7 +267,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                 {/* Anteprima Avatar con Ridimensionamento Adattato */}
                 <div className="flex flex-col items-center gap-3">
                   <div className="relative group">
-                    <div className={`w-22 h-22 rounded-3xl ${formData.avatarUrl ? 'bg-neutral-200 dark:bg-neutral-800' : formData.avatarColor} text-white font-black text-3xl flex items-center justify-center shadow-lg border-4 border-white dark:border-[#2A2826] overflow-hidden`}>
+                    <div className={`w-22 h-22 rounded-3xl ${formData.avatarUrl ? 'bg-neutral-200 dark:bg-neutral-800' : formData.avatarColor} text-white font-black text-3xl flex items-center justify-center shadow-lg border-4 border-white dark:border-[#2A2826] overflow-hidden transform-gpu`}>
                       {formData.avatarUrl ? (
                         <img 
                           src={formData.avatarUrl} 
@@ -279,7 +283,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#31362F] dark:bg-white text-white dark:text-[#31362F] flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-white dark:border-[#33302D]"
+                      className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#31362F] dark:bg-white text-white dark:text-[#31362F] flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform duration-150 cursor-pointer border-2 border-white dark:border-[#33302D]"
                       title="Carica o cambia immagine"
                     >
                       <Camera className="w-4 h-4" />
@@ -291,7 +295,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     <button
                       type="button"
                       onClick={() => setAvatarTab('initial')}
-                      className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all ${
+                      className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all duration-150 ${
                         avatarTab === 'initial'
                           ? 'bg-[#5C6B55] text-white shadow-xs'
                           : 'text-[#7A756D] dark:text-[#A09A90] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
@@ -307,7 +311,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                           fileInputRef.current?.click();
                         }
                       }}
-                      className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all flex items-center gap-1 ${
+                      className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all duration-150 flex items-center gap-1 ${
                         avatarTab === 'custom'
                           ? 'bg-[#5C6B55] text-white shadow-xs'
                           : 'text-[#7A756D] dark:text-[#A09A90] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
@@ -327,28 +331,28 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     className="hidden"
                   />
 
-                  {/* Pillola per i Colori che si espande */}
+                  {/* Pillola per i Colori che si espande in modo ultra-smooth */}
                   {avatarTab === 'initial' ? (
                     <div className="flex flex-col items-center space-y-2">
                       <button
                         type="button"
                         onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
-                        className="px-3.5 py-1.5 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95"
+                        className="px-3.5 py-1.5 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all duration-150 flex items-center gap-2 cursor-pointer shadow-xs active:scale-95"
                       >
                         <div className={`w-3.5 h-3.5 rounded-full ${IOS_AVATAR_PRESETS.find(p => p.color === formData.avatarColor)?.color || IOS_AVATAR_PRESETS[0].color}`} />
                         <span>Colore Avatar ({IOS_AVATAR_PRESETS.find(p => p.color === formData.avatarColor)?.name || 'Viola Indaco'})</span>
                         <ChevronDown className={`w-3.5 h-3.5 text-[#7A756D] dark:text-[#A09A90] transition-transform duration-200 ${isColorPickerOpen ? 'rotate-180' : ''}`} />
                       </button>
 
-                      {/* Griglia Colori Espandibile con Animazione */}
+                      {/* Griglia Colori Espandibile con Animazione iOS */}
                       <AnimatePresence>
                         {isColorPickerOpen && (
                           <motion.div
-                            initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                            initial={{ opacity: 0, height: 0, scale: 0.98 }}
                             animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                            exit={{ opacity: 0, height: 0, scale: 0.95 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-w-[280px]"
+                            exit={{ opacity: 0, height: 0, scale: 0.98 }}
+                            transition={{ duration: 0.22, ease: iosEase }}
+                            className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-w-[280px] transform-gpu"
                           >
                             <div className="flex items-center justify-center flex-wrap gap-2">
                               {IOS_AVATAR_PRESETS.map((preset) => (
@@ -361,7 +365,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                                   }}
                                   className={`w-7 h-7 rounded-full ${preset.color} border-2 ${
                                     formData.avatarColor === preset.color && !formData.avatarUrl ? 'border-[#31362F] dark:border-white scale-110 shadow-md' : 'border-transparent opacity-85 hover:opacity-100'
-                                  } transition-all cursor-pointer`}
+                                  } transition-all duration-150 cursor-pointer active:scale-90`}
                                   title={preset.name}
                                 />
                               ))}
@@ -371,13 +375,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       </AnimatePresence>
                     </div>
                   ) : (
-                    /* Sezione Foto Personalizzata: Cliccando su Carica Foto o sull'avatar si apre direttamente il selettore nativo */
+                    /* Sezione Foto Personalizzata con avviso di sicurezza */
                     <div className="flex flex-col items-center gap-2 max-w-[290px] text-center">
                       {formData.avatarUrl && (
                         <button
                           type="button"
                           onClick={removeCustomImage}
-                          className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                          className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-1.5 active:scale-95"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Rimuovi Foto Caricata</span>
@@ -406,7 +410,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Inserisci il tuo nome..."
-                      className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs sm:text-sm text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55]"
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs sm:text-sm text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] transition-colors duration-150"
                     />
                   </div>
                 </div>
@@ -417,18 +421,18 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
             {step === 2 && (
               <motion.div
                 key="step-2"
-                initial={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-4"
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.22, ease: iosEase }}
+                className="space-y-4 transform-gpu"
               >
                 <div className="text-center space-y-1">
                   <h2 className="text-lg font-black text-[#31362F] dark:text-[#E0DCD3]">Bio, Generi & Widget Profilo 📝</h2>
                   <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Personalizza la tua bio, seleziona i generi preferiti ed i widget:</p>
                 </div>
 
-                {/* Input Bio Testuale (con placeholder che sparisce al primo carattere digitato) */}
+                {/* Input Bio Testuale */}
                 <div className="relative">
                   <PenLine className="w-4 h-4 absolute left-3.5 top-2.5 text-[#7A756D] dark:text-[#A09A90]" />
                   <textarea
@@ -436,7 +440,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     value={formData.bio || ''}
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     placeholder="Scrivi qui la tua bio (es. Lettore appassionato di libri e saggi)..."
-                    className="w-full pl-10 pr-4 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] resize-none"
+                    className="w-full pl-10 pr-4 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] resize-none transition-colors duration-150"
                   />
                 </div>
 
@@ -445,7 +449,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   <button
                     type="button"
                     onClick={() => setIsGenresOpen(!isGenresOpen)}
-                    className="w-full px-3.5 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all flex items-center justify-between cursor-pointer shadow-xs"
+                    className="w-full px-3.5 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all duration-150 flex items-center justify-between cursor-pointer shadow-xs active:scale-[0.98]"
                   >
                     <span className="flex items-center gap-1.5">
                       <span className="text-base">📚</span>
@@ -462,11 +466,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   <AnimatePresence>
                     {isGenresOpen && (
                       <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-48 overflow-y-auto custom-scrollbar"
+                        initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                        exit={{ opacity: 0, height: 0, scale: 0.98 }}
+                        transition={{ duration: 0.22, ease: iosEase }}
+                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-48 overflow-y-auto custom-scrollbar transform-gpu"
                       >
                         <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
                           Seleziona i generi letterari da mostrare sul tuo profilo:
@@ -480,7 +484,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                                 key={genre}
                                 type="button"
                                 onClick={() => toggleGenre(genre)}
-                                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+                                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 transition-all duration-150 cursor-pointer active:scale-95 ${
                                   isSelected
                                     ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs'
                                     : 'bg-[#FCFBF8] dark:bg-[#33302D] border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3]'
@@ -502,7 +506,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   <button
                     type="button"
                     onClick={() => setIsWidgetsOpen(!isWidgetsOpen)}
-                    className="w-full px-3.5 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all flex items-center justify-between cursor-pointer shadow-xs"
+                    className="w-full px-3.5 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all duration-150 flex items-center justify-between cursor-pointer shadow-xs active:scale-[0.98]"
                   >
                     <span className="flex items-center gap-1.5">
                       <LayoutGrid className="w-4 h-4 text-[#5C6B55]" />
@@ -519,11 +523,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   <AnimatePresence>
                     {isWidgetsOpen && (
                       <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-56 overflow-y-auto custom-scrollbar"
+                        initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                        exit={{ opacity: 0, height: 0, scale: 0.98 }}
+                        transition={{ duration: 0.22, ease: iosEase }}
+                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-56 overflow-y-auto custom-scrollbar transform-gpu"
                       >
                         <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
                           Scegli fino a 2 widget da evidenziare in alto sul tuo profilo:
@@ -538,7 +542,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                                 key={w.id}
                                 type="button"
                                 onClick={() => toggleWidget(w.id)}
-                                className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                                className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 transition-all duration-150 cursor-pointer active:scale-95 ${
                                   isSelected
                                     ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55] shadow-xs'
                                     : 'bg-[#FCFBF8] dark:bg-[#33302D] border-[#EBE5D9] dark:border-[#4A4743]/60'
@@ -573,11 +577,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
             {step === 3 && (
               <motion.div
                 key="step-3"
-                initial={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-5 text-center"
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.22, ease: iosEase }}
+                className="space-y-5 text-center transform-gpu"
               >
                 <div className="space-y-1">
                   <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Obiettivo di Lettura 🎯</h2>
@@ -615,8 +619,6 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   </p>
                 </div>
 
-
-
                 {/* Nota rassicurante che obiettivi e statistiche sono modificabili in seguito */}
                 <p className="text-[10px] text-[#7A756D] dark:text-[#A09A90] italic max-w-xs mx-auto leading-tight">
                   💡 È solo il primo traguardo! Potrai sempre modificare il tuo obiettivo e le statistiche nelle Impostazioni in qualsiasi momento.
@@ -628,10 +630,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
             {step === 4 && (
               <motion.div
                 key="step-4"
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.94 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-6 text-center py-4"
+                transition={{ duration: 0.3, ease: iosEase }}
+                className="space-y-6 text-center py-4 transform-gpu"
               >
                 <div className="w-16 h-16 mx-auto rounded-3xl bg-[#5C6B55] text-white flex items-center justify-center shadow-lg animate-bounce">
                   <Rocket className="w-8 h-8 text-amber-300" />
@@ -654,7 +656,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
             <button
               type="button"
               onClick={handlePrevStep}
-              className="px-4 py-2.5 rounded-xl border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-colors duration-150 flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Indietro</span>
@@ -667,7 +669,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
             type="button"
             onClick={handleNextStep}
             disabled={step === 1 && !formData.name?.trim()}
-            className="px-5 py-2.5 rounded-xl bg-[#5C6B55] hover:bg-[#4A5744] text-white font-bold text-xs shadow-md flex items-center gap-2 transition-all cursor-pointer ml-auto active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-5 py-2.5 rounded-xl bg-[#5C6B55] hover:bg-[#4A5744] text-white font-bold text-xs shadow-md flex items-center gap-2 transition-all duration-150 cursor-pointer ml-auto active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span>{step === 4 ? 'Inizia ad usare BiblioDesk' : 'Continua'}</span>
             <ArrowRight className="w-4 h-4" />
