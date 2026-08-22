@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
-  BookCheck, PieChart, Bookmark, Rocket
+  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid
 } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import type { UserProfile } from '../../hooks/useUserProfile';
@@ -15,11 +15,11 @@ interface OnboardingWizardProps {
 const GENRE_TAGS = [
   '📚 Narrativa',
   '🐉 Fantasy',
-  '🔍 Gialli & Thriller',
-  '💡 Crescita & Saggi',
-  '🏛️ Romanzi Storici',
-  '🎨 Manga & Fumetti',
-  '🚀 Fantascienza',
+  '🔍 Gialli',
+  '💡 Saggi',
+  '🏛️ Storia',
+  '🎨 Manga',
+  '🚀 Sci-Fi',
   '💖 Romance'
 ];
 
@@ -35,28 +35,28 @@ const WIDGET_OPTIONS = [
   {
     id: 'read_count',
     title: 'Totale Letti',
-    desc: 'Mostra il conteggio complessivo dei libri letti',
+    desc: 'Conteggio libri letti',
     icon: BookCheck,
     iconColor: 'text-emerald-500'
   },
   {
     id: 'reading_count',
     title: 'In Lettura',
-    desc: 'Mostra i libri sul comodino attualmente in corso',
+    desc: 'Libri sul comodino',
     icon: BookOpen,
     iconColor: 'text-amber-500'
   },
   {
     id: 'current_progress',
-    title: '% Completamento',
-    desc: 'Avanzamento in percentuale sull\'ultimo libro aperto',
+    title: '% Avanzamento',
+    desc: '% ultimo libro aperto',
     icon: PieChart,
     iconColor: 'text-indigo-500'
   },
   {
     id: 'total_pages',
-    title: 'Pagine Sfogliate',
-    desc: 'Numero totale di pagine lette nel tempo',
+    title: 'Pagine Totali',
+    desc: 'Totale pagine lette',
     icon: Bookmark,
     iconColor: 'text-sky-500'
   }
@@ -66,7 +66,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
   const { profile, completeOnboarding } = useUserProfile();
   const [step, setStep] = useState(1);
 
-  // Form State per il wizard
+  // Form State per il wizard (4 step snelli)
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     name: profile.name && profile.name !== 'Nuovo Lettore' ? profile.name : (userEmail ? userEmail.split('@')[0] : 'Davide'),
     bio: 'Lettore appassionato di libri e saggi',
@@ -76,7 +76,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
   });
 
   const handleNextStep = () => {
-    if (step < 5) {
+    if (step < 4) {
       setStep(prev => prev + 1);
     } else {
       completeOnboarding(formData);
@@ -94,11 +94,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
     const cleanTag = tag.replace(/^[^\s]+\s/, ''); // Rimuove emoji per bio pulita
     const currentBio = formData.bio || '';
     if (currentBio.includes(cleanTag)) {
-      // Rimuovi tag
       const updated = currentBio.replace(` • ${cleanTag}`, '').replace(cleanTag, '');
       setFormData({ ...formData, bio: updated.trim() });
     } else {
-      // Aggiungi tag
       const updated = currentBio ? `${currentBio} • ${cleanTag}` : cleanTag;
       setFormData({ ...formData, bio: updated });
     }
@@ -112,7 +110,6 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
       if (current.length < 2) {
         setFormData({ ...formData, selectedWidgets: [...current, wId] });
       } else {
-        // Se già 2 selezioni, rimpiazza il secondo
         setFormData({ ...formData, selectedWidgets: [current[0], wId] });
       }
     }
@@ -123,34 +120,34 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-[#FCFBF8] dark:bg-[#33302D] rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 relative overflow-hidden space-y-6"
+        className="w-full max-w-md bg-[#FCFBF8] dark:bg-[#33302D] rounded-3xl p-5 sm:p-7 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 relative overflow-hidden space-y-5"
       >
         {/* Glow di Sfondo */}
         <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#5C6B55]/20 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Header Progress Wizard */}
-        <div className="space-y-3 relative z-10">
+        {/* Header Progress Wizard (Ora 4 Passi Snelli) */}
+        <div className="space-y-2.5 relative z-10">
           <div className="flex items-center justify-between text-xs font-bold text-[#7A756D] dark:text-[#A09A90]">
             <span className="flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-[#5C6B55] dark:text-[#A0AF99]" />
               Configurazione Iniziale Profilo
             </span>
-            <span>Passo {step} di 5</span>
+            <span>Passo {step} di 4</span>
           </div>
 
           {/* Barra di Progresso */}
           <div className="w-full h-2 rounded-full bg-[#EBE5D9] dark:bg-[#4A4743]/60 overflow-hidden">
             <motion.div
               className="h-full bg-[#5C6B55] dark:bg-[#A0AF99] rounded-full"
-              initial={{ width: '20%' }}
-              animate={{ width: `${(step / 5) * 100}%` }}
+              initial={{ width: '25%' }}
+              animate={{ width: `${(step / 4) * 100}%` }}
               transition={{ duration: 0.3 }}
             />
           </div>
         </div>
 
         {/* Contenuto Dinamico per Step */}
-        <div className="relative z-10 min-h-[300px] flex flex-col justify-center">
+        <div className="relative z-10 min-h-[310px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
             {/* STEP 1: Nome e Avatar */}
             {step === 1 && (
@@ -207,7 +204,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
               </motion.div>
             )}
 
-            {/* STEP 2: Bio e Generi Preferiti */}
+            {/* STEP 2: Bio, Generi Preferiti & Widget Integrazione (STEP 2 + 4 UNIFICATI) */}
             {step === 2 && (
               <motion.div
                 key="step-2"
@@ -218,38 +215,85 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                 className="space-y-4"
               >
                 <div className="text-center space-y-1">
-                  <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Raccontati brevemente 📝</h2>
-                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Scrivi una bio o seleziona i tuoi generi preferiti:</p>
+                  <h2 className="text-lg font-black text-[#31362F] dark:text-[#E0DCD3]">Bio & Widget Profilo 📝</h2>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Personalizza la tua descrizione ed i 2 widget in evidenza:</p>
                 </div>
 
                 {/* Input Bio */}
                 <div className="relative">
-                  <PenLine className="w-4 h-4 absolute left-3.5 top-3 text-[#7A756D] dark:text-[#A09A90]" />
+                  <PenLine className="w-4 h-4 absolute left-3.5 top-2.5 text-[#7A756D] dark:text-[#A09A90]" />
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={formData.bio || ''}
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     placeholder="Es. Lettore appassionato di libri e saggi"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] resize-none"
+                    className="w-full pl-10 pr-4 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] resize-none"
                   />
                 </div>
 
                 {/* Tag Generi Preferiti */}
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <span className="text-[11px] font-bold text-[#7A756D] dark:text-[#A09A90] block">
-                    Clicca sui generi per aggiungerli alla tua Bio:
+                    Generi preferiti:
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {GENRE_TAGS.map((tag) => (
                       <button
                         key={tag}
                         type="button"
                         onClick={() => toggleTag(tag)}
-                        className="px-2.5 py-1 rounded-xl text-xs font-semibold bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] transition-all cursor-pointer active:scale-95"
+                        className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] transition-all cursor-pointer active:scale-95"
                       >
                         {tag}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Widget In Evidenza (Scegli 2) */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[11px] font-bold text-[#7A756D] dark:text-[#A09A90] flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <LayoutGrid className="w-3 h-3 text-[#5C6B55]" /> Scegli 2 Widget per il profilo:
+                    </span>
+                    <span className="text-[10px] font-extrabold text-[#5C6B55] dark:text-[#A0AF99]">
+                      {(formData.selectedWidgets || []).length}/2 selezionati
+                    </span>
+                  </span>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {WIDGET_OPTIONS.map((w) => {
+                      const isSelected = (formData.selectedWidgets || []).includes(w.id);
+                      const IconComp = w.icon;
+
+                      return (
+                        <button
+                          key={w.id}
+                          type="button"
+                          onClick={() => toggleWidget(w.id)}
+                          className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55] shadow-xs'
+                              : 'bg-[#F4F1EA] dark:bg-[#2A2826] border-[#EBE5D9] dark:border-[#4A4743]/60'
+                          }`}
+                        >
+                          <div className={`w-7 h-7 rounded-xl bg-white dark:bg-[#33302D] flex items-center justify-center shrink-0 shadow-xs ${w.iconColor}`}>
+                            <IconComp className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">{w.title}</span>
+                              {isSelected && (
+                                <span className="w-4 h-4 rounded-full bg-[#5C6B55] text-white flex items-center justify-center shrink-0 ml-1">
+                                  <Check className="w-2.5 h-2.5" />
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[9px] text-[#7A756D] dark:text-[#A09A90] truncate">{w.desc}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </motion.div>
@@ -303,64 +347,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
               </motion.div>
             )}
 
-            {/* STEP 4: Widget di Profilo (Scegli 2) */}
+            {/* STEP 4: Completamento (TUTTO PRONTO) */}
             {step === 4 && (
               <motion.div
                 key="step-4"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-4"
-              >
-                <div className="text-center space-y-1">
-                  <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Widget in Evidenza 📊</h2>
-                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">
-                    Scegli fino a 2 widget da mostrare in alto sul tuo profilo:
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  {WIDGET_OPTIONS.map((w) => {
-                    const isSelected = (formData.selectedWidgets || []).includes(w.id);
-                    const IconComp = w.icon;
-
-                    return (
-                      <button
-                        key={w.id}
-                        type="button"
-                        onClick={() => toggleWidget(w.id)}
-                        className={`w-full p-3 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55] shadow-xs'
-                            : 'bg-[#F4F1EA] dark:bg-[#2A2826] border-[#EBE5D9] dark:border-[#4A4743]/60'
-                        }`}
-                      >
-                        <div className={`w-8 h-8 rounded-xl bg-white dark:bg-[#33302D] flex items-center justify-center shrink-0 mt-0.5 shadow-xs ${w.iconColor}`}>
-                          <IconComp className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3]">{w.title}</span>
-                            {isSelected && (
-                              <span className="w-5 h-5 rounded-full bg-[#5C6B55] text-white flex items-center justify-center">
-                                <Check className="w-3 h-3" />
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90] mt-0.5">{w.desc}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-
-            {/* STEP 5: Completamento */}
-            {step === 5 && (
-              <motion.div
-                key="step-5"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3 }}
@@ -373,7 +363,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                 <div className="space-y-2">
                   <h2 className="text-2xl font-black text-[#31362F] dark:text-[#E0DCD3]">Tutto Pronto! 🎉</h2>
                   <p className="text-xs text-[#7A756D] dark:text-[#A09A90] max-w-xs mx-auto">
-                    Il tuo profilo BiblioDesk è pronto. Ora puoi esplorare la libreria, aggiungere i tuoi libri e collegarti con altri lettori!
+                    Il tuo profilo BiblioDesk è configurato. Ora puoi esplorare la libreria, aggiungere i tuoi libri e collegarti con altri lettori!
                   </p>
                 </div>
               </motion.div>
@@ -383,7 +373,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
 
         {/* Footer Navigazione Wizard */}
         <div className="flex items-center justify-between pt-2 border-t border-[#EBE5D9] dark:border-[#4A4743]/50 relative z-10">
-          {step > 1 && step < 5 ? (
+          {step > 1 && step < 4 ? (
             <button
               type="button"
               onClick={handlePrevStep}
@@ -401,7 +391,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
             onClick={handleNextStep}
             className="px-5 py-2.5 rounded-xl bg-[#5C6B55] hover:bg-[#4A5744] text-white font-bold text-xs shadow-md flex items-center gap-2 transition-all cursor-pointer ml-auto active:scale-95"
           >
-            <span>{step === 5 ? 'Inizia ad usare BiblioDesk' : 'Continua'}</span>
+            <span>{step === 4 ? 'Inizia ad usare BiblioDesk' : 'Continua'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
