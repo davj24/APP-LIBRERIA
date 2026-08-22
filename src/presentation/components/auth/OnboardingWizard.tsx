@@ -569,7 +569,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
               </motion.div>
             )}
 
-            {/* STEP 3: Obiettivo Annuale Lettura */}
+            {/* STEP 3: Obiettivo Annuale Lettura con Slider interattivo fino a 100 libri */}
             {step === 3 && (
               <motion.div
                 key="step-3"
@@ -581,15 +581,33 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
               >
                 <div className="space-y-1">
                   <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Obiettivo di Lettura 🎯</h2>
-                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Quanti libri desideri leggere in un anno?</p>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Quanti libri desideri leggere quest'anno?</p>
                 </div>
 
                 {/* Target Number Highlight */}
-                <div className="bg-[#F4F1EA] dark:bg-[#2A2826] p-4 rounded-3xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-2">
+                <div className="bg-[#F4F1EA] dark:bg-[#2A2826] p-4 sm:p-5 rounded-3xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4">
                   <div className="text-4xl font-black text-[#5C6B55] dark:text-[#A0AF99] flex items-center justify-center gap-2">
                     <Target className="w-8 h-8" />
                     <span>{formData.readingGoal || 24}</span>
                     <span className="text-xs font-extrabold text-[#7A756D] dark:text-[#A09A90] uppercase">libri/anno</span>
+                  </div>
+
+                  {/* Slider Interattivo da 1 a 100 libri */}
+                  <div className="space-y-2 px-2">
+                    <input
+                      type="range"
+                      min="1"
+                      max="100"
+                      step="1"
+                      value={formData.readingGoal || 24}
+                      onChange={(e) => setFormData({ ...formData, readingGoal: parseInt(e.target.value, 10) })}
+                      className="w-full h-2 bg-[#EBE5D9] dark:bg-[#4A4743] rounded-lg appearance-none cursor-pointer accent-[#5C6B55]"
+                    />
+                    <div className="flex items-center justify-between text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90]">
+                      <span>1 libro</span>
+                      <span>50 libri</span>
+                      <span>100 libri</span>
+                    </div>
                   </div>
 
                   <p className="text-[11px] font-semibold text-[#7A756D] dark:text-[#A09A90]">
@@ -597,23 +615,28 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   </p>
                 </div>
 
-                {/* Quick Goal Preset Buttons */}
-                <div className="grid grid-cols-4 gap-2">
-                  {[12, 24, 36, 50].map((goal) => (
+                {/* Quick Goal Preset Chips */}
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  {[12, 24, 36, 50, 75, 100].map((goal) => (
                     <button
                       key={goal}
                       type="button"
                       onClick={() => setFormData({ ...formData, readingGoal: goal })}
-                      className={`py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
                         formData.readingGoal === goal
-                          ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs'
-                          : 'bg-[#F4F1EA] dark:bg-[#2A2826] border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3]'
+                          ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs scale-105'
+                          : 'bg-[#F4F1EA] dark:bg-[#2A2826] border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9]'
                       }`}
                     >
                       {goal} libri
                     </button>
                   ))}
                 </div>
+
+                {/* Nota rassicurante che obiettivi e statistiche sono modificabili in seguito */}
+                <p className="text-[10px] text-[#7A756D] dark:text-[#A09A90] italic max-w-xs mx-auto leading-tight">
+                  💡 È solo il primo traguardo! Potrai sempre modificare il tuo obiettivo e le statistiche nelle Impostazioni in qualsiasi momento.
+                </p>
               </motion.div>
             )}
 
