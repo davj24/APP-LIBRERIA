@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
-  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2
+  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2, ShieldCheck, Upload
 } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import type { UserProfile } from '../../hooks/useUserProfile';
@@ -286,27 +286,37 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       </div>
                     </div>
                   ) : (
-                    /* Pulsanti azione per foto personalizzata */
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-1.5 rounded-xl bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Camera className="w-3.5 h-3.5" />
-                        <span>{formData.avatarUrl ? 'Sostituisci Immagine' : 'Scegli File'}</span>
-                      </button>
-
-                      {formData.avatarUrl && (
+                    /* Sezione Foto Personalizzata con Avviso Sicurezza & Permessi Browser */
+                    <div className="flex flex-col items-center gap-2 max-w-[290px] text-center">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={removeCustomImage}
-                          className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all cursor-pointer"
-                          title="Rimuovi foto"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3.5 py-2 rounded-xl bg-[#5C6B55] hover:bg-[#4A5744] text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{formData.avatarUrl ? 'Sostituisci Immagine' : 'Seleziona Immagine'}</span>
                         </button>
-                      )}
+
+                        {formData.avatarUrl && (
+                          <button
+                            type="button"
+                            onClick={removeCustomImage}
+                            className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all cursor-pointer"
+                            title="Rimuovi foto"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Avviso sicurezza sui permessi del browser */}
+                      <div className="flex items-start gap-1.5 text-[10px] text-[#7A756D] dark:text-[#A09A90] bg-[#F4F1EA] dark:bg-[#2A2826] p-2.5 rounded-xl border border-[#EBE5D9] dark:border-[#4A4743]/50 text-left">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                        <span className="leading-tight">
+                          I permessi di accesso ai file sono gestiti direttamente dal tuo browser. La Web App non ha alcun accesso diretto alla tua galleria.
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
