@@ -1,17 +1,40 @@
 import { useState, useEffect } from 'react';
 import type { Book, BookStatus } from '../../domain/models/Book';
 import { INITIAL_MOCK_BOOKS } from '../../infrastructure/mock/mockBooks';
+import { supabase } from '../../infrastructure/supabase/client';
 
 const STORAGE_KEY = 'bibliodesk_books_v1';
+const UPDATE_EVENT = 'bibliodesk_books_updated';
 
 export type FilterType = 'Tutti' | BookStatus;
+
+function mapDbRecordToBook(rec: any): Book {
+  return {
+    id: rec.id?.toString() || Date.now().toString(),
+    title: rec.title || 'Senza titolo',
+    author: rec.author || 'Autore sconosciuto',
+    coverUrl: rec.cover_url || rec.coverUrl || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400',
+    status: rec.status || 'Da leggere',
+    startDate: rec.start_date || rec.startDate || '',
+    endDate: rec.end_date || rec.endDate || '',
+    totalPages: rec.total_pages || rec.totalPages || undefined,
+    pagesRead: rec.pages_read || rec.pagesRead || undefined,
+    genre: rec.genre || 'Narrativa',
+    subgenre: rec.subgenre || undefined,
+    rating: rec.rating || undefined,
+    isbn: rec.isbn || undefined
+  };
+}
 
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       } catch (e) {
         console.error('Failed to parse saved books', e);
       }
@@ -20,28 +43,159 @@ export function useBooks() {
   });
 
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('Tutti');
+  const [isLoadingSync, setIsLoadingSync] = useState(false);
 
+  // Sincronizzazione automatica da Supabase all'avvio / login (Fase 1: Offline-first)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
-  }, [books]);
+    let isMounted = true;
 
-  const addBook = (bookData: Omit<Book, 'id'>) => {
+    async function syncFromSupabase() {
+      try {
+        setIsLoadingSync(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          setIsLoadingSync(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('libreria_personale')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.warn('Query Supabase libreria_personale fallita (offline o errore DB):', error.message);
+          return;
+        }
+
+        if (data && Array.isArray(data) && data.length > 0 && isMounted) {
+          const remoteBooks = data.map(mapDbRecordToBook);
+          setBooks(remoteBooks);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteBooks));
+        }
+      } catch (err) {
+        console.warn('Sincronizzazione Supabase offline-first fallback a cache locale:', err);
+      } finally {
+        if (isMounted) setIsLoadingSync(false);
+      }
+    }
+
+    syncFromSupabase();
+
+    // Event listener per sincronizzazione istantanea tra hook diversi nell'app
+    const handleBooksUpdated = () => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          setBooks(JSON.parse(saved));
+        } catch (e) {}
+      }
+    };
+
+    window.addEventListener(UPDATE_EVENT, handleBooksUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener(UPDATE_EVENT, handleBooksUpdated);
+    };
+  }, []);
+
+  // Salva ogni modifica nel localStorage e notifica gli altri hook
+  const saveBooksLocally = (newBooks: Book[]) => {
+    setBooks(newBooks);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newBooks));
+    window.dispatchEvent(new Event(UPDATE_EVENT));
+  };
+
+  /**
+   * addBookToLibrary - Aggiunta Ottimistica con Sincronizzazione Cloud e Rollback (Fase 3)
+   */
+  const addBookToLibrary = async (bookData: Omit<Book, 'id'>): Promise<{ success: boolean; book?: Book; error?: string }> => {
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const newBook: Book = {
       ...bookData,
-      id: Date.now().toString(),
+      id: tempId,
       coverUrl: bookData.coverUrl.trim() || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400'
     };
-    setBooks(prev => [newBook, ...prev]);
+
+    // 1. Approccio Ottimistico (Optimistic UI): Aggiungi IMMEDIATAMENTE allo stato locale
+    const updatedBooks = [newBook, ...books];
+    saveBooksLocally(updatedBooks);
+
+    try {
+      // 2. Inserimento in background su Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from('libreria_personale')
+          .insert([{
+            user_id: session.user.id,
+            title: newBook.title,
+            author: newBook.author,
+            cover_url: newBook.coverUrl,
+            status: newBook.status || 'Da leggere',
+            start_date: newBook.startDate || null,
+            end_date: newBook.endDate || null,
+            total_pages: newBook.totalPages || null,
+            pages_read: newBook.pagesRead || 0,
+            genre: newBook.genre || 'Narrativa',
+            subgenre: newBook.subgenre || null,
+            rating: newBook.rating || null,
+            isbn: newBook.isbn || null
+          }])
+          .select();
+
+        if (error) {
+          throw new Error(error.message || 'Errore durante l\'inserimento su Supabase');
+        }
+
+        // Se Supabase restituisce il record con l'UUID reale, aggiorna l'ID locale
+        if (data && data[0] && data[0].id) {
+          const realId = data[0].id.toString();
+          const finalBooks = updatedBooks.map(b => b.id === tempId ? { ...b, id: realId } : b);
+          saveBooksLocally(finalBooks);
+          return { success: true, book: { ...newBook, id: realId } };
+        }
+      }
+
+      return { success: true, book: newBook };
+    } catch (err: any) {
+      console.error('Inserimento cloud fallito. Esecuzione Rollback...', err);
+      // 3. Rollback: Rimuovi il libro dallo stato locale se il salvataggio cloud fallisce
+      const rolledBackBooks = books.filter(b => b.id !== tempId);
+      saveBooksLocally(rolledBackBooks);
+
+      return {
+        success: false,
+        error: err.message || 'Connessione assente o errore di salvataggio in cloud. Modifica annullata.'
+      };
+    }
   };
 
-  const deleteBook = (id: string) => {
-    setBooks(prev => prev.filter(b => b.id !== id));
+  // Wrapper compatibile per addBook semplice
+  const addBook = (bookData: Omit<Book, 'id'>) => {
+    addBookToLibrary(bookData);
   };
 
-  const updateBookStatus = (id: string, status: BookStatus) => {
-    setBooks(prev => prev.map(book => {
+  const deleteBook = async (id: string) => {
+    const updated = books.filter(b => b.id !== id);
+    saveBooksLocally(updated);
+
+    try {
+      if (!id.startsWith('temp-')) {
+        await supabase.from('libreria_personale').delete().eq('id', id);
+      }
+    } catch (e) {
+      console.warn('Errore eliminazione Supabase:', e);
+    }
+  };
+
+  const updateBookStatus = async (id: string, status: BookStatus) => {
+    const today = new Date().toISOString().split('T')[0];
+    let updatedBookRef: Book | null = null;
+
+    const updated = books.map(book => {
       if (book.id === id) {
-        const today = new Date().toISOString().split('T')[0];
         let startDate = book.startDate;
         let endDate = book.endDate;
 
@@ -52,14 +206,57 @@ export function useBooks() {
           endDate = today;
         }
 
-        return { ...book, status, startDate, endDate };
+        updatedBookRef = { ...book, status, startDate, endDate };
+        return updatedBookRef;
       }
       return book;
-    }));
+    });
+
+    saveBooksLocally(updated);
+
+    if (updatedBookRef && !id.startsWith('temp-')) {
+      try {
+        await supabase
+          .from('libreria_personale')
+          .update({
+            status: (updatedBookRef as Book).status,
+            start_date: (updatedBookRef as Book).startDate || null,
+            end_date: (updatedBookRef as Book).endDate || null
+          })
+          .eq('id', id);
+      } catch (e) {
+        console.warn('Errore aggiornamento stato Supabase:', e);
+      }
+    }
   };
 
-  const updateBook = (updatedBook: Book) => {
-    setBooks(prev => prev.map(book => (book.id === updatedBook.id ? updatedBook : book)));
+  const updateBook = async (updatedBook: Book) => {
+    const updated = books.map(book => (book.id === updatedBook.id ? updatedBook : book));
+    saveBooksLocally(updated);
+
+    if (!updatedBook.id.startsWith('temp-')) {
+      try {
+        await supabase
+          .from('libreria_personale')
+          .update({
+            title: updatedBook.title,
+            author: updatedBook.author,
+            cover_url: updatedBook.coverUrl,
+            status: updatedBook.status,
+            start_date: updatedBook.startDate || null,
+            end_date: updatedBook.endDate || null,
+            total_pages: updatedBook.totalPages || null,
+            pages_read: updatedBook.pagesRead || 0,
+            genre: updatedBook.genre || null,
+            subgenre: updatedBook.subgenre || null,
+            rating: updatedBook.rating || null,
+            isbn: updatedBook.isbn || null
+          })
+          .eq('id', updatedBook.id);
+      } catch (e) {
+        console.warn('Errore aggiornamento libro Supabase:', e);
+      }
+    }
   };
 
   const filteredBooks = books.filter(book => {
@@ -68,12 +265,13 @@ export function useBooks() {
   });
 
   const updateBookPages = (id: string, pagesRead: number) => {
-    setBooks(prev => prev.map(book => {
+    const updated = books.map(book => {
       if (book.id === id) {
         return { ...book, pagesRead };
       }
       return book;
-    }));
+    });
+    saveBooksLocally(updated);
   };
 
   return {
@@ -81,6 +279,8 @@ export function useBooks() {
     filteredBooks,
     selectedFilter,
     setSelectedFilter,
+    isLoadingSync,
+    addBookToLibrary,
     addBook,
     deleteBook,
     updateBookStatus,
