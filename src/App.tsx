@@ -12,11 +12,14 @@ import { SocialPage } from './presentation/pages/SocialPage';
 import { StatsPage } from './presentation/pages/StatsPage';
 import { ProfilePage } from './presentation/pages/ProfilePage';
 import { AuthPage } from './presentation/pages/AuthPage';
+import { OnboardingWizard } from './presentation/components/auth/OnboardingWizard';
+import { useUserProfile } from './presentation/hooks/useUserProfile';
 
 function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>(0);
+  const { profile, updateProfile } = useUserProfile();
 
   useEffect(() => {
     // 1. Recupera la sessione iniziale di Supabase al montaggio dell'app
@@ -67,7 +70,17 @@ function AppContent() {
     return <AuthPage />;
   }
 
-  // Se l'utente è autenticato (session presente), mostra la Dashboard/Layout principale
+  // Se l'utente è autenticato ma non ha completato l'onboarding iniziale del profilo
+  if (!profile.isCompleted) {
+    return (
+      <OnboardingWizard
+        userEmail={session.user?.email}
+        onComplete={() => updateProfile({ isCompleted: true })}
+      />
+    );
+  }
+
+  // Se l'utente è autenticato e il profilo è configurato, mostra la Dashboard/Layout principale
   const renderActivePage = () => {
     switch (activeTab) {
       case 0:

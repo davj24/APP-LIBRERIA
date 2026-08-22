@@ -9,14 +9,16 @@ export interface UserProfile {
   avatarUrl?: string;
   bannerUrl?: string;
   selectedWidgets?: string[];
+  isCompleted?: boolean;
 }
 
 const DEFAULT_PROFILE: UserProfile = {
-  name: 'Davide',
-  bio: 'Lettore Digitale • Notion Sync Ready',
+  name: 'Nuovo Lettore',
+  bio: 'Appassionato di lettura su BiblioDesk',
   readingGoal: 24,
   avatarColor: 'from-indigo-600 to-violet-500',
-  selectedWidgets: ['read_count', 'reading_count']
+  selectedWidgets: ['read_count', 'reading_count'],
+  isCompleted: false
 };
 
 const STORAGE_KEY = 'bibliodesk_user_profile';
@@ -53,6 +55,14 @@ export function useUserProfile() {
     setProfile(prev => ({ ...prev, ...newProfile }));
   };
 
+  const completeOnboarding = (onboardingData: Partial<UserProfile>) => {
+    setProfile(prev => ({
+      ...prev,
+      ...onboardingData,
+      isCompleted: true
+    }));
+  };
+
   const getInitials = () => {
     if (!profile.name) return 'D';
     return profile.name.trim().charAt(0).toUpperCase();
@@ -61,6 +71,7 @@ export function useUserProfile() {
   return {
     profile,
     updateProfile,
+    completeOnboarding,
     initials: getInitials()
   };
 }
