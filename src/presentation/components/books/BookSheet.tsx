@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { BookOpen, Heart, Share2, Plus, Check, X, Loader2, ExternalLink, Building2 } from 'lucide-react';
-import { generateShopLinks, type ShopLink } from '../../../infrastructure/helpers/ShopLinksHelper';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Heart, Plus, Check, Share2, BookOpen, Building2 } from 'lucide-react';
 import { SaveToListModal } from './SaveToListModal';
+import { BookStoreActions } from './BookStoreActions';
+import type { BookStatus } from '../../../domain/models/Book';
+import { useRegisterModal } from '../../context/ModalContext';
 
 export interface BookSheetBook {
   id: string;
@@ -14,11 +16,11 @@ export interface BookSheetBook {
   pages?: number | string | null;
   year?: number | string | null;
   publisher?: string | null;
-  genre?: string;
-  isbn?: string | null;
   category?: string | null;
   rating?: number | null;
   isFavorite?: boolean;
+  isbn?: string | null;
+  genre?: string;
   source?: string;
   rawItem?: any;
 }
@@ -29,14 +31,15 @@ interface BookSheetProps {
   book: BookSheetBook | null;
   isLoadingDetails?: boolean;
   onAddBook?: (book: BookSheetBook) => void;
-  onToggleFavorite?: (book: BookSheetBook) => void;
 }
 
-// Helper per sanitizzare e migliorare gli URL delle copertine (Google Books API Fix)
-const getValidImageUrl = (url: string | undefined | null) => {
+function getValidImageUrl(url?: string | null): string | null {
   if (!url) return null;
-  return url.replace('http:', 'https:').replace('&edge=curl', '').replace('zoom=1', 'zoom=2');
-};
+  const trimmed = url.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+  if (trimmed.startsWith('http://')) return trimmed.replace(/^http:/, 'https:');
+  return trimmed;
+}
 
 export const BookSheet: React.FC<BookSheetProps> = ({
   isOpen,
@@ -44,39 +47,18 @@ export const BookSheet: React.FC<BookSheetProps> = ({
   book,
   isLoadingDetails = false,
   onAddBook,
-  onToggleFavorite
 }) => {
+  useRegisterModal(isOpen);
   const [isAdded, setIsAdded] = useState(false);
   const [isSaveToListOpen, setIsSaveToListOpen] = useState(false);
-  const controls = useDragControls();
-
-  // Blocca lo scroll del body sottostante quando il sheet è aperto
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    setIsAdded(false);
-    setIsSaveToListOpen(false);
-  }, [book]);
 
   if (!book) return null;
 
-  const cleanCoverUrl = getValidImageUrl(book.cover);
-  const shopLinks = generateShopLinks(book.isbn, book.title, book.author);
-
   const handleAdd = () => {
-    if (onAddBook) {
+    if (onAddBook && !isAdded) {
       onAddBook(book);
       setIsAdded(true);
+      setTimeout(() => setIsAdded(false), 3000);
     }
   };
 
@@ -85,73 +67,69 @@ export const BookSheet: React.FC<BookSheetProps> = ({
       try {
         await navigator.share({
           title: book.title,
-          text: `Scopri "${book.title}" di ${book.author} su App Libreria!`,
+          text: `Scopri "${book.title}" di ${book.author} su BiblioDesk!`,
           url: window.location.href,
         });
       } catch (err) {
-        console.warn('Condivisione annullata o non supportata', err);
+        console.log('Condivisione annullata o non supportata');
       }
     } else {
-      navigator.clipboard?.writeText?.(`${book.title} - ${book.author}`);
+      navigator.clipboard.writeText(`"${book.title}" di ${book.author}`);
       alert('Info libro copiate negli appunti!');
     }
   };
+
+  const handleSaveToList = ({ isFavorite }: { status?: BookStatus; isFavorite?: boolean; listName: string }) => {
+    if (onAddBook) {
+      onAddBook({
+        ...book,
+        isFavorite: isFavorite ?? book.isFavorite,
+      });
+      setIsAdded(true);
+      setTimeout(() => setIsAdded(false), 3000);
+    }
+  };
+
+  const cleanCoverUrl = getValidImageUrl(book.cover);
 
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <AnimatePresence>
-      {isOpen && book && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center">
-          {/* Backdrop scuro con sfocatura */}
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
+          {/* Backdrop Scuro */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[100]"
           />
 
-          {/* Pannello Principale Bottom Sheet */}
+          {/* Bottom Sheet Modal */}
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            onClick={(e) => e.stopPropagation()}
-            drag="y"
-            dragControls={controls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.8 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 100 || info.velocity.y > 200) {
-                onClose();
-              }
-            }}
-            className="fixed inset-x-0 bottom-0 z-[101] w-full max-w-lg mx-auto bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] rounded-t-[32px] shadow-2xl overflow-hidden max-h-[85vh] flex flex-col border-t border-[#DCD5C6]/60 dark:border-[#4A4743]/60"
+            className="relative z-[101] max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 transition-colors"
           >
-            {/* AREA MANIGLIA ATTIVA */}
-            <div
-              className="flex w-full cursor-grab active:cursor-grabbing justify-center pt-4 pb-4 touch-none shrink-0"
-              onPointerDown={(e) => controls.start(e)}
+            {/* Pulsante di Chiusura 'X' */}
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 z-20 rounded-full bg-black/10 dark:bg-white/10 p-2 text-neutral-600 dark:text-neutral-300 hover:bg-black/20 dark:hover:bg-white/20 transition-colors cursor-pointer"
             >
+              <X size={20} />
+            </button>
+
+            {/* Handle di Trascinamento Mobile */}
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700" />
             </div>
 
-            {/* Pulsante di chiusura rapido */}
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 p-2 rounded-full bg-[#EBE5D9]/60 dark:bg-[#383532]/60 text-[#7A756D] dark:text-[#A09A90] hover:text-[#4A4743] dark:hover:text-[#E0DCD3] transition-colors z-10"
-              title="Chiudi"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Contenuto scorrevole interno */}
-            <div className="p-6 overflow-y-auto space-y-6">
-              {/* HEADER E COPERTINA */}
+            <div className="p-6 space-y-6">
+              {/* HEADER INFO LIBRO: Copertina + Titolo + Autore */}
               <div className="flex flex-col items-center text-center">
                 {cleanCoverUrl ? (
                   <img
@@ -177,7 +155,7 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                 </p>
 
                 {/* BADGE METADATA (Anno, Pagine, Editore, Categoria, Rating) */}
-                <div className="flex flex-wrap items-center justify-center gap-2 mb-6 px-4">
+                <div className="flex flex-wrap items-center justify-center gap-2 mb-2 px-4">
                   {book.year && (
                     <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-3 py-1 text-xs font-medium text-neutral-600 dark:text-neutral-300">
                       {book.year}
@@ -212,12 +190,12 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                 </div>
               </div>
 
-              {/* BOTTONI DI AZIONE */}
+              {/* BOTTONI DI AZIONE PRIMARI */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleAdd}
                   disabled={isAdded}
-                  className={`flex-1 py-3.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98 ${
+                  className={`flex-1 py-3.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98 cursor-pointer ${
                     isAdded
                       ? 'bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] cursor-default'
                       : 'bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] hover:bg-[#A0AF99] dark:hover:bg-[#4D5A47]'
@@ -254,56 +232,41 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                 </button>
               </div>
 
-              {/* SEZIONE LINK D'ACQUISTO / CONFRONTA PREZZI */}
-              {shopLinks.length > 0 && (
-                <div className="bg-[#F4F1EA] dark:bg-[#2A2826] p-4 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-2">
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#7A756D] dark:text-[#A09A90]">
-                    Acquista Online / Confronta Prezzi
-                  </h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    {shopLinks.map((shop: ShopLink) => (
-                      <a
-                        key={shop.name}
-                        href={shop.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="py-2 px-2 rounded-xl bg-[#FCFBF8] dark:bg-[#33302D] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-[#DCD5C6] dark:border-[#4A4743]/60 text-center"
-                      >
-                        <ExternalLink className="w-3 h-3 text-[#5C6B55] dark:text-[#A0AF99] shrink-0" />
-                        <span className="truncate">{shop.name}</span>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* SEZIONE AZIONI COMMERCIALI ED USATO (BookStoreActions) */}
+              <div className="pt-2">
+                <BookStoreActions
+                  book={{
+                    title: book.title,
+                    author: book.author,
+                    isbn: book.isbn,
+                  }}
+                />
+              </div>
 
               {/* SEZIONE SINOSSI / TRAMA CON SKELETON LOADING */}
-              <div className="mt-6 mb-8 px-2">
+              <div className="pt-2 mb-8">
                 <h3 className="mb-3 text-lg font-bold text-neutral-900 dark:text-white flex items-center justify-between">
                   <span>Sinossi</span>
                   {isLoadingDetails && (
                     <span className="inline-flex items-center gap-1.5 text-xs text-[#7A756D] dark:text-[#A09A90] font-normal animate-pulse">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#B0BEA9] dark:text-[#5C6B55]" />
-                      <span>Caricamento dettagli completi...</span>
+                      Caricamento trama...
                     </span>
                   )}
                 </h3>
 
                 {isLoadingDetails && !book.description ? (
-                  <div className="space-y-2 py-3 animate-pulse">
-                    <div className="h-4 bg-[#EBE5D9] dark:bg-[#4A4743] rounded w-3/4" />
-                    <div className="h-4 bg-[#EBE5D9] dark:bg-[#4A4743] rounded w-full" />
-                    <div className="h-4 bg-[#EBE5D9] dark:bg-[#4A4743] rounded w-5/6" />
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded-md w-full" />
+                    <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded-md w-5/6" />
+                    <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded-md w-4/6" />
                   </div>
                 ) : book.description ? (
-                  <div className="relative">
-                    <p className="text-neutral-600 dark:text-neutral-300 leading-relaxed text-sm whitespace-pre-wrap">
-                      {book.description}
-                    </p>
-                  </div>
+                  <p className="text-sm font-medium leading-relaxed text-neutral-700 dark:text-neutral-300 whitespace-pre-line">
+                    {book.description}
+                  </p>
                 ) : (
-                  <p className="text-center italic text-neutral-500 py-6 border border-dashed border-neutral-300 dark:border-neutral-700 rounded-xl">
-                    La trama non è disponibile per questa edizione.
+                  <p className="text-sm italic text-neutral-400 dark:text-neutral-500">
+                    Nessuna descrizione o trama disponibile per questo libro.
                   </p>
                 )}
               </div>
@@ -317,18 +280,7 @@ export const BookSheet: React.FC<BookSheetProps> = ({
               bookAuthor={book.author}
               coverUrl={cleanCoverUrl}
               isFavorite={book.isFavorite}
-              onSaveToList={(targetList) => {
-                if (onAddBook) {
-                  onAddBook({
-                    ...book,
-                    isFavorite: targetList.isFavorite !== undefined ? targetList.isFavorite : book.isFavorite,
-                  });
-                  setIsAdded(true);
-                }
-                if (targetList.isFavorite && onToggleFavorite) {
-                  onToggleFavorite(book);
-                }
-              }}
+              onSaveToList={handleSaveToList}
             />
           </motion.div>
         </div>
