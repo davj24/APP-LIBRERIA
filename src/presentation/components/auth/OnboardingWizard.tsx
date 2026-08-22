@@ -615,23 +615,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   </p>
                 </div>
 
-                {/* Quick Goal Preset Chips */}
-                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                  {[12, 24, 36, 50, 75, 100].map((goal) => (
-                    <button
-                      key={goal}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, readingGoal: goal })}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
-                        formData.readingGoal === goal
-                          ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs scale-105'
-                          : 'bg-[#F4F1EA] dark:bg-[#2A2826] border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9]'
-                      }`}
-                    >
-                      {goal} libri
-                    </button>
-                  ))}
-                </div>
+
 
                 {/* Nota rassicurante che obiettivi e statistiche sono modificabili in seguito */}
                 <p className="text-[10px] text-[#7A756D] dark:text-[#A09A90] italic max-w-xs mx-auto leading-tight">
