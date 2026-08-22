@@ -12,6 +12,7 @@ import { SearchBar, type FormattedBookResult } from '../components/books/SearchB
 import { BookSheet, type BookSheetBook } from '../components/books/BookSheet';
 import { CurrentlyReadingCard } from '../components/dashboard/CurrentlyReadingCard';
 import { useBooks } from '../hooks/useBooks';
+import { getBookDetail } from '../../infrastructure/services/federatedBookSearch';
 import { BookOpen, Clock, CheckCircle2, Users, Tag } from 'lucide-react';
 
 export type LibrarySubTab = 'books' | 'authors' | 'genres';
@@ -63,8 +64,8 @@ export const LibraryPage: React.FC = () => {
   const toReadCount = books.filter(b => b.status === 'Da leggere').length;
   const readCount = books.filter(b => b.status === 'Letto').length;
 
-  // Selezione libro dai risultati di ricerca
-  const handleBookSelect = (baseBook: FormattedBookResult) => {
+  // Selezione libro dai risultati di ricerca con Lazy Hydration
+  const handleBookSelect = async (baseBook: FormattedBookResult) => {
     const sheetBook: BookSheetBook = {
       id: baseBook.id || String(Math.random()),
       title: baseBook.title || 'Titolo Sconosciuto',
@@ -73,16 +74,49 @@ export const LibraryPage: React.FC = () => {
       description: baseBook.description || null,
       pages: baseBook.pages || null,
       year: baseBook.year || null,
+      publisher: baseBook.publisher || null,
       category: baseBook.category || null,
       rating: baseBook.rating || null,
       isbn: baseBook.isbn || null,
+      source: baseBook.source || 'google',
       genre: baseBook.category || 'Digitale',
       rawItem: baseBook.rawItem || baseBook
     };
 
     setSelectedBookDetails(sheetBook);
     setIsSheetOpen(true);
-    setIsLoadingDetails(false);
+
+    const needsDetailFetch = !baseBook.description || !baseBook.publisher;
+    setIsLoadingDetails(needsDetailFetch);
+
+    if (needsDetailFetch) {
+      try {
+        const details = await getBookDetail(
+          baseBook.id,
+          (baseBook.source as any) || 'google',
+          baseBook.isbn,
+          baseBook.title,
+          baseBook.author
+        );
+
+        setSelectedBookDetails((prev) =>
+          prev
+            ? {
+                ...prev,
+                description: details.description || prev.description || null,
+                pages: details.pageCount || prev.pages || null,
+                publisher: details.publisher || prev.publisher || null,
+                year: details.publishedYear || prev.year || null,
+                isbn: details.isbn || prev.isbn
+              }
+            : null
+        );
+      } catch (e) {
+        console.warn('Errore idratazione dettagli per LibraryPage:', e);
+      } finally {
+        setIsLoadingDetails(false);
+      }
+    }
   };
 
   const handleAddFromSheet = (bSheet: BookSheetBook) => {
@@ -95,7 +129,8 @@ export const LibraryPage: React.FC = () => {
       status: 'Da leggere',
       totalPages: typeof bSheet.pages === 'number' ? bSheet.pages : (parseInt(String(bSheet.pages)) || 300),
       pagesRead: 0,
-      genre: bSheet.genre || bSheet.category || 'Digitale'
+      genre: bSheet.genre || bSheet.category || 'Digitale',
+      isbn: bSheet.isbn || undefined
     });
   };
 
@@ -250,7 +285,6 @@ export const LibraryPage: React.FC = () => {
         onDeleteBook={deleteBook}
       />
 
-
       {/* Add Modals */}
       <AddBookChoiceModal
         isOpen={isChoiceModalOpen}
@@ -272,7 +306,7 @@ export const LibraryPage: React.FC = () => {
         onAddBook={addBook}
       />
 
-      {/* Componente BookSheet (Bottom Sheet dei dettagli libro con Fetch Secondario per Trama Perfetta) */}
+      {/* Componente BookSheet per i dettagli dei libri da ricerca */}
       <BookSheet
         isOpen={isSheetOpen}
         onClose={() => setIsSheetOpen(false)}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { federatedBookSearch } from '../../../infrastructure/services/federatedBookSearch';
 
 export type SearchStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -9,11 +10,10 @@ interface OrbitalSearchIconProps {
   isIsbn: boolean;
 }
 
-// 1. L'Icona Vettoriale Animata (Il Nucleo Orbitale - IMMUTATA)
+// 1. L'Icona Vettoriale Animata (Il Nucleo Orbitale)
 export const OrbitalSearchIcon: React.FC<OrbitalSearchIconProps> = ({ status, isIsbn }) => {
   return (
     <div className="relative w-6 h-6 flex items-center justify-center">
-      {/* Onda d'urto al termine della ricerca */}
       {status === 'success' && (
         <motion.div
           initial={{ scale: 1, opacity: 0.8 }}
@@ -23,9 +23,7 @@ export const OrbitalSearchIcon: React.FC<OrbitalSearchIconProps> = ({ status, is
         />
       )}
 
-      {/* Contenitore SVG Principale */}
       <motion.svg width="24" height="24" viewBox="0 0 24 24" className="absolute text-[#9E988F] dark:text-[#88837A]">
-        {/* Anello Orbitale (Gira durante il caricamento) */}
         <motion.circle
           cx="12"
           cy="12"
@@ -47,7 +45,6 @@ export const OrbitalSearchIcon: React.FC<OrbitalSearchIconProps> = ({ status, is
           }}
         />
 
-        {/* Il Nucleo Interno (Pallino o Codice a Barre) */}
         <motion.g
           initial={false}
           animate={{
@@ -56,19 +53,16 @@ export const OrbitalSearchIcon: React.FC<OrbitalSearchIconProps> = ({ status, is
           }}
         >
           {isIsbn ? (
-            // Vettori del Codice a Barre
             <>
               <motion.rect x="9" y="8" width="1.5" height="8" fill="currentColor" />
               <motion.rect x="11.5" y="8" width="1" height="8" fill="currentColor" />
               <motion.rect x="13.5" y="8" width="1.5" height="8" fill="currentColor" />
             </>
           ) : (
-            // Vettore del Pallino (Nucleo)
             <motion.circle cx="12" cy="12" r="2.5" fill="currentColor" />
           )}
         </motion.g>
 
-        {/* Spunta di Successo (Sostituisce il nucleo) */}
         <motion.path
           d="M7 13l3 3 7-7"
           fill="none"
@@ -96,9 +90,11 @@ export interface FormattedBookResult {
   description?: string | null;
   pages?: number | string | null;
   year?: string | null;
+  publisher?: string | null;
   category?: string | null;
   rating?: number | null;
   isbn?: string | null;
+  source?: string;
   rawItem?: any;
 }
 
@@ -109,7 +105,7 @@ interface SearchBarProps {
   onSearchActive?: (isActive: boolean) => void;
 }
 
-// 2. La Barra di Ricerca con Logica Ibrida (Google Books + OpenLibrary Fallback)
+// 2. La Barra di Ricerca con Ricerca Federata Ibrida (Google Books + Open Library + OPAC SBN)
 export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive }: SearchBarProps) {
   const [internalQuery, setInternalQuery] = useState("");
   const [status, setStatus] = useState<SearchStatus>("idle");
@@ -118,8 +114,8 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
 
   const query = value !== undefined ? value : internalQuery;
 
-  // Controlla se è un ISBN (solo numeri)
-  const isIsbn = query.trim().length > 0 && /^\d+$/.test(query.trim());
+  // Controlla se è un ISBN (solo numeri o trattini)
+  const isIsbn = query.trim().length > 0 && /^[\d\s-]+$/.test(query.trim()) && query.replace(/\D/g, '').length >= 9;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -142,7 +138,6 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
     if (onSearchActive) onSearchActive(false);
   };
 
-  // Fix per chiudere la tastiera da Mobile
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -150,7 +145,6 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
     }
   };
 
-  // Auto-dismiss keyboard when scrolling or dragging page
   useEffect(() => {
     const handleScrollOrTouch = () => {
       if (document.activeElement === inputRef.current) {
@@ -167,10 +161,10 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
     };
   }, []);
 
-  // Logica di Fetching tramite Open Library
+  // Fetching tramite federatedBookSearch (Google Books + Open Library + SBN)
   useEffect(() => {
     const searchTerm = query.trim();
-    if (!searchTerm || searchTerm.length < 3) {
+    if (!searchTerm || searchTerm.length < 2) {
       setResults([]);
       setStatus("idle");
       if (onSearchActive) onSearchActive(false);
@@ -182,22 +176,23 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
 
     const fetchBooks = async () => {
       try {
-        const openLibRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchTerm)}&limit=15`);
-        const openLibData = await openLibRes.json();
+        const webBooks = await federatedBookSearch(searchTerm);
         
-        if (openLibData.docs && openLibData.docs.length > 0) {
-          const formattedResults: FormattedBookResult[] = openLibData.docs.map((doc: any) => ({
-            id: doc.key,
-            title: doc.title,
-            author: doc.author_name ? doc.author_name[0] : 'Autore Sconosciuto',
-            cover: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null,
-            description: doc.first_sentence ? (Array.isArray(doc.first_sentence) ? doc.first_sentence[0] : doc.first_sentence) : null,
-            pages: doc.number_of_pages_median || null,
-            year: doc.first_publish_year ? doc.first_publish_year.toString() : null,
-            category: null,
+        if (webBooks && webBooks.length > 0) {
+          const formattedResults: FormattedBookResult[] = webBooks.map((wb) => ({
+            id: wb.id,
+            title: wb.title,
+            author: wb.author,
+            cover: wb.coverUrl,
+            description: wb.description || null,
+            pages: wb.totalPages || null,
+            publisher: wb.publisher || null,
+            year: wb.publishedYear || null,
+            category: wb.genre || null,
             rating: null,
-            isbn: doc.isbn ? doc.isbn[0] : null,
-            rawItem: doc
+            isbn: wb.isbn || null,
+            source: wb.source,
+            rawItem: wb
           }));
           setResults(formattedResults);
           setStatus("success");
@@ -206,7 +201,7 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
           setStatus("error");
         }
       } catch (error) {
-        console.error('Errore durante la ricerca libri:', error);
+        console.error('Errore durante la ricerca federata libri:', error);
         setResults([]);
         setStatus("error");
       }
@@ -214,7 +209,7 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
 
     const timer = setTimeout(() => {
       fetchBooks();
-    }, 600);
+    }, 350);
 
     return () => clearTimeout(timer);
   }, [query]);
@@ -243,32 +238,29 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
           className="w-full py-4 pl-6 pr-14 bg-[#FCFBF8] dark:bg-[#33302D] rounded-full border border-[#DCD5C6] dark:border-[#4A4743]/50 focus:outline-none focus:ring-2 focus:ring-[#B0BEA9] transition-all text-[#4A4743] dark:text-[#E0DCD3]"
         />
 
-        {/* Pulsante 'X' per svuotare la ricerca istantaneamente */}
         {query.length > 0 && (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-[#9E988F] dark:text-[#88837A] hover:text-[#4A4743] dark:hover:text-[#E0DCD3] transition-colors z-10"
+            className="absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-[#9E988F] dark:text-[#88837A] hover:text-[#4A4743] dark:hover:text-[#E0DCD3] transition-colors z-10 cursor-pointer"
             title="Svuota ricerca"
           >
             <X size={18} />
           </button>
         )}
 
-        {/* Contenitore Icona a destra */}
         <div className="absolute right-4 pointer-events-none">
           <OrbitalSearchIcon status={status} isIsbn={isIsbn} />
         </div>
       </div>
 
-      {/* Messaggi di Feedback di Stato Visivi */}
       {status === 'loading' && (
         <p className="text-center mt-4 text-xs font-semibold text-[#7A756D] dark:text-[#A09A90] animate-pulse">
-          Ricerca nel catalogo globale in corso...
+          Ricerca nei cataloghi globali (Google Books, Open Library, OPAC SBN)...
         </p>
       )}
 
-      {status === 'error' && query.trim().length >= 3 && (
+      {status === 'error' && query.trim().length >= 2 && (
         <p className="text-center mt-4 text-xs text-rose-500 font-medium">
           Nessun libro trovato nei cataloghi globali. Prova con altri termini.
         </p>
@@ -286,7 +278,7 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
           >
             <div className="p-2.5 bg-[#EBE5D9]/40 dark:bg-[#383532]/40 border-b border-[#DCD5C6] dark:border-[#4A4743]/50 flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#7A756D] dark:text-[#A09A90] uppercase tracking-wider">
-                Risultati Catalogo Globale
+                Risultati Cataloghi Globali
               </span>
               <span className="text-[10px] font-semibold text-[#B0BEA9] dark:text-[#5C6B55]">
                 {results.length} libri trovati
@@ -297,13 +289,13 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
               <div
                 key={book.id}
                 onClick={() => handleSelectResult(book)}
-                className="flex items-center gap-3.5 p-3 hover:bg-[#F4F1EA] dark:hover:bg-[#4A4743] cursor-pointer border-b last:border-b-0 border-[#DCD5C6]/60 dark:border-[#4A4743]/40 transition-colors"
+                className="flex items-center gap-3.5 p-3 hover:bg-[#F4F1EA] dark:hover:bg-[#4A4743] cursor-pointer border-b last:border-b-0 border-[#DCD5C6]/60 dark:border-[#4A4743]/40 transition-colors group"
               >
                 {book.cover ? (
                   <img
                     src={book.cover}
                     alt={book.title}
-                    className="w-10 h-14 object-cover rounded-lg border border-[#DCD5C6] dark:border-[#4A4743]/60 shrink-0 shadow-xs"
+                    className="w-10 h-14 object-cover rounded-lg border border-[#DCD5C6] dark:border-[#4A4743]/60 shrink-0 shadow-xs group-hover:scale-105 transition-transform"
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = 'none';
                     }}
@@ -315,7 +307,17 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
                 )}
 
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-xs text-[#4A4743] dark:text-[#E0DCD3] line-clamp-1">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 text-[#5C6B55] dark:text-[#A0AF99]">
+                      {book.source === 'openlibrary' ? 'Open Library' : book.source === 'sbn' ? 'OPAC SBN' : 'Google Books'}
+                    </span>
+                    {book.year && (
+                      <span className="text-[10px] text-[#7A756D] dark:text-[#A09A90]">
+                        • {book.year}
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="font-semibold text-xs text-[#4A4743] dark:text-[#E0DCD3] line-clamp-1 group-hover:text-[#5C6B55] dark:group-hover:text-[#A0AF99] transition-colors">
                     {book.title}
                   </h4>
                   <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90] line-clamp-1 mt-0.5">
