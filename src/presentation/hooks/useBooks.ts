@@ -107,22 +107,24 @@ export function useBooks() {
   };
 
   /**
-   * addBookToLibrary - Aggiunta Ottimistica con Sincronizzazione Cloud e Rollback (Fase 3)
+   * addBookToLibrary - Approccio Offline-First Garantito (Fase 3)
+   * Il libro viene SEMPRE salvato con successo in locale.
+   * La sincronizzazione Supabase avviene in background senza mai cancellare il libro se la rete fallisce.
    */
   const addBookToLibrary = async (bookData: Omit<Book, 'id'>): Promise<{ success: boolean; book?: Book; error?: string }> => {
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const tempId = `book-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const newBook: Book = {
       ...bookData,
       id: tempId,
-      coverUrl: bookData.coverUrl.trim() || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400'
+      coverUrl: bookData.coverUrl ? bookData.coverUrl.trim() : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400'
     };
 
-    // 1. Approccio Ottimistico (Optimistic UI): Aggiungi IMMEDIATAMENTE allo stato locale
+    // 1. Salvataggio locale immediato e garantito (Offline-first)
     const updatedBooks = [newBook, ...books];
     saveBooksLocally(updatedBooks);
 
     try {
-      // 2. Inserimento in background su Supabase
+      // 2. Sincronizzazione in background su Supabase
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
@@ -146,11 +148,8 @@ export function useBooks() {
           .select();
 
         if (error) {
-          throw new Error(error.message || 'Errore durante l\'inserimento su Supabase');
-        }
-
-        // Se Supabase restituisce il record con l'UUID reale, aggiorna l'ID locale
-        if (data && data[0] && data[0].id) {
+          console.warn('Avviso sincronizzazione Supabase (libro mantenuto in locale):', error.message);
+        } else if (data && data[0] && data[0].id) {
           const realId = data[0].id.toString();
           const finalBooks = updatedBooks.map(b => b.id === tempId ? { ...b, id: realId } : b);
           saveBooksLocally(finalBooks);
@@ -160,15 +159,9 @@ export function useBooks() {
 
       return { success: true, book: newBook };
     } catch (err: any) {
-      console.error('Inserimento cloud fallito. Esecuzione Rollback...', err);
-      // 3. Rollback: Rimuovi il libro dallo stato locale se il salvataggio cloud fallisce
-      const rolledBackBooks = books.filter(b => b.id !== tempId);
-      saveBooksLocally(rolledBackBooks);
-
-      return {
-        success: false,
-        error: err.message || 'Connessione assente o errore di salvataggio in cloud. Modifica annullata.'
-      };
+      console.warn('Sincronizzazione cloud non riuscita. Libro conservato in locale:', err);
+      // Il libro resta salvato nella libreria locale dell'utente!
+      return { success: true, book: newBook };
     }
   };
 
@@ -182,7 +175,7 @@ export function useBooks() {
     saveBooksLocally(updated);
 
     try {
-      if (!id.startsWith('temp-')) {
+      if (!id.startsWith('temp-') && !id.startsWith('book-')) {
         await supabase.from('libreria_personale').delete().eq('id', id);
       }
     } catch (e) {
@@ -214,7 +207,7 @@ export function useBooks() {
 
     saveBooksLocally(updated);
 
-    if (updatedBookRef && !id.startsWith('temp-')) {
+    if (updatedBookRef && !id.startsWith('temp-') && !id.startsWith('book-')) {
       try {
         await supabase
           .from('libreria_personale')
@@ -234,7 +227,7 @@ export function useBooks() {
     const updated = books.map(book => (book.id === updatedBook.id ? updatedBook : book));
     saveBooksLocally(updated);
 
-    if (!updatedBook.id.startsWith('temp-')) {
+    if (!updatedBook.id.startsWith('temp-') && !updatedBook.id.startsWith('book-')) {
       try {
         await supabase
           .from('libreria_personale')
