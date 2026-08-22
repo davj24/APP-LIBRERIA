@@ -1,0 +1,411 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Sparkles, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
+  BookCheck, PieChart, Bookmark, Rocket
+} from 'lucide-react';
+import { useUserProfile } from '../../hooks/useUserProfile';
+import type { UserProfile } from '../../hooks/useUserProfile';
+
+interface OnboardingWizardProps {
+  onComplete: () => void;
+  userEmail?: string;
+}
+
+const GENRE_TAGS = [
+  '📚 Narrativa',
+  '🐉 Fantasy',
+  '🔍 Gialli & Thriller',
+  '💡 Crescita & Saggi',
+  '🏛️ Romanzi Storici',
+  '🎨 Manga & Fumetti',
+  '🚀 Fantascienza',
+  '💖 Romance'
+];
+
+const AVATAR_PRESETS = [
+  { name: 'Indaco', color: 'bg-gradient-to-tr from-indigo-600 to-violet-500' },
+  { name: 'Smeraldo', color: 'bg-gradient-to-tr from-emerald-600 to-teal-500' },
+  { name: 'Amber', color: 'bg-gradient-to-tr from-amber-500 to-orange-500' },
+  { name: 'Rose', color: 'bg-gradient-to-tr from-rose-500 to-pink-500' },
+  { name: 'Oceano', color: 'bg-gradient-to-tr from-sky-500 to-blue-600' }
+];
+
+const WIDGET_OPTIONS = [
+  {
+    id: 'read_count',
+    title: 'Totale Letti',
+    desc: 'Mostra il conteggio complessivo dei libri letti',
+    icon: BookCheck,
+    iconColor: 'text-emerald-500'
+  },
+  {
+    id: 'reading_count',
+    title: 'In Lettura',
+    desc: 'Mostra i libri sul comodino attualmente in corso',
+    icon: BookOpen,
+    iconColor: 'text-amber-500'
+  },
+  {
+    id: 'current_progress',
+    title: '% Completamento',
+    desc: 'Avanzamento in percentuale sull\'ultimo libro aperto',
+    icon: PieChart,
+    iconColor: 'text-indigo-500'
+  },
+  {
+    id: 'total_pages',
+    title: 'Pagine Sfogliate',
+    desc: 'Numero totale di pagine lette nel tempo',
+    icon: Bookmark,
+    iconColor: 'text-sky-500'
+  }
+];
+
+export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, userEmail }) => {
+  const { profile, completeOnboarding } = useUserProfile();
+  const [step, setStep] = useState(1);
+
+  // Form State per il wizard
+  const [formData, setFormData] = useState<Partial<UserProfile>>({
+    name: profile.name && profile.name !== 'Nuovo Lettore' ? profile.name : (userEmail ? userEmail.split('@')[0] : 'Davide'),
+    bio: 'Lettore appassionato di libri e saggi',
+    readingGoal: 24,
+    avatarColor: 'bg-gradient-to-tr from-indigo-600 to-violet-500',
+    selectedWidgets: ['read_count', 'reading_count']
+  });
+
+  const handleNextStep = () => {
+    if (step < 5) {
+      setStep(prev => prev + 1);
+    } else {
+      completeOnboarding(formData);
+      onComplete();
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (step > 1) {
+      setStep(prev => prev - 1);
+    }
+  };
+
+  const toggleTag = (tag: string) => {
+    const cleanTag = tag.replace(/^[^\s]+\s/, ''); // Rimuove emoji per bio pulita
+    const currentBio = formData.bio || '';
+    if (currentBio.includes(cleanTag)) {
+      // Rimuovi tag
+      const updated = currentBio.replace(` • ${cleanTag}`, '').replace(cleanTag, '');
+      setFormData({ ...formData, bio: updated.trim() });
+    } else {
+      // Aggiungi tag
+      const updated = currentBio ? `${currentBio} • ${cleanTag}` : cleanTag;
+      setFormData({ ...formData, bio: updated });
+    }
+  };
+
+  const toggleWidget = (wId: string) => {
+    const current = formData.selectedWidgets || [];
+    if (current.includes(wId)) {
+      setFormData({ ...formData, selectedWidgets: current.filter(id => id !== wId) });
+    } else {
+      if (current.length < 2) {
+        setFormData({ ...formData, selectedWidgets: [...current, wId] });
+      } else {
+        // Se già 2 selezioni, rimpiazza il secondo
+        setFormData({ ...formData, selectedWidgets: [current[0], wId] });
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#2A2826] text-[#4A4743] dark:text-[#E0DCD3] flex flex-col items-center justify-center p-4 antialiased selection:bg-[#B0BEA9]/30">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md bg-[#FCFBF8] dark:bg-[#33302D] rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 relative overflow-hidden space-y-6"
+      >
+        {/* Glow di Sfondo */}
+        <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#5C6B55]/20 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Header Progress Wizard */}
+        <div className="space-y-3 relative z-10">
+          <div className="flex items-center justify-between text-xs font-bold text-[#7A756D] dark:text-[#A09A90]">
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-[#5C6B55] dark:text-[#A0AF99]" />
+              Configurazione Iniziale Profilo
+            </span>
+            <span>Passo {step} di 5</span>
+          </div>
+
+          {/* Barra di Progresso */}
+          <div className="w-full h-2 rounded-full bg-[#EBE5D9] dark:bg-[#4A4743]/60 overflow-hidden">
+            <motion.div
+              className="h-full bg-[#5C6B55] dark:bg-[#A0AF99] rounded-full"
+              initial={{ width: '20%' }}
+              animate={{ width: `${(step / 5) * 100}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+        </div>
+
+        {/* Contenuto Dinamico per Step */}
+        <div className="relative z-10 min-h-[300px] flex flex-col justify-center">
+          <AnimatePresence mode="wait">
+            {/* STEP 1: Nome e Avatar */}
+            {step === 1 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-5"
+              >
+                <div className="text-center space-y-1">
+                  <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Benvenuto su BiblioDesk! 👋</h2>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Come desideri farti chiamare nella community?</p>
+                </div>
+
+                {/* Avatar Preview */}
+                <div className="flex flex-col items-center gap-3">
+                  <div className={`w-20 h-20 rounded-3xl ${formData.avatarColor} text-white font-black text-3xl flex items-center justify-center shadow-lg border-4 border-white dark:border-[#2A2826]`}>
+                    {formData.name ? formData.name.trim().charAt(0).toUpperCase() : 'D'}
+                  </div>
+
+                  {/* Preset Colori Avatar */}
+                  <div className="flex items-center gap-2">
+                    {AVATAR_PRESETS.map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, avatarColor: preset.color })}
+                        className={`w-7 h-7 rounded-full ${preset.color} border-2 ${
+                          formData.avatarColor === preset.color ? 'border-[#31362F] dark:border-white scale-110' : 'border-transparent'
+                        } transition-all cursor-pointer`}
+                        title={preset.name}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Campo Nome */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3]">Nome Profilo</label>
+                  <div className="relative">
+                    <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7A756D] dark:text-[#A09A90]" />
+                    <input
+                      type="text"
+                      required
+                      value={formData.name || ''}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Il tuo nome o nickname"
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs sm:text-sm text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55]"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 2: Bio e Generi Preferiti */}
+            {step === 2 && (
+              <motion.div
+                key="step-2"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4"
+              >
+                <div className="text-center space-y-1">
+                  <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Raccontati brevemente 📝</h2>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Scrivi una bio o seleziona i tuoi generi preferiti:</p>
+                </div>
+
+                {/* Input Bio */}
+                <div className="relative">
+                  <PenLine className="w-4 h-4 absolute left-3.5 top-3 text-[#7A756D] dark:text-[#A09A90]" />
+                  <textarea
+                    rows={3}
+                    value={formData.bio || ''}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    placeholder="Es. Lettore appassionato di libri e saggi"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] resize-none"
+                  />
+                </div>
+
+                {/* Tag Generi Preferiti */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-bold text-[#7A756D] dark:text-[#A09A90] block">
+                    Clicca sui generi per aggiungerli alla tua Bio:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {GENRE_TAGS.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleTag(tag)}
+                        className="px-2.5 py-1 rounded-xl text-xs font-semibold bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] transition-all cursor-pointer active:scale-95"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 3: Obiettivo Annuale Lettura */}
+            {step === 3 && (
+              <motion.div
+                key="step-3"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-5 text-center"
+              >
+                <div className="space-y-1">
+                  <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Obiettivo di Lettura 🎯</h2>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Quanti libri desideri leggere in un anno?</p>
+                </div>
+
+                {/* Target Number Highlight */}
+                <div className="bg-[#F4F1EA] dark:bg-[#2A2826] p-4 rounded-3xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-2">
+                  <div className="text-4xl font-black text-[#5C6B55] dark:text-[#A0AF99] flex items-center justify-center gap-2">
+                    <Target className="w-8 h-8" />
+                    <span>{formData.readingGoal || 24}</span>
+                    <span className="text-xs font-extrabold text-[#7A756D] dark:text-[#A09A90] uppercase">libri/anno</span>
+                  </div>
+
+                  <p className="text-[11px] font-semibold text-[#7A756D] dark:text-[#A09A90]">
+                    Circa <span className="text-[#31362F] dark:text-[#E0DCD3] font-bold">{Math.max(1, Math.round((formData.readingGoal || 24) / 12))} libri</span> al mese!
+                  </p>
+                </div>
+
+                {/* Quick Goal Preset Buttons */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[12, 24, 36, 50].map((goal) => (
+                    <button
+                      key={goal}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, readingGoal: goal })}
+                      className={`py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                        formData.readingGoal === goal
+                          ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs'
+                          : 'bg-[#F4F1EA] dark:bg-[#2A2826] border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3]'
+                      }`}
+                    >
+                      {goal} libri
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 4: Widget di Profilo (Scegli 2) */}
+            {step === 4 && (
+              <motion.div
+                key="step-4"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4"
+              >
+                <div className="text-center space-y-1">
+                  <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Widget in Evidenza 📊</h2>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">
+                    Scegli fino a 2 widget da mostrare in alto sul tuo profilo:
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {WIDGET_OPTIONS.map((w) => {
+                    const isSelected = (formData.selectedWidgets || []).includes(w.id);
+                    const IconComp = w.icon;
+
+                    return (
+                      <button
+                        key={w.id}
+                        type="button"
+                        onClick={() => toggleWidget(w.id)}
+                        className={`w-full p-3 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55] shadow-xs'
+                            : 'bg-[#F4F1EA] dark:bg-[#2A2826] border-[#EBE5D9] dark:border-[#4A4743]/60'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-xl bg-white dark:bg-[#33302D] flex items-center justify-center shrink-0 mt-0.5 shadow-xs ${w.iconColor}`}>
+                          <IconComp className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3]">{w.title}</span>
+                            {isSelected && (
+                              <span className="w-5 h-5 rounded-full bg-[#5C6B55] text-white flex items-center justify-center">
+                                <Check className="w-3 h-3" />
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90] mt-0.5">{w.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 5: Completamento */}
+            {step === 5 && (
+              <motion.div
+                key="step-5"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6 text-center py-4"
+              >
+                <div className="w-16 h-16 mx-auto rounded-3xl bg-[#5C6B55] text-white flex items-center justify-center shadow-lg animate-bounce">
+                  <Rocket className="w-8 h-8 text-amber-300" />
+                </div>
+
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-black text-[#31362F] dark:text-[#E0DCD3]">Tutto Pronto! 🎉</h2>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90] max-w-xs mx-auto">
+                    Il tuo profilo BiblioDesk è pronto. Ora puoi esplorare la libreria, aggiungere i tuoi libri e collegarti con altri lettori!
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Footer Navigazione Wizard */}
+        <div className="flex items-center justify-between pt-2 border-t border-[#EBE5D9] dark:border-[#4A4743]/50 relative z-10">
+          {step > 1 && step < 5 ? (
+            <button
+              type="button"
+              onClick={handlePrevStep}
+              className="px-4 py-2.5 rounded-xl border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Indietro</span>
+            </button>
+          ) : (
+            <div />
+          )}
+
+          <button
+            type="button"
+            onClick={handleNextStep}
+            className="px-5 py-2.5 rounded-xl bg-[#5C6B55] hover:bg-[#4A5744] text-white font-bold text-xs shadow-md flex items-center gap-2 transition-all cursor-pointer ml-auto active:scale-95"
+          >
+            <span>{step === 5 ? 'Inizia ad usare BiblioDesk' : 'Continua'}</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
