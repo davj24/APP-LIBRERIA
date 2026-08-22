@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
-  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2, ShieldCheck, Upload, ChevronDown
+  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2, ShieldCheck, ChevronDown
 } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import type { UserProfile } from '../../hooks/useUserProfile';
@@ -23,18 +23,18 @@ const GENRE_TAGS = [
   '💖 Romance'
 ];
 
-// 10 Colori Minimal in Stile iOS
+// 10 Colori Minimal in Stile iOS con Nomi Corrispondenti 100% al Colore Reale
 const IOS_AVATAR_PRESETS = [
-  { name: 'Indaco', color: 'bg-gradient-to-tr from-indigo-600 to-violet-500' },
-  { name: 'Smeraldo', color: 'bg-gradient-to-tr from-emerald-600 to-teal-500' },
-  { name: 'Amber', color: 'bg-gradient-to-tr from-amber-500 to-orange-500' },
-  { name: 'Rose', color: 'bg-gradient-to-tr from-rose-500 to-pink-500' },
-  { name: 'Oceano', color: 'bg-gradient-to-tr from-sky-500 to-blue-600' },
-  { name: 'Antracite', color: 'bg-gradient-to-tr from-neutral-700 to-neutral-900' },
-  { name: 'Mezzanotte', color: 'bg-gradient-to-tr from-purple-700 to-indigo-900' },
-  { name: 'Menta', color: 'bg-gradient-to-tr from-teal-500 to-emerald-400' },
-  { name: 'Corallo', color: 'bg-gradient-to-tr from-orange-400 to-rose-400' },
-  { name: 'Moka', color: 'bg-gradient-to-tr from-amber-700 to-yellow-600' }
+  { name: 'Viola Indaco', color: 'bg-gradient-to-tr from-indigo-600 to-violet-600' },
+  { name: 'Verde Smeraldo', color: 'bg-gradient-to-tr from-emerald-600 to-green-500' },
+  { name: 'Arancio Caldo', color: 'bg-gradient-to-tr from-amber-500 to-orange-500' },
+  { name: 'Rosa Pastello', color: 'bg-gradient-to-tr from-rose-500 to-pink-500' },
+  { name: 'Azzurro Cielo', color: 'bg-gradient-to-tr from-sky-400 to-blue-500' },
+  { name: 'Nero Antracite', color: 'bg-gradient-to-tr from-neutral-800 to-neutral-950' },
+  { name: 'Viola Scuro', color: 'bg-gradient-to-tr from-purple-800 to-indigo-950' },
+  { name: 'Verde Menta', color: 'bg-gradient-to-tr from-teal-400 to-emerald-400' },
+  { name: 'Rosso Corallo', color: 'bg-gradient-to-tr from-rose-500 to-red-500' },
+  { name: 'Marrone Moka', color: 'bg-gradient-to-tr from-stone-700 to-amber-900' }
 ];
 
 const WIDGET_OPTIONS = [
@@ -273,7 +273,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                         className="px-3.5 py-1.5 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95"
                       >
                         <div className={`w-3.5 h-3.5 rounded-full ${IOS_AVATAR_PRESETS.find(p => p.color === formData.avatarColor)?.color || IOS_AVATAR_PRESETS[0].color}`} />
-                        <span>Colore Avatar ({IOS_AVATAR_PRESETS.find(p => p.color === formData.avatarColor)?.name || 'Indaco'})</span>
+                        <span>Colore Avatar ({IOS_AVATAR_PRESETS.find(p => p.color === formData.avatarColor)?.name || 'Viola Indaco'})</span>
                         <ChevronDown className={`w-3.5 h-3.5 text-[#7A756D] dark:text-[#A09A90] transition-transform duration-200 ${isColorPickerOpen ? 'rotate-180' : ''}`} />
                       </button>
 
@@ -308,29 +308,18 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       </AnimatePresence>
                     </div>
                   ) : (
-                    /* Sezione Foto Personalizzata con Avviso Sicurezza & Permessi Browser */
+                    /* Sezione Foto Personalizzata: Cliccando su Carica Foto o sull'avatar si apre direttamente il selettore nativo */
                     <div className="flex flex-col items-center gap-2 max-w-[290px] text-center">
-                      <div className="flex items-center gap-2">
+                      {formData.avatarUrl && (
                         <button
                           type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="px-3.5 py-2 rounded-xl bg-[#5C6B55] hover:bg-[#4A5744] text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                          onClick={removeCustomImage}
+                          className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
                         >
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>{formData.avatarUrl ? 'Sostituisci Immagine' : 'Seleziona Immagine'}</span>
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Rimuovi Foto Caricata</span>
                         </button>
-
-                        {formData.avatarUrl && (
-                          <button
-                            type="button"
-                            onClick={removeCustomImage}
-                            className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all cursor-pointer"
-                            title="Rimuovi foto"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
+                      )}
 
                       {/* Avviso sicurezza sui permessi del browser */}
                       <div className="flex items-start gap-1.5 text-[10px] text-[#7A756D] dark:text-[#A09A90] bg-[#F4F1EA] dark:bg-[#2A2826] p-2.5 rounded-xl border border-[#EBE5D9] dark:border-[#4A4743]/50 text-left">
