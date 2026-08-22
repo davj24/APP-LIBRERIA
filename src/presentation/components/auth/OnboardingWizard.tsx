@@ -142,15 +142,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   const [isGenresOpen, setIsGenresOpen] = useState(false);
   const [isWidgetsOpen, setIsWidgetsOpen] = useState(false);
 
-  // Form State: I generi preferiti sono entità separate rispetto alla bio testuale
+  // Form State: Tutto parte PULITO e VUOTO (nessun valore precompilato o preselezionato)
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     name: '',
-    bio: 'Lettore appassionato di libri e saggi',
+    bio: '', // Vuoto! Il testo appare solo come placeholder di esempio
     readingGoal: 24,
     avatarColor: 'bg-gradient-to-tr from-indigo-600 to-violet-600',
     avatarUrl: undefined,
-    selectedWidgets: ['read_count', 'reading_count'],
-    favoriteGenres: ['🐉 Fantasy', '📚 Narrativa']
+    selectedWidgets: [], // Nessun widget preselezionato di default
+    favoriteGenres: [] // Nessun genere preselezionato di default
   });
 
   const handleNextStep = () => {
@@ -428,14 +428,14 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Personalizza la tua bio, seleziona i generi preferiti ed i widget:</p>
                 </div>
 
-                {/* Input Bio Testuale */}
+                {/* Input Bio Testuale (con placeholder che sparisce al primo carattere digitato) */}
                 <div className="relative">
                   <PenLine className="w-4 h-4 absolute left-3.5 top-2.5 text-[#7A756D] dark:text-[#A09A90]" />
                   <textarea
                     rows={2}
                     value={formData.bio || ''}
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                    placeholder="Es. Lettore appassionato di libri e saggi"
+                    placeholder="Scrivi qui la tua bio (es. Lettore appassionato di libri e saggi)..."
                     className="w-full pl-10 pr-4 py-2 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] resize-none"
                   />
                 </div>
