@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Sparkles, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
+  SlidersHorizontal, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
   BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2, ShieldCheck, ChevronDown,
   Flame, Trophy, Clock, Library, Brain
 } from 'lucide-react';
@@ -225,7 +225,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
         <div className="space-y-2.5 relative z-10">
           <div className="flex items-center justify-between text-xs font-bold text-[#7A756D] dark:text-[#A09A90]">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-[#5C6B55] dark:text-[#A0AF99]" />
+              <SlidersHorizontal className="w-4 h-4 text-[#5C6B55] dark:text-[#A0AF99]" />
               Configurazione Iniziale Profilo
             </span>
             <span>Passo {step} di 4</span>
