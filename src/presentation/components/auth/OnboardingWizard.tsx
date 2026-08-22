@@ -219,10 +219,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.25, ease: iosEase }}
+        transition={{ duration: 0.28, ease: iosEase }}
         className="w-full max-w-md bg-[#FCFBF8] dark:bg-[#33302D] rounded-[2rem] p-5 sm:p-7 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 relative overflow-hidden isolate transform-gpu space-y-5"
       >
-        {/* Glow di Sfondo perfetto senza imperfezioni di ritaglio */}
+        {/* Glow di Sfondo perfetto */}
         <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#5C6B55]/20 rounded-full blur-3xl pointer-events-none z-0" />
 
         {/* Header Progress Wizard (4 Passi) */}
@@ -241,7 +241,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
               className="h-full bg-[#5C6B55] dark:bg-[#A0AF99] rounded-full"
               initial={{ width: '25%' }}
               animate={{ width: `${(step / 4) * 100}%` }}
-              transition={{ duration: 0.25, ease: iosEase }}
+              transition={{ duration: 0.28, ease: iosEase }}
             />
           </div>
         </div>
@@ -253,10 +253,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
             {step === 1 && (
               <motion.div
                 key="step-1"
-                initial={{ opacity: 0, x: 12 }}
+                initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -12 }}
-                transition={{ duration: 0.22, ease: iosEase }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.25, ease: iosEase }}
                 className="space-y-5 transform-gpu"
               >
                 <div className="text-center space-y-1">
@@ -331,9 +331,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     className="hidden"
                   />
 
-                  {/* Pillola per i Colori che si espande in modo ultra-smooth */}
+                  {/* Pillola per i Colori che si espande in modo fluido e senza scatti */}
                   {avatarTab === 'initial' ? (
-                    <div className="flex flex-col items-center space-y-2">
+                    <div className="flex flex-col items-center space-y-2 w-full">
                       <button
                         type="button"
                         onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
@@ -341,20 +341,20 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       >
                         <div className={`w-3.5 h-3.5 rounded-full ${IOS_AVATAR_PRESETS.find(p => p.color === formData.avatarColor)?.color || IOS_AVATAR_PRESETS[0].color}`} />
                         <span>Colore Avatar ({IOS_AVATAR_PRESETS.find(p => p.color === formData.avatarColor)?.name || 'Viola Indaco'})</span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-[#7A756D] dark:text-[#A09A90] transition-transform duration-200 ${isColorPickerOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-3.5 h-3.5 text-[#7A756D] dark:text-[#A09A90] transition-transform duration-250 ease-out ${isColorPickerOpen ? 'rotate-180' : ''}`} />
                       </button>
 
-                      {/* Griglia Colori Espandibile con Animazione iOS */}
+                      {/* Griglia Colori Espandibile con Contenitore Senza Padding per Evitare Scatti in Chiusura */}
                       <AnimatePresence>
                         {isColorPickerOpen && (
                           <motion.div
-                            initial={{ opacity: 0, height: 0, scale: 0.98 }}
-                            animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                            exit={{ opacity: 0, height: 0, scale: 0.98 }}
-                            transition={{ duration: 0.22, ease: iosEase }}
-                            className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-w-[280px] transform-gpu"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.28, ease: iosEase }}
+                            className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-w-[280px] w-full transform-gpu"
                           >
-                            <div className="flex items-center justify-center flex-wrap gap-2">
+                            <div className="p-3 flex items-center justify-center flex-wrap gap-2">
                               {IOS_AVATAR_PRESETS.map((preset) => (
                                 <button
                                   key={preset.name}
@@ -417,14 +417,14 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
               </motion.div>
             )}
 
-            {/* STEP 2: Bio, Generi Preferiti Espandibili & Widget Espandibili */}
+            {/* STEP 2: Bio, Generi Preferiti Espandibili & Widget Espandibili (Accordion Ultra Smooth Senza Scatti) */}
             {step === 2 && (
               <motion.div
                 key="step-2"
-                initial={{ opacity: 0, x: 12 }}
+                initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -12 }}
-                transition={{ duration: 0.22, ease: iosEase }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.25, ease: iosEase }}
                 className="space-y-4 transform-gpu"
               >
                 <div className="text-center space-y-1">
@@ -444,7 +444,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   />
                 </div>
 
-                {/* Pillola Espandibile: Generi Preferiti (Entità Separate) */}
+                {/* Pillola Espandibile: Generi Preferiti */}
                 <div className="space-y-1.5">
                   <button
                     type="button"
@@ -459,42 +459,44 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       <span className="font-extrabold text-[#5C6B55] dark:text-[#A0AF99]">
                         {(formData.favoriteGenres || []).length} selezionati
                       </span>
-                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isGenresOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-250 ease-out ${isGenresOpen ? 'rotate-180' : ''}`} />
                     </div>
                   </button>
 
                   <AnimatePresence>
                     {isGenresOpen && (
                       <motion.div
-                        initial={{ opacity: 0, height: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                        exit={{ opacity: 0, height: 0, scale: 0.98 }}
-                        transition={{ duration: 0.22, ease: iosEase }}
-                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-48 overflow-y-auto custom-scrollbar transform-gpu"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.28, ease: iosEase }}
+                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 transform-gpu"
                       >
-                        <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
-                          Seleziona i generi letterari da mostrare sul tuo profilo:
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {GENRE_TAGS.map((genre) => {
-                            const isSelected = (formData.favoriteGenres || []).includes(genre);
+                        <div className="p-3 max-h-48 overflow-y-auto custom-scrollbar">
+                          <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
+                            Seleziona i generi letterari da mostrare sul tuo profilo:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {GENRE_TAGS.map((genre) => {
+                              const isSelected = (formData.favoriteGenres || []).includes(genre);
 
-                            return (
-                              <button
-                                key={genre}
-                                type="button"
-                                onClick={() => toggleGenre(genre)}
-                                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 transition-all duration-150 cursor-pointer active:scale-95 ${
-                                  isSelected
-                                    ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs'
-                                    : 'bg-[#FCFBF8] dark:bg-[#33302D] border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3]'
-                                }`}
-                              >
-                                <span>{genre}</span>
-                                {isSelected && <Check className="w-3 h-3 text-white" />}
-                              </button>
-                            );
-                          })}
+                              return (
+                                <button
+                                  key={genre}
+                                  type="button"
+                                  onClick={() => toggleGenre(genre)}
+                                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 transition-all duration-150 cursor-pointer active:scale-95 ${
+                                    isSelected
+                                      ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs'
+                                      : 'bg-[#FCFBF8] dark:bg-[#33302D] border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3]'
+                                  }`}
+                                >
+                                  <span>{genre}</span>
+                                  {isSelected && <Check className="w-3 h-3 text-white" />}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </motion.div>
                     )}
@@ -516,55 +518,57 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       <span className="font-extrabold text-[#5C6B55] dark:text-[#A0AF99]">
                         {(formData.selectedWidgets || []).length}/2 selezionati
                       </span>
-                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isWidgetsOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-250 ease-out ${isWidgetsOpen ? 'rotate-180' : ''}`} />
                     </div>
                   </button>
 
                   <AnimatePresence>
                     {isWidgetsOpen && (
                       <motion.div
-                        initial={{ opacity: 0, height: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                        exit={{ opacity: 0, height: 0, scale: 0.98 }}
-                        transition={{ duration: 0.22, ease: iosEase }}
-                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-56 overflow-y-auto custom-scrollbar transform-gpu"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.28, ease: iosEase }}
+                        className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 transform-gpu"
                       >
-                        <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
-                          Scegli fino a 2 widget da evidenziare in alto sul tuo profilo:
-                        </span>
-                        <div className="grid grid-cols-2 gap-2">
-                          {WIDGET_OPTIONS.map((w) => {
-                            const isSelected = (formData.selectedWidgets || []).includes(w.id);
-                            const IconComp = w.icon;
+                        <div className="p-3 max-h-56 overflow-y-auto custom-scrollbar">
+                          <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
+                            Scegli fino a 2 widget da evidenziare in alto sul tuo profilo:
+                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            {WIDGET_OPTIONS.map((w) => {
+                              const isSelected = (formData.selectedWidgets || []).includes(w.id);
+                              const IconComp = w.icon;
 
-                            return (
-                              <button
-                                key={w.id}
-                                type="button"
-                                onClick={() => toggleWidget(w.id)}
-                                className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 transition-all duration-150 cursor-pointer active:scale-95 ${
-                                  isSelected
-                                    ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55] shadow-xs'
-                                    : 'bg-[#FCFBF8] dark:bg-[#33302D] border-[#EBE5D9] dark:border-[#4A4743]/60'
-                                }`}
-                              >
-                                <div className={`w-7 h-7 rounded-xl bg-white dark:bg-[#2A2826] flex items-center justify-center shrink-0 shadow-xs ${w.iconColor}`}>
-                                  <IconComp className="w-3.5 h-3.5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[11px] font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">{w.title}</span>
-                                    {isSelected && (
-                                      <span className="w-4 h-4 rounded-full bg-[#5C6B55] text-white flex items-center justify-center shrink-0 ml-1">
-                                        <Check className="w-2.5 h-2.5" />
-                                      </span>
-                                    )}
+                              return (
+                                <button
+                                  key={w.id}
+                                  type="button"
+                                  onClick={() => toggleWidget(w.id)}
+                                  className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 transition-all duration-150 cursor-pointer active:scale-95 ${
+                                    isSelected
+                                      ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55] shadow-xs'
+                                      : 'bg-[#FCFBF8] dark:bg-[#33302D] border-[#EBE5D9] dark:border-[#4A4743]/60'
+                                  }`}
+                                >
+                                  <div className={`w-7 h-7 rounded-xl bg-white dark:bg-[#2A2826] flex items-center justify-center shrink-0 shadow-xs ${w.iconColor}`}>
+                                    <IconComp className="w-3.5 h-3.5" />
                                   </div>
-                                  <p className="text-[9px] text-[#7A756D] dark:text-[#A09A90] truncate">{w.desc}</p>
-                                </div>
-                              </button>
-                            );
-                          })}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[11px] font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">{w.title}</span>
+                                      {isSelected && (
+                                        <span className="w-4 h-4 rounded-full bg-[#5C6B55] text-white flex items-center justify-center shrink-0 ml-1">
+                                          <Check className="w-2.5 h-2.5" />
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[9px] text-[#7A756D] dark:text-[#A09A90] truncate">{w.desc}</p>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </motion.div>
                     )}
@@ -577,10 +581,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
             {step === 3 && (
               <motion.div
                 key="step-3"
-                initial={{ opacity: 0, x: 12 }}
+                initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -12 }}
-                transition={{ duration: 0.22, ease: iosEase }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.25, ease: iosEase }}
                 className="space-y-5 text-center transform-gpu"
               >
                 <div className="space-y-1">
@@ -630,7 +634,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
             {step === 4 && (
               <motion.div
                 key="step-4"
-                initial={{ opacity: 0, scale: 0.94 }}
+                initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3, ease: iosEase }}
                 className="space-y-6 text-center py-4 transform-gpu"
