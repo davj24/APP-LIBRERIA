@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
-  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid
+  BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2
 } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import type { UserProfile } from '../../hooks/useUserProfile';
@@ -23,12 +23,18 @@ const GENRE_TAGS = [
   '💖 Romance'
 ];
 
-const AVATAR_PRESETS = [
+// 10 Colori Minimal in Stile iOS
+const IOS_AVATAR_PRESETS = [
   { name: 'Indaco', color: 'bg-gradient-to-tr from-indigo-600 to-violet-500' },
   { name: 'Smeraldo', color: 'bg-gradient-to-tr from-emerald-600 to-teal-500' },
   { name: 'Amber', color: 'bg-gradient-to-tr from-amber-500 to-orange-500' },
   { name: 'Rose', color: 'bg-gradient-to-tr from-rose-500 to-pink-500' },
-  { name: 'Oceano', color: 'bg-gradient-to-tr from-sky-500 to-blue-600' }
+  { name: 'Oceano', color: 'bg-gradient-to-tr from-sky-500 to-blue-600' },
+  { name: 'Antracite', color: 'bg-gradient-to-tr from-neutral-700 to-neutral-900' },
+  { name: 'Mezzanotte', color: 'bg-gradient-to-tr from-purple-700 to-indigo-900' },
+  { name: 'Menta', color: 'bg-gradient-to-tr from-teal-500 to-emerald-400' },
+  { name: 'Corallo', color: 'bg-gradient-to-tr from-orange-400 to-rose-400' },
+  { name: 'Moka', color: 'bg-gradient-to-tr from-amber-700 to-yellow-600' }
 ];
 
 const WIDGET_OPTIONS = [
@@ -62,16 +68,21 @@ const WIDGET_OPTIONS = [
   }
 ];
 
-export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, userEmail }) => {
-  const { profile, completeOnboarding } = useUserProfile();
+export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }) => {
+  const { completeOnboarding } = useUserProfile();
   const [step, setStep] = useState(1);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Form State per il wizard (4 step snelli)
+  // Tab per la modalità avatar (iniziale vs foto caricata)
+  const [avatarTab, setAvatarTab] = useState<'initial' | 'custom'>('initial');
+
+  // Form State: Il nome parte COMPLETAMENTE VUOTO come richiesto
   const [formData, setFormData] = useState<Partial<UserProfile>>({
-    name: profile.name && profile.name !== 'Nuovo Lettore' ? profile.name : (userEmail ? userEmail.split('@')[0] : 'Davide'),
+    name: '', // Vuoto! Nessun nome pre-impostato
     bio: 'Lettore appassionato di libri e saggi',
     readingGoal: 24,
     avatarColor: 'bg-gradient-to-tr from-indigo-600 to-violet-500',
+    avatarUrl: undefined,
     selectedWidgets: ['read_count', 'reading_count']
   });
 
@@ -90,8 +101,29 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
     }
   };
 
+  // Caricamento Immagine con adattamento e ridimensionamento
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, avatarUrl: reader.result as string }));
+        setAvatarTab('custom');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeCustomImage = () => {
+    setFormData(prev => ({ ...prev, avatarUrl: undefined }));
+    setAvatarTab('initial');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const toggleTag = (tag: string) => {
-    const cleanTag = tag.replace(/^[^\s]+\s/, ''); // Rimuove emoji per bio pulita
+    const cleanTag = tag.replace(/^[^\s]+\s/, '');
     const currentBio = formData.bio || '';
     if (currentBio.includes(cleanTag)) {
       const updated = currentBio.replace(` • ${cleanTag}`, '').replace(cleanTag, '');
@@ -125,7 +157,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
         {/* Glow di Sfondo */}
         <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#5C6B55]/20 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Header Progress Wizard (Ora 4 Passi Snelli) */}
+        {/* Header Progress Wizard (4 Passi) */}
         <div className="space-y-2.5 relative z-10">
           <div className="flex items-center justify-between text-xs font-bold text-[#7A756D] dark:text-[#A09A90]">
             <span className="flex items-center gap-1.5">
@@ -147,9 +179,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
         </div>
 
         {/* Contenuto Dinamico per Step */}
-        <div className="relative z-10 min-h-[310px] flex flex-col justify-center">
+        <div className="relative z-10 min-h-[320px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
-            {/* STEP 1: Nome e Avatar */}
+            {/* STEP 1: Nome e Icona Avatar (iOS Minimal & Caricamento Foto) */}
             {step === 1 && (
               <motion.div
                 key="step-1"
@@ -161,34 +193,127 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
               >
                 <div className="text-center space-y-1">
                   <h2 className="text-xl font-black text-[#31362F] dark:text-[#E0DCD3]">Benvenuto su BiblioDesk! 👋</h2>
-                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Come desideri farti chiamare nella community?</p>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Crea il tuo profilo inserendo il nome e la foto o colore preferito:</p>
                 </div>
 
-                {/* Avatar Preview */}
+                {/* Anteprima Avatar con Ridimensionamento Adattato */}
                 <div className="flex flex-col items-center gap-3">
-                  <div className={`w-20 h-20 rounded-3xl ${formData.avatarColor} text-white font-black text-3xl flex items-center justify-center shadow-lg border-4 border-white dark:border-[#2A2826]`}>
-                    {formData.name ? formData.name.trim().charAt(0).toUpperCase() : 'D'}
+                  <div className="relative group">
+                    <div className={`w-22 h-22 rounded-3xl ${formData.avatarUrl ? 'bg-neutral-200 dark:bg-neutral-800' : formData.avatarColor} text-white font-black text-3xl flex items-center justify-center shadow-lg border-4 border-white dark:border-[#2A2826] overflow-hidden`}>
+                      {formData.avatarUrl ? (
+                        <img 
+                          src={formData.avatarUrl} 
+                          alt="Avatar" 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <span>{formData.name ? formData.name.trim().charAt(0).toUpperCase() : '?'}</span>
+                      )}
+                    </div>
+
+                    {/* Bottone rapido fotocamera su avatar */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#31362F] dark:bg-white text-white dark:text-[#31362F] flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-white dark:border-[#33302D]"
+                      title="Carica o cambia immagine"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  {/* Preset Colori Avatar */}
-                  <div className="flex items-center gap-2">
-                    {AVATAR_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, avatarColor: preset.color })}
-                        className={`w-7 h-7 rounded-full ${preset.color} border-2 ${
-                          formData.avatarColor === preset.color ? 'border-[#31362F] dark:border-white scale-110' : 'border-transparent'
-                        } transition-all cursor-pointer`}
-                        title={preset.name}
-                      />
-                    ))}
+                  {/* Tab di selezione modalità: Iniziale vs Carica Immagine */}
+                  <div className="flex bg-[#F4F1EA] dark:bg-[#2A2826] p-1 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60">
+                    <button
+                      type="button"
+                      onClick={() => setAvatarTab('initial')}
+                      className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all ${
+                        avatarTab === 'initial'
+                          ? 'bg-[#5C6B55] text-white shadow-xs'
+                          : 'text-[#7A756D] dark:text-[#A09A90] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
+                      }`}
+                    >
+                      Iniziale & Colore
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAvatarTab('custom');
+                        if (!formData.avatarUrl) {
+                          fileInputRef.current?.click();
+                        }
+                      }}
+                      className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all flex items-center gap-1 ${
+                        avatarTab === 'custom'
+                          ? 'bg-[#5C6B55] text-white shadow-xs'
+                          : 'text-[#7A756D] dark:text-[#A09A90] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
+                      }`}
+                    >
+                      <ImageIcon className="w-3 h-3" />
+                      <span>Carica Foto</span>
+                    </button>
                   </div>
+
+                  {/* Input File Nascosto */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+
+                  {/* Sezione Selettore Colori iOS Minimal */}
+                  {avatarTab === 'initial' ? (
+                    <div className="space-y-1 text-center">
+                      <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block">
+                        Palette Colori Minimal iOS:
+                      </span>
+                      <div className="flex items-center justify-center flex-wrap gap-2 max-w-[280px]">
+                        {IOS_AVATAR_PRESETS.map((preset) => (
+                          <button
+                            key={preset.name}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, avatarColor: preset.color, avatarUrl: undefined });
+                            }}
+                            className={`w-6 h-6 rounded-full ${preset.color} border-2 ${
+                              formData.avatarColor === preset.color && !formData.avatarUrl ? 'border-[#31362F] dark:border-white scale-110 shadow-xs' : 'border-transparent'
+                            } transition-all cursor-pointer`}
+                            title={preset.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Pulsanti azione per foto personalizzata */
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-xl bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>{formData.avatarUrl ? 'Sostituisci Immagine' : 'Scegli File'}</span>
+                      </button>
+
+                      {formData.avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={removeCustomImage}
+                          className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all cursor-pointer"
+                          title="Rimuovi foto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Campo Nome */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3]">Nome Profilo</label>
+                {/* Campo Nome (VUOTO di default) */}
+                <div className="space-y-1.5 pt-1">
+                  <label className="text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3]">Nome Profilo *</label>
                   <div className="relative">
                     <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7A756D] dark:text-[#A09A90]" />
                     <input
@@ -196,7 +321,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                       required
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Il tuo nome o nickname"
+                      placeholder="Inserisci il tuo nome..."
                       className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/60 text-xs sm:text-sm text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55]"
                     />
                   </div>
@@ -389,7 +514,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
           <button
             type="button"
             onClick={handleNextStep}
-            className="px-5 py-2.5 rounded-xl bg-[#5C6B55] hover:bg-[#4A5744] text-white font-bold text-xs shadow-md flex items-center gap-2 transition-all cursor-pointer ml-auto active:scale-95"
+            disabled={step === 1 && !formData.name?.trim()}
+            className="px-5 py-2.5 rounded-xl bg-[#5C6B55] hover:bg-[#4A5744] text-white font-bold text-xs shadow-md flex items-center gap-2 transition-all cursor-pointer ml-auto active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span>{step === 4 ? 'Inizia ad usare BiblioDesk' : 'Continua'}</span>
             <ArrowRight className="w-4 h-4" />
