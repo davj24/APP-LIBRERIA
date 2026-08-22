@@ -129,7 +129,10 @@ export const AuthPage: React.FC = () => {
 
         {/* Pulsante Google OAuth */}
         <div className="relative z-10 space-y-4">
-          <GoogleAuthButton onError={(err) => setErrorMsg(err)} />
+          <GoogleAuthButton
+            label={mode === 'signin' ? 'Accedi con Google' : 'Registrati con Google'}
+            onError={(err) => setErrorMsg(err)}
+          />
 
           <div className="relative flex items-center justify-center">
             <div className="border-t border-[#E2DDD2] dark:border-[#36322E] w-full" />
