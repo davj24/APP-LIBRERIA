@@ -5,17 +5,27 @@ export interface ShopLink {
 }
 
 /**
- * Genera link di ricerca dinamici per l'acquisto di un libro su vari store online (Amazon IT, IBS, Vinted).
- * Utilizza l'ISBN come parametro di ricerca primario o il titolo come fallback.
- * 
- * @param isbn ISBN del libro (opzionale se è presente il titolo)
- * @param title Titolo del libro per fallback
- * @returns Array di oggetti contenenti il nome del negozio e l'URL dinamico
+ * Genera link di ricerca dinamici per l'acquisto di un libro sui principali store (Amazon IT, IBS, Vinted).
+ * Utilizza l'ISBN come parametro di ricerca primario, oppure la combinazione Titolo + Autore come fallback.
  */
-export function generateShopLinks(isbn?: string | null, title?: string | null): ShopLink[] {
-  const searchTerm = (isbn && isbn.trim()) ? isbn.trim() : (title && title.trim()) ? title.trim() : '';
+export function generateShopLinks(
+  isbn?: string | null,
+  title?: string | null,
+  author?: string | null
+): ShopLink[] {
+  let searchTerm = '';
 
-  if (!searchTerm) return [];
+  if (isbn && isbn.trim().length >= 8) {
+    searchTerm = isbn.trim();
+  } else {
+    const cleanTitle = title ? title.trim() : '';
+    const cleanAuthor = author ? author.trim() : '';
+    searchTerm = `${cleanTitle} ${cleanAuthor}`.trim();
+  }
+
+  if (!searchTerm) {
+    searchTerm = 'libri';
+  }
 
   const encodedSearch = encodeURIComponent(searchTerm);
 

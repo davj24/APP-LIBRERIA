@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { BookOpen, Heart, Share2, Plus, Check, X, Loader2, ExternalLink, Building2 } from 'lucide-react';
 import { generateShopLinks, type ShopLink } from '../../../infrastructure/helpers/ShopLinksHelper';
+import { SaveToListModal } from './SaveToListModal';
 
 export interface BookSheetBook {
   id: string;
@@ -45,7 +46,8 @@ export const BookSheet: React.FC<BookSheetProps> = ({
   onAddBook,
   onToggleFavorite
 }) => {
-  const [isAdded, setIsAdded] = React.useState(false);
+  const [isAdded, setIsAdded] = useState(false);
+  const [isSaveToListOpen, setIsSaveToListOpen] = useState(false);
   const controls = useDragControls();
 
   // Blocca lo scroll del body sottostante quando il sheet è aperto
@@ -63,12 +65,13 @@ export const BookSheet: React.FC<BookSheetProps> = ({
 
   useEffect(() => {
     setIsAdded(false);
+    setIsSaveToListOpen(false);
   }, [book]);
 
   if (!book) return null;
 
   const cleanCoverUrl = getValidImageUrl(book.cover);
-  const shopLinks = generateShopLinks(book.isbn, book.title);
+  const shopLinks = generateShopLinks(book.isbn, book.title, book.author);
 
   const handleAdd = () => {
     if (onAddBook) {
@@ -233,17 +236,18 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                   )}
                 </button>
 
+                {/* TASTO CUORE: Apre la schermata di selezione delle liste */}
                 <button
-                  onClick={() => onToggleFavorite && onToggleFavorite(book)}
-                  className="p-3.5 rounded-2xl bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] transition-colors border border-[#DCD5C6]/60 dark:border-[#4A4743]/60 shrink-0"
-                  title="Preferito"
+                  onClick={() => setIsSaveToListOpen(true)}
+                  className="p-3.5 rounded-2xl bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] transition-colors border border-[#DCD5C6]/60 dark:border-[#4A4743]/60 shrink-0 cursor-pointer active:scale-95"
+                  title="Salva nelle tue Liste"
                 >
                   <Heart className={`w-4 h-4 ${book.isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
                 </button>
 
                 <button
                   onClick={handleShare}
-                  className="p-3.5 rounded-2xl bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] transition-colors border border-[#DCD5C6]/60 dark:border-[#4A4743]/60 shrink-0"
+                  className="p-3.5 rounded-2xl bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] transition-colors border border-[#DCD5C6]/60 dark:border-[#4A4743]/60 shrink-0 cursor-pointer active:scale-95"
                   title="Condividi"
                 >
                   <Share2 className="w-4 h-4" />
@@ -304,6 +308,28 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Modal di Selezione Liste (quando si clicca sul Cuore) */}
+            <SaveToListModal
+              isOpen={isSaveToListOpen}
+              onClose={() => setIsSaveToListOpen(false)}
+              bookTitle={book.title}
+              bookAuthor={book.author}
+              coverUrl={cleanCoverUrl}
+              isFavorite={book.isFavorite}
+              onSaveToList={(targetList) => {
+                if (onAddBook) {
+                  onAddBook({
+                    ...book,
+                    isFavorite: targetList.isFavorite !== undefined ? targetList.isFavorite : book.isFavorite,
+                  });
+                  setIsAdded(true);
+                }
+                if (targetList.isFavorite && onToggleFavorite) {
+                  onToggleFavorite(book);
+                }
+              }}
+            />
           </motion.div>
         </div>
       )}
@@ -311,5 +337,3 @@ export const BookSheet: React.FC<BookSheetProps> = ({
     document.body
   );
 };
-
-export default BookSheet;

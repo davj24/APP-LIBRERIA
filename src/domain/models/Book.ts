@@ -23,7 +23,8 @@ export interface Book {
 export type BookSource = 'Google' | 'OpenLibrary' | 'SBN';
 
 /**
- * Snippet essenziale per il primo livello di ricerca (Fase 1: Lazy Hydration)
+ * Snippet per il primo livello di ricerca (Fase 1: Lazy Hydration)
+ * Contiene sia le info minime che eventuali metadati già pronti dalla ricerca.
  */
 export interface BookSnippet {
   id: string;
@@ -32,6 +33,10 @@ export interface BookSnippet {
   author: string;
   source: BookSource;
   coverUrl: string | null;
+  description?: string | null;
+  pageCount?: number | null;
+  publisher?: string | null;
+  publishedYear?: string | null;
 }
 
 /**

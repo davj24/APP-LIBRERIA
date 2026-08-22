@@ -74,19 +74,49 @@ export class BookSearchAggregator {
   }
 
   /**
-   * Recupera i dettagli completi del libro dalla sorgente specificata
+   * Recupera i dettagli completi del libro dalla sorgente specificata (o tramite fallback Google Books)
    */
-  async getDetails(id: string, source: BookSource, isbn?: string): Promise<BookDetail> {
+  async getDetails(
+    id: string,
+    source: BookSource,
+    isbn?: string,
+    title?: string,
+    author?: string
+  ): Promise<BookDetail> {
+    let detail: BookDetail;
+
     switch (source) {
       case 'Google':
-        return this.googleAdapter.getDetails(id, isbn);
+        detail = await this.googleAdapter.getDetails(id, isbn, title, author);
+        break;
       case 'OpenLibrary':
-        return this.openLibraryAdapter.getDetails(id, isbn);
+        detail = await this.openLibraryAdapter.getDetails(id, isbn, title, author);
+        break;
       case 'SBN':
-        return this.sbnAdapter.getDetails(id, isbn);
+        detail = await this.sbnAdapter.getDetails(id, isbn, title, author);
+        break;
       default:
-        return this.googleAdapter.getDetails(id, isbn);
+        detail = await this.googleAdapter.getDetails(id, isbn, title, author);
+        break;
     }
+
+    // Se la sorgente specifica non ha restituito una descrizione, usiamo GoogleBooksAdapter come super-fallback
+    if (!detail.description && (isbn || title)) {
+      try {
+        const fallbackDetail = await this.googleAdapter.getDetails(id, isbn, title, author);
+        if (fallbackDetail.description) {
+          detail.description = fallbackDetail.description;
+          if (!detail.pageCount) detail.pageCount = fallbackDetail.pageCount;
+          if (!detail.publisher) detail.publisher = fallbackDetail.publisher;
+          if (!detail.publishedYear) detail.publishedYear = fallbackDetail.publishedYear;
+          if (!detail.coverUrl) detail.coverUrl = fallbackDetail.coverUrl;
+        }
+      } catch (e) {
+        console.warn('[BookSearchAggregator] Fallback Google Books non riuscito:', e);
+      }
+    }
+
+    return detail;
   }
 
   /**
@@ -118,8 +148,6 @@ export class BookSearchAggregator {
     for (const snippet of snippets) {
       const cleanIsbn = this.normalizeIsbn(snippet.isbn);
       
-      // Chiave principale: ISBN se presente e valido
-      // Chiave fallback: titolo_normalizzato|autore_normalizzato
       const key = cleanIsbn
         ? `isbn:${cleanIsbn}`
         : `text:${this.normalizeText(snippet.title)}|${this.normalizeText(snippet.author)}`;
@@ -127,14 +155,13 @@ export class BookSearchAggregator {
       if (!deduplicatedMap.has(key)) {
         deduplicatedMap.set(key, snippet);
       } else {
-        // Se esiste già, arricchiamo l'elemento esistente se quello corrente ha la copertina o l'ISBN e l'altro no
         const existing = deduplicatedMap.get(key)!;
-        if (!existing.coverUrl && snippet.coverUrl) {
-          existing.coverUrl = snippet.coverUrl;
-        }
-        if (!existing.isbn && snippet.isbn) {
-          existing.isbn = snippet.isbn;
-        }
+        if (!existing.coverUrl && snippet.coverUrl) existing.coverUrl = snippet.coverUrl;
+        if (!existing.isbn && snippet.isbn) existing.isbn = snippet.isbn;
+        if (!existing.description && snippet.description) existing.description = snippet.description;
+        if (!existing.pageCount && snippet.pageCount) existing.pageCount = snippet.pageCount;
+        if (!existing.publisher && snippet.publisher) existing.publisher = snippet.publisher;
+        if (!existing.publishedYear && snippet.publishedYear) existing.publishedYear = snippet.publishedYear;
       }
     }
 

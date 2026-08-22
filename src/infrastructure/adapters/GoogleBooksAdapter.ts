@@ -27,7 +27,7 @@ export class GoogleBooksAdapter implements BookSearchPort {
   }
 
   /**
-   * Fase 1: Ricerca di libri leggeri (BookSnippet)
+   * Fase 1: Ricerca di libri leggeri (BookSnippet) arricchiti con i dati pronti
    */
   async search(query: string): Promise<BookSnippet[]> {
     const trimmed = query.trim();
@@ -52,6 +52,10 @@ export class GoogleBooksAdapter implements BookSearchPort {
           info.imageLinks?.smallThumbnail ||
           null;
 
+        const publishedYear = info.publishedDate
+          ? info.publishedDate.substring(0, 4)
+          : null;
+
         return {
           id: item.id,
           isbn: this.extractIsbn(info.industryIdentifiers),
@@ -59,6 +63,10 @@ export class GoogleBooksAdapter implements BookSearchPort {
           author: info.authors ? info.authors.join(', ') : 'Autore sconosciuto',
           source: 'Google',
           coverUrl: coverUrl ? coverUrl.replace(/^http:/, 'https:') : null,
+          description: info.description || null,
+          pageCount: info.pageCount || null,
+          publisher: info.publisher || null,
+          publishedYear,
         };
       });
     } catch (error) {
@@ -68,50 +76,68 @@ export class GoogleBooksAdapter implements BookSearchPort {
   }
 
   /**
-   * Fase 2: Caricamento dettagli completi (BookDetail)
+   * Fase 2: Caricamento dettagli completi (BookDetail) con pulizia dell'ID e fallback robusti
    */
-  async getDetails(id: string, isbn?: string): Promise<BookDetail> {
+  async getDetails(id: string, isbn?: string, title?: string, author?: string): Promise<BookDetail> {
     const apiKeyParam = this.getApiKeyParam();
-    let url = `${this.baseUrl}/${encodeURIComponent(id)}${apiKeyParam ? '?' + apiKeyParam.replace('&', '') : ''}`;
+    // Rimuove eventuali prefissi 'gb-', 'ol-', 'sbn-' per ottenere il vero volume ID Google
+    const cleanId = id.replace(/^(gb-|ol-|sbn-)/, '');
 
     try {
-      let response = await fetch(url);
-
-      // Fallback: se l'ID non è un volume ID valido e abbiamo un ISBN, cerchiamo per ISBN
-      if (!response.ok && isbn) {
-        const searchUrl = `${this.baseUrl}?q=isbn:${encodeURIComponent(isbn)}${apiKeyParam}`;
-        response = await fetch(searchUrl);
+      // 1. Prova prima il recupero diretto tramite Volume ID
+      if (cleanId && !cleanId.includes('-')) {
+        const url = `${this.baseUrl}/${encodeURIComponent(cleanId)}${apiKeyParam ? '?' + apiKeyParam.replace('&', '') : ''}`;
+        const response = await fetch(url);
         if (response.ok) {
-          const searchData = await response.json();
-          if (searchData.items && searchData.items.length > 0) {
-            const item = searchData.items[0];
-            return this.mapToDetail(item);
+          const item = await response.json();
+          const detail = this.mapToDetail(item);
+          if (detail.description) return detail;
+        }
+      }
+
+      // 2. Fallback per ISBN se la chiamata per ID fallisce o non ha descrizione
+      if (isbn && isbn.trim()) {
+        const searchUrl = `${this.baseUrl}?q=isbn:${encodeURIComponent(isbn.trim())}${apiKeyParam}`;
+        const isbnResp = await fetch(searchUrl);
+        if (isbnResp.ok) {
+          const isbnData = await isbnResp.json();
+          if (isbnData.items && isbnData.items.length > 0) {
+            return this.mapToDetail(isbnData.items[0]);
           }
         }
       }
 
-      if (!response.ok) {
-        throw new Error(`Google Books API HTTP error: ${response.status}`);
+      // 3. Fallback per Titolo e Autore se l'ISBN non ha dato risultati
+      if (title && title.trim()) {
+        const searchTerms = `${title.trim()} ${author ? author.trim() : ''}`.trim();
+        const searchUrl = `${this.baseUrl}?q=${encodeURIComponent(searchTerms)}&maxResults=5${apiKeyParam}`;
+        const textResp = await fetch(searchUrl);
+        if (textResp.ok) {
+          const textData = await textResp.json();
+          if (textData.items && textData.items.length > 0) {
+            // Cerca il primo risultato che abbia una descrizione
+            const withDesc = textData.items.find((it: any) => it.volumeInfo?.description);
+            return this.mapToDetail(withDesc || textData.items[0]);
+          }
+        }
       }
-
-      const item = await response.json();
-      return this.mapToDetail(item);
     } catch (error) {
-      console.error(`[GoogleBooksAdapter] Errore caricamento dettagli per ID ${id}:`, error);
-      // Ritorna una struttura base se fallisce
-      return {
-        id,
-        isbn: isbn || null,
-        title: 'Dettagli non disponibili',
-        author: 'Sconosciuto',
-        source: 'Google',
-        coverUrl: null,
-        description: null,
-        pageCount: null,
-        publisher: null,
-        publishedYear: null,
-      };
+      console.warn(`[GoogleBooksAdapter] Errore dettagli per ID ${id}:`, error);
     }
+
+    // Struttura base di ripiego se tutto fallisce
+    return {
+      id,
+      isbn: isbn || null,
+      title: title || 'Titolo non disponibile',
+      author: author || 'Autore non disponibile',
+      source: 'Google',
+      coverUrl: null,
+      description: null,
+      pageCount: null,
+      publisher: null,
+      publishedYear: null,
+    };
   }
 
   /**

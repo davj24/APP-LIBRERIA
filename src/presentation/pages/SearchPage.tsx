@@ -46,7 +46,7 @@ export const SearchPage: React.FC = () => {
       })
     : [];
 
-  // FASE 2.4: Ricerca Web Async con federatedBookSearch (Google Books + Open Library + SBN)
+  // FASE 2.4: Ricerca Web Async con federatedBookSearch (Google Books + Open Library + OPAC SBN)
   useEffect(() => {
     if (!trimmedQuery || trimmedQuery.length < 2) {
       setWebResults([]);
@@ -87,24 +87,35 @@ export const SearchPage: React.FC = () => {
       author: webBook.author,
       cover: webBook.coverUrl,
       isbn: webBook.isbn,
+      description: webBook.description || null,
+      pages: webBook.totalPages || null,
+      publisher: webBook.publisher || null,
+      year: webBook.publishedYear || null,
       source: webBook.source,
       genre: webBook.genre || 'Generico'
     };
 
     setSelectedSheetBook(initialSheetBook);
     setIsSheetOpen(true);
-    setIsLoadingDetails(true);
+    setIsLoadingDetails(!webBook.description);
 
     try {
-      const details = await getBookDetail(webBook.id, webBook.source, webBook.isbn);
+      const details = await getBookDetail(
+        webBook.id,
+        webBook.source,
+        webBook.isbn,
+        webBook.title,
+        webBook.author
+      );
+
       setSelectedSheetBook((prev) =>
         prev
           ? {
               ...prev,
-              description: details.description || null,
-              pages: details.pageCount || null,
-              publisher: details.publisher || null,
-              year: details.publishedYear || null,
+              description: details.description || prev.description || null,
+              pages: details.pageCount || prev.pages || null,
+              publisher: details.publisher || prev.publisher || null,
+              year: details.publishedYear || prev.year || null,
               isbn: details.isbn || prev.isbn
             }
           : null

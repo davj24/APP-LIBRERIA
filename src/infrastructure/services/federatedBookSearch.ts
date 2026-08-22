@@ -38,6 +38,10 @@ export async function federatedBookSearch(query: string): Promise<WebBook[]> {
       author: snippet.author,
       coverUrl: snippet.coverUrl,
       isbn: snippet.isbn,
+      description: snippet.description || null,
+      totalPages: snippet.pageCount || null,
+      publisher: snippet.publisher || null,
+      publishedYear: snippet.publishedYear || null,
       source: mappedSource,
     };
   });
@@ -45,16 +49,24 @@ export async function federatedBookSearch(query: string): Promise<WebBook[]> {
 
 /**
  * Fase 2 (Lazy Hydration): Recupera i dettagli completi del libro (BookDetail)
- * invocando l'adapter corrispondente alla sorgente.
+ * invocando l'adapter corrispondente alla sorgente con fallback automatici.
  */
 export async function getBookDetail(
   id: string,
   source: 'google' | 'openlibrary' | 'sbn',
-  isbn?: string | null
+  isbn?: string | null,
+  title?: string | null,
+  author?: string | null
 ): Promise<BookDetail> {
   let mappedSource: 'Google' | 'OpenLibrary' | 'SBN' = 'Google';
   if (source === 'openlibrary') mappedSource = 'OpenLibrary';
   if (source === 'sbn') mappedSource = 'SBN';
 
-  return searchAggregator.getDetails(id, mappedSource, isbn || undefined);
+  return searchAggregator.getDetails(
+    id,
+    mappedSource,
+    isbn || undefined,
+    title || undefined,
+    author || undefined
+  );
 }
