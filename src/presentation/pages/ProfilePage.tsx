@@ -723,9 +723,23 @@ export const ProfilePage: React.FC = () => {
            <p className="text-sm text-neutral-500 mt-1">
              {profile.bio}
            </p>
+
+           {/* Generi Preferiti (Entità separate rispetto alla bio testuale) */}
+           {userProfile.favoriteGenres && userProfile.favoriteGenres.length > 0 && (
+             <div className="flex flex-wrap gap-1.5 mt-3">
+               {userProfile.favoriteGenres.map((genre) => (
+                 <span
+                   key={genre}
+                   className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 text-[#5C6B55] dark:text-[#A0AF99] border border-[#5C6B55]/20 shadow-2xs"
+                 >
+                   {genre}
+                 </span>
+               ))}
+             </div>
+           )}
            
            {/* Widget Selezionati (Max 2) */}
-           <div className="flex flex-wrap gap-2 mt-5">
+           <div className="flex flex-wrap gap-2 mt-4">
              {profile.selectedWidgets.map(wId => renderWidgetBadge(wId))}
            </div>
          </div>

@@ -142,14 +142,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   const [isGenresOpen, setIsGenresOpen] = useState(false);
   const [isWidgetsOpen, setIsWidgetsOpen] = useState(false);
 
-  // Form State: Il nome parte COMPLETAMENTE VUOTO come richiesto
+  // Form State: I generi preferiti sono entità separate rispetto alla bio testuale
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     name: '',
     bio: 'Lettore appassionato di libri e saggi',
     readingGoal: 24,
     avatarColor: 'bg-gradient-to-tr from-indigo-600 to-violet-600',
     avatarUrl: undefined,
-    selectedWidgets: ['read_count', 'reading_count']
+    selectedWidgets: ['read_count', 'reading_count'],
+    favoriteGenres: ['🐉 Fantasy', '📚 Narrativa']
   });
 
   const handleNextStep = () => {
@@ -187,15 +188,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
     }
   };
 
-  const toggleTag = (tag: string) => {
-    const cleanTag = tag.replace(/^[^\s]+\s/, '');
-    const currentBio = formData.bio || '';
-    if (currentBio.includes(cleanTag)) {
-      const updated = currentBio.replace(` • ${cleanTag}`, '').replace(cleanTag, '');
-      setFormData({ ...formData, bio: updated.trim() });
+  // Toggle dei generi preferiti come entità separate nell'array
+  const toggleGenre = (genre: string) => {
+    const current = formData.favoriteGenres || [];
+    if (current.includes(genre)) {
+      setFormData({ ...formData, favoriteGenres: current.filter(g => g !== genre) });
     } else {
-      const updated = currentBio ? `${currentBio} • ${cleanTag}` : cleanTag;
-      setFormData({ ...formData, bio: updated });
+      setFormData({ ...formData, favoriteGenres: [...current, genre] });
     }
   };
 
@@ -426,10 +425,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
               >
                 <div className="text-center space-y-1">
                   <h2 className="text-lg font-black text-[#31362F] dark:text-[#E0DCD3]">Bio, Generi & Widget Profilo 📝</h2>
-                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Personalizza la tua bio, sfoglia i generi e scegli i widget:</p>
+                  <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">Personalizza la tua bio, seleziona i generi preferiti ed i widget:</p>
                 </div>
 
-                {/* Input Bio */}
+                {/* Input Bio Testuale */}
                 <div className="relative">
                   <PenLine className="w-4 h-4 absolute left-3.5 top-2.5 text-[#7A756D] dark:text-[#A09A90]" />
                   <textarea
@@ -441,7 +440,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   />
                 </div>
 
-                {/* Pillola Espandibile: Generi Preferiti */}
+                {/* Pillola Espandibile: Generi Preferiti (Entità Separate) */}
                 <div className="space-y-1.5">
                   <button
                     type="button"
@@ -453,7 +452,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       <span>Generi Preferiti</span>
                     </span>
                     <div className="flex items-center gap-1 text-[11px] font-semibold text-[#7A756D] dark:text-[#A09A90]">
-                      <span>Esplora (24 generi)</span>
+                      <span className="font-extrabold text-[#5C6B55] dark:text-[#A0AF99]">
+                        {(formData.favoriteGenres || []).length} selezionati
+                      </span>
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isGenresOpen ? 'rotate-180' : ''}`} />
                     </div>
                   </button>
@@ -468,25 +469,25 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                         className="overflow-hidden bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-48 overflow-y-auto custom-scrollbar"
                       >
                         <span className="text-[10px] font-bold text-[#7A756D] dark:text-[#A09A90] block mb-2">
-                          Clicca sui generi per aggiungerli o rimuoverli dalla tua Bio:
+                          Seleziona i generi letterari da mostrare sul tuo profilo:
                         </span>
                         <div className="flex flex-wrap gap-1.5">
-                          {GENRE_TAGS.map((tag) => {
-                            const cleanTag = tag.replace(/^[^\s]+\s/, '');
-                            const isIncluded = (formData.bio || '').includes(cleanTag);
+                          {GENRE_TAGS.map((genre) => {
+                            const isSelected = (formData.favoriteGenres || []).includes(genre);
 
                             return (
                               <button
-                                key={tag}
+                                key={genre}
                                 type="button"
-                                onClick={() => toggleTag(tag)}
-                                className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer active:scale-95 ${
-                                  isIncluded
+                                onClick={() => toggleGenre(genre)}
+                                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+                                  isSelected
                                     ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs'
                                     : 'bg-[#FCFBF8] dark:bg-[#33302D] border-[#EBE5D9] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3]'
                                 }`}
                               >
-                                {tag}
+                                <span>{genre}</span>
+                                {isSelected && <Check className="w-3 h-3 text-white" />}
                               </button>
                             );
                           })}

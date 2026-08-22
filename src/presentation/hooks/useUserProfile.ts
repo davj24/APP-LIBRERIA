@@ -9,6 +9,7 @@ export interface UserProfile {
   avatarUrl?: string;
   bannerUrl?: string;
   selectedWidgets?: string[];
+  favoriteGenres?: string[];
   isCompleted?: boolean;
 }
 
@@ -18,6 +19,7 @@ const DEFAULT_PROFILE: UserProfile = {
   readingGoal: 24,
   avatarColor: 'from-indigo-600 to-violet-500',
   selectedWidgets: ['read_count', 'reading_count'],
+  favoriteGenres: ['🐉 Fantasy', '📚 Narrativa'],
   isCompleted: false
 };
 
@@ -34,7 +36,10 @@ export function useUserProfile() {
           ...parsed,
           selectedWidgets: (parsed.selectedWidgets && Array.isArray(parsed.selectedWidgets) && parsed.selectedWidgets.length > 0)
             ? parsed.selectedWidgets
-            : DEFAULT_PROFILE.selectedWidgets
+            : DEFAULT_PROFILE.selectedWidgets,
+          favoriteGenres: (parsed.favoriteGenres && Array.isArray(parsed.favoriteGenres))
+            ? parsed.favoriteGenres
+            : DEFAULT_PROFILE.favoriteGenres
         };
       }
       return DEFAULT_PROFILE;
