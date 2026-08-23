@@ -144,17 +144,14 @@ export const LibraryPage: React.FC = () => {
         onSearchActive={setIsSearchActive}
       />
 
-      {/* Main Page Content che si nasconde fluidamente durante la ricerca */}
-      <AnimatePresence mode="wait">
-        {!isSearchActive && (
-          <motion.div
-            key="library-main-content"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="space-y-4"
-          >
+      {/* Main Page Content */}
+      <motion.div
+        key="library-main-content"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeInOut" }}
+        className="space-y-4"
+      >
             {/* Invito alla ricerca se nessun libro locale corrisponde */}
             {trimmedQuery && localFilteredBooks.length === 0 && (
               <div className="bg-[#EBE5D9]/60 dark:bg-[#383532]/60 rounded-2xl p-3 text-center border border-[#DCD5C6] dark:border-[#4A4743]/50 max-w-md mx-auto">
@@ -270,8 +267,6 @@ export const LibraryPage: React.FC = () => {
               />
             )}
           </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Book Detail & Edit Modal per i libri della libreria locale */}
       <BookDetailModal

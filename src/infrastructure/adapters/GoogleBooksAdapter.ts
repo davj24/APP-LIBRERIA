@@ -33,7 +33,11 @@ export class GoogleBooksAdapter implements BookSearchPort {
     const trimmed = query.trim();
     if (!trimmed) return [];
 
-    const url = `${this.baseUrl}?q=${encodeURIComponent(trimmed)}&maxResults=20${this.getApiKeyParam()}`;
+    const cleanDigits = trimmed.replace(/[-_ \s]/g, '');
+    const isIsbn = /^\d{9,13}$/.test(cleanDigits);
+    const searchQuery = isIsbn ? `isbn:${cleanDigits}` : trimmed;
+
+    const url = `${this.baseUrl}?q=${encodeURIComponent(searchQuery)}&maxResults=20${this.getApiKeyParam()}`;
 
     try {
       const response = await fetch(url);
