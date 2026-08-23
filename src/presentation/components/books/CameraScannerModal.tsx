@@ -109,11 +109,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             const h = Math.min(viewfinderHeight * 0.45, 160);
             return { width: Math.floor(w), height: Math.floor(h) };
           },
-          aspectRatio: 1.333333,
-          formatsToSupport: supportedFormats,
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-          }
+          aspectRatio: 1.333333
         },
         (decodedText) => {
           handleBarcodeDetected(decodedText);

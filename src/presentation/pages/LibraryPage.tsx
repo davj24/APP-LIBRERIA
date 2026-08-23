@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type { Book } from '../../domain/models/Book';
 import { BookGrid } from '../components/books/BookGrid';
 import { AuthorsView } from '../components/books/AuthorsView';
@@ -20,7 +20,6 @@ export type LibrarySubTab = 'books' | 'authors' | 'genres';
 export const LibraryPage: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<LibrarySubTab>('books');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchActive, setIsSearchActive] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
   // Stati locali dedicati al Bottom Sheet dei dettagli libro da ricerca
@@ -141,7 +140,6 @@ export const LibraryPage: React.FC = () => {
         value={searchQuery}
         onChange={setSearchQuery}
         onSelectGoogleBook={handleBookSelect}
-        onSearchActive={setIsSearchActive}
       />
 
       {/* Main Page Content */}
