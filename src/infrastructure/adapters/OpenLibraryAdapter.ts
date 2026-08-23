@@ -13,6 +13,37 @@ export class OpenLibraryAdapter implements BookSearchPort {
   async search(query: string): Promise<BookSnippet[]> {
     const trimmed = query.trim();
     if (!trimmed) return [];
+    const cleanIsbn = trimmed.replace(/[-_ \s]/g, '');
+    const isIsbn = /^\d{10,13}$/.test(cleanIsbn);
+
+    // 1. Ricerca diretta ISBN tramite API Data per risposta fulminea
+    if (isIsbn) {
+      try {
+        const bibKey = `ISBN:${cleanIsbn}`;
+        const bibUrl = `https://openlibrary.org/api/books?bibkeys=${encodeURIComponent(bibKey)}&format=json&jscmd=data`;
+        const bibResp = await fetch(bibUrl);
+        if (bibResp.ok) {
+          const bibData = await bibResp.json();
+          const bookObj = bibData[bibKey];
+          if (bookObj) {
+            return [{
+              id: `ol-isbn-${cleanIsbn}`,
+              isbn: cleanIsbn,
+              title: bookObj.title || 'Titolo sconosciuto',
+              author: bookObj.authors ? bookObj.authors.map((a: any) => a.name).join(', ') : 'Autore sconosciuto',
+              source: 'OpenLibrary',
+              coverUrl: bookObj.cover?.medium || bookObj.cover?.large || `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-M.jpg`,
+              description: typeof bookObj.notes === 'string' ? bookObj.notes : bookObj.notes?.value || null,
+              pageCount: bookObj.number_of_pages || null,
+              publisher: bookObj.publishers ? bookObj.publishers.map((p: any) => p.name).join(', ') : null,
+              publishedYear: bookObj.publish_date ? bookObj.publish_date.substring(0, 4) : null,
+            }];
+          }
+        }
+      } catch (err) {
+        console.warn('[OpenLibraryAdapter] Direct ISBN fetch error:', err);
+      }
+    }
 
     const url = `${this.searchUrl}?q=${encodeURIComponent(trimmed)}&limit=20`;
 
