@@ -31,6 +31,14 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   const nativeDetectorRef = useRef<any>(null);
   const animationFrameRef = useRef<number | null>(null);
 
+  const supportedFormats = [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+  ];
+
   useEffect(() => {
     let isMounted = true;
 
@@ -59,14 +67,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     };
   }, [isOpen]);
 
-  const supportedFormats = [
-    Html5QrcodeSupportedFormats.EAN_13,
-    Html5QrcodeSupportedFormats.EAN_8,
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.UPC_A,
-    Html5QrcodeSupportedFormats.UPC_E,
-  ];
-
   const startScanner = async () => {
     const element = document.getElementById("qr-reader");
     if (!element) return;
@@ -83,13 +83,37 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsScanning(true);
 
+      // Seleziona la fotocamera posteriore (Back Camera)
+      let cameraIdOrConfig: any = { facingMode: "environment" };
+      try {
+        const cameras = await Html5Qrcode.getCameras();
+        if (cameras && cameras.length > 0) {
+          const backCam = cameras.find(c => {
+            const label = c.label.toLowerCase();
+            return label.includes('back') || label.includes('posterior') || label.includes('rear') || label.includes('ambiente') || label.includes('environment');
+          }) || cameras[cameras.length - 1];
+          if (backCam) {
+            cameraIdOrConfig = backCam.id;
+          }
+        }
+      } catch (camErr) {
+        console.warn("Camera enumeration error:", camErr);
+      }
+
       await html5QrcodeRef.current.start(
-        { facingMode: "environment" },
+        cameraIdOrConfig,
         {
-          fps: 15,
-          qrbox: { width: 280, height: 160 },
+          fps: 20,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const w = Math.min(viewfinderWidth * 0.85, 320);
+            const h = Math.min(viewfinderHeight * 0.45, 160);
+            return { width: Math.floor(w), height: Math.floor(h) };
+          },
           aspectRatio: 1.333333,
-          formatsToSupport: supportedFormats
+          formatsToSupport: supportedFormats,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
         },
         (decodedText) => {
           handleBarcodeDetected(decodedText);
@@ -99,7 +123,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         }
       );
 
-      // Integrazione accelerata nativa BarcodeDetector per frame video live
+      // Integrazione accelerata BarcodeDetector per frame video live
       if ('BarcodeDetector' in window) {
         try {
           nativeDetectorRef.current = new (window as any).BarcodeDetector({
@@ -132,7 +156,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       console.warn("Scanner camera init error:", err);
       setIsScanning(false);
       setScannerError(
-        "Fotocamera non disponibile direttamente. Puoi scattare una foto al codice a barre o digitare l'ISBN in basso."
+        "Fotocamera live non accessibile. Scatta una foto al codice a barre sul retro o digita l'ISBN in basso."
       );
     }
   };
@@ -172,7 +196,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     setIsLoadingBook(true);
 
     try {
-      // Ricerca federata automatica (Google Books + Open Library + OPAC SBN)
+      // Ricerca federata automatica (Open Library + Google Books + OPAC SBN)
       const searchResults = await federatedBookSearch(cleanIsbn);
       setIsLoadingBook(false);
 
@@ -194,7 +218,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       } else {
         setScannedBook({
           title: `Libro ISBN ${cleanIsbn}`,
-          author: 'Autore non presente nei cataloghi',
+          author: 'Autore non specificato nei cataloghi',
           coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
           startDate: new Date().toISOString().split('T')[0],
           endDate: '',
@@ -207,16 +231,20 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
     } catch (err) {
       setIsLoadingBook(false);
-      setScannerError("Codice a barre letto (" + cleanIsbn + ") ma si è verificato un errore di connessione.");
+      setScannerError("Codice a barre letto (" + cleanIsbn + ") ma si è verificato un errore durante la ricerca del libro.");
     }
   };
 
-  // Ridimensiona ed ottimizza immagini ad alta risoluzione da fotocamera smartphone su Canvas 2D
-  const processImageCanvas = (file: File): Promise<Blob> => {
+  // Pre-elaborazione foto scattata/caricata su Canvas 2D (ridimensionamento, scala di grigi e rotazione 90°)
+  const processCanvasPass = (
+    file: File,
+    maxDim: number,
+    grayscale = false,
+    rotate90 = false
+  ): Promise<File> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
-        const maxDim = 1200;
         let width = img.width;
         let height = img.height;
 
@@ -231,23 +259,52 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         }
 
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((blob) => {
-            resolve(blob || file);
-          }, 'image/jpeg', 0.92);
+        if (rotate90) {
+          canvas.width = height;
+          canvas.height = width;
         } else {
-          resolve(file);
+          canvas.width = width;
+          canvas.height = height;
         }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(file);
+
+        if (rotate90) {
+          ctx.translate(height / 2, width / 2);
+          ctx.rotate((90 * Math.PI) / 180);
+          ctx.drawImage(img, -width / 2, -height / 2, width, height);
+        } else {
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+
+        if (grayscale) {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imgData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            const avg = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+            const v = avg > 115 ? 255 : 0;
+            data[i] = v;
+            data[i + 1] = v;
+            data[i + 2] = v;
+          }
+          ctx.putImageData(imgData, 0, 0);
+        }
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', 0.95);
       };
       img.onerror = () => resolve(file);
       img.src = URL.createObjectURL(file);
     });
   };
 
+  // Analisi foto in 4 passaggi per estrazione precisa del codice a barre
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -258,39 +315,58 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
     let decodedText: string | null = null;
 
-    try {
-      // Ridimensiona la foto ad alta risoluzione (es. 12MP) per permettere al motore ZXing di decodificare il codice a barre 1D
-      const processedBlob = await processImageCanvas(file);
-      const processedFile = new File([processedBlob], file.name, { type: 'image/jpeg' });
+    // Inizializza Html5Qrcode se necessario
+    if (!html5QrcodeRef.current) {
+      html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
+        formatsToSupport: supportedFormats,
+        verbose: false
+      });
+    }
 
-      // 1. Tenta decodifica via BarcodeDetector nativo
-      if ('BarcodeDetector' in window) {
-        try {
-          const imageBitmap = await createImageBitmap(processedFile);
-          const detector = new (window as any).BarcodeDetector({
-            formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e']
-          });
-          const barcodes = await detector.detect(imageBitmap);
-          if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-            decodedText = barcodes[0].rawValue;
-          }
-        } catch (err) {
-          console.warn("BarcodeDetector error:", err);
+    // PASS 1: Native BarcodeDetector su file originale
+    if ('BarcodeDetector' in window) {
+      try {
+        const imageBitmap = await createImageBitmap(file);
+        const detector = new (window as any).BarcodeDetector({
+          formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e']
+        });
+        const barcodes = await detector.detect(imageBitmap);
+        if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+          decodedText = barcodes[0].rawValue;
         }
+      } catch (err) {
+        console.warn("Pass 1 error:", err);
       }
+    }
 
-      // 2. Tenta decodifica via Html5Qrcode.scanFile su file ottimizzato
-      if (!decodedText) {
-        if (!html5QrcodeRef.current) {
-          html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
-            formatsToSupport: supportedFormats,
-            verbose: false
-          });
-        }
-        decodedText = await html5QrcodeRef.current.scanFile(processedFile, true);
+    // PASS 2: Html5Qrcode su canvas ridimensionato a 1200px
+    if (!decodedText) {
+      try {
+        const resizedFile = await processCanvasPass(file, 1200, false, false);
+        decodedText = await html5QrcodeRef.current.scanFile(resizedFile, true);
+      } catch (err) {
+        console.warn("Pass 2 error:", err);
       }
-    } catch (err) {
-      console.warn("Nessun codice decodificato dalla foto:", err);
+    }
+
+    // PASS 3: Html5Qrcode su canvas con contrasto scala di grigi
+    if (!decodedText) {
+      try {
+        const bwFile = await processCanvasPass(file, 900, true, false);
+        decodedText = await html5QrcodeRef.current.scanFile(bwFile, true);
+      } catch (err) {
+        console.warn("Pass 3 error:", err);
+      }
+    }
+
+    // PASS 4: Html5Qrcode su canvas ruotato di 90° (per codici a barre verticali)
+    if (!decodedText) {
+      try {
+        const rotatedFile = await processCanvasPass(file, 900, false, true);
+        decodedText = await html5QrcodeRef.current.scanFile(rotatedFile, true);
+      } catch (err) {
+        console.warn("Pass 4 error:", err);
+      }
     }
 
     if (decodedText) {
@@ -298,7 +374,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     } else {
       setIsLoadingBook(false);
       setScannerError(
-        "Nessun codice a barre ISBN (es. 978...) rilevato nell'immagine. Inquadra da vicino le barrette nere sul retro del libro o digita l'ISBN."
+        "Nessun codice a barre (ISBN) individuato nella foto. Assicurati che le barre nere sul retro del libro siano ben visibili e a fuoco."
       );
     }
   };
@@ -309,7 +385,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     if (cleaned && cleaned.length >= 8) {
       handleBarcodeDetected(cleaned);
     } else {
-      setScannerError("Inserisci un codice ISBN valido (almeno 9-13 cifre numeri).");
+      setScannerError("Inserisci un codice ISBN valido (almeno 9-13 cifre).");
     }
   };
 
@@ -344,7 +420,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-[#4A4743] dark:text-[#E0DCD3]">Scanner Codice ISBN</h2>
-                  <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90]">Inquadra il codice a barre (EAN-13) o scatta una foto</p>
+                  <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90]">Inquadra il codice a barre sul retro del libro</p>
                 </div>
               </div>
               <button
@@ -376,7 +452,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                     />
                   </div>
                   <span className="mt-3 text-[11px] font-bold text-emerald-200/90 bg-black/60 px-3 py-1 rounded-full backdrop-blur-xs">
-                    Inquadra le barrette del codice ISBN
+                    Inquadra il codice a barre (EAN-13) sul retro
                   </span>
                 </div>
               )}
@@ -390,7 +466,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                     onClick={startScanner}
                     className="mt-2 px-4 py-2 bg-[#5C6B55] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-[#4D5A46] transition-all cursor-pointer"
                   >
-                    Riprova Scansione Fotocamera
+                    Riprova Scansione
                   </button>
                 </div>
               )}
@@ -402,7 +478,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                   <span className="text-xs font-semibold text-emerald-200">
                     Codice ISBN {detectedIsbn ? `(${detectedIsbn})` : ''} rilevato!
                   </span>
-                  <span className="text-[11px] text-[#A09A90]">Consultazione cataloghi online...</span>
+                  <span className="text-[11px] text-[#A09A90]">Ricerca libro in corso...</span>
                 </div>
               )}
             </div>
@@ -415,7 +491,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                   type="text"
                   value={manualIsbnInput}
                   onChange={(e) => setManualIsbnInput(e.target.value)}
-                  placeholder="Digita ISBN (es. 9788804668237)..."
+                  placeholder="Oppure digita ISBN (es. 9788804668237)..."
                   className="w-full pl-10 pr-20 py-2.5 bg-[#F4F1EA] dark:bg-[#2A2826] text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] placeholder-[#9E988F] dark:placeholder-[#88837A] rounded-2xl border border-[#DCD5C6] dark:border-[#4A4743]/60 focus:outline-none focus:ring-2 focus:ring-[#5C6B55]"
                 />
                 <button
@@ -429,7 +505,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               </div>
             </form>
 
-            {/* Scanned Result Card con Dati Reali */}
+            {/* Scanned Result Card con Dati Reali trovati */}
             {scannedBook && (
               <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl p-3.5 border border-[#B0BEA9] dark:border-[#5C6B55] mb-3 flex gap-3 items-center animate-in fade-in">
                 <img
@@ -439,7 +515,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                 />
                 <div className="flex-1 min-w-0">
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#2D382B] dark:text-[#E0DCD3] bg-[#D8E2D5] dark:bg-[#3B4838] px-2 py-0.5 rounded-full border border-[#B0BEA9] dark:border-[#5C6B55]">
-                    <Check className="w-3 h-3 text-[#4D6349] dark:text-[#788C71]" /> Libro Trovato
+                    <Check className="w-3 h-3 text-[#4D6349] dark:text-[#788C71]" /> Libro Riconosciuto
                   </span>
                   <h4 className="font-bold text-xs text-[#4A4743] dark:text-[#E0DCD3] truncate mt-1">{scannedBook.title}</h4>
                   <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90] truncate">{scannedBook.author}</p>
