@@ -107,15 +107,11 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         console.warn("Camera enumeration error:", camErr);
       }
 
+      // NESSUN qrbox: scansione sull'INTERO FRAME VIDEO della fotocamera per non ritagliare l'immagine
       await html5QrcodeRef.current.start(
         cameraIdOrConfig,
         {
-          fps: 20,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const w = Math.min(viewfinderWidth * 0.85, 320);
-            const h = Math.min(viewfinderHeight * 0.45, 160);
-            return { width: Math.floor(w), height: Math.floor(h) };
-          },
+          fps: 25,
           aspectRatio: 1.333333
         },
         (decodedText) => {
@@ -126,17 +122,22 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         }
       );
 
-      // Integrazione accelerata BarcodeDetector per frame video live
-      if ('BarcodeDetector' in window) {
-        try {
-          nativeDetectorRef.current = new (window as any).BarcodeDetector({
-            formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e']
-          });
+      // Polling continuo del video element per BarcodeDetector nativo su FULL FRAME
+      const attachNativeDetectorLoop = () => {
+        const videoEl = element.querySelector('video') as HTMLVideoElement | null;
+        if (!videoEl) {
+          setTimeout(attachNativeDetectorLoop, 150);
+          return;
+        }
 
-          const videoEl = element.querySelector('video') as HTMLVideoElement | null;
-          if (videoEl) {
+        if ('BarcodeDetector' in window) {
+          try {
+            nativeDetectorRef.current = new (window as any).BarcodeDetector({
+              formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e']
+            });
+
             const scanNativeFrame = async () => {
-              if (videoEl.readyState >= 2 && nativeDetectorRef.current) {
+              if (videoEl && videoEl.readyState >= 2 && nativeDetectorRef.current) {
                 try {
                   const barcodes = await nativeDetectorRef.current.detect(videoEl);
                   if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
@@ -150,11 +151,14 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               animationFrameRef.current = requestAnimationFrame(scanNativeFrame);
             };
             scanNativeFrame();
+          } catch (err) {
+            console.warn("Native BarcodeDetector init error:", err);
           }
-        } catch (err) {
-          console.warn("Native BarcodeDetector init error:", err);
         }
-      }
+      };
+
+      attachNativeDetectorLoop();
+
     } catch (err: any) {
       console.warn("Scanner camera init error:", err);
       setIsScanning(false);
@@ -469,7 +473,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                     />
                   </div>
                   <span className="mt-3 text-[11px] font-bold text-emerald-200/90 bg-black/60 px-3 py-1 rounded-full backdrop-blur-xs">
-                    Inquadra il codice a barre (EAN-13) sul retro
+                    Inquadra il codice a barre (EAN-13) in qualsiasi punto
                   </span>
                 </div>
               )}
