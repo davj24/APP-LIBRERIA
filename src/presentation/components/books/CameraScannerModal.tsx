@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Book } from '../../../domain/models/Book';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { X, Camera, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode } from 'lucide-react';
+import { X, Camera, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, EyeOff } from 'lucide-react';
 import { useRegisterModal } from '../../context/ModalContext';
 import { federatedBookSearch } from '../../../infrastructure/services/federatedBookSearch';
 
@@ -26,6 +26,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   const [scannedBook, setScannedBook] = useState<Omit<Book, 'id'> | null>(null);
   const [isLoadingBook, setIsLoadingBook] = useState(false);
   const [manualIsbnInput, setManualIsbnInput] = useState('');
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const nativeDetectorRef = useRef<any>(null);
@@ -47,6 +48,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       setDetectedIsbn(null);
       setScannerError(null);
       setManualIsbnInput('');
+      setIsInputFocused(false);
 
       const timer = setTimeout(() => {
         if (!isMounted) return;
@@ -83,8 +85,13 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsScanning(true);
 
-      // Seleziona la fotocamera posteriore (Back Camera)
-      let cameraIdOrConfig: any = { facingMode: "environment" };
+      // Seleziona preferibilmente la fotocamera posteriore (Back Camera)
+      let cameraIdOrConfig: any = {
+        facingMode: "environment",
+        width: { ideal: 1920, min: 1280 },
+        height: { ideal: 1080, min: 720 }
+      };
+
       try {
         const cameras = await Html5Qrcode.getCameras();
         if (cameras && cameras.length > 0) {
@@ -231,7 +238,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     }
   };
 
-  // Pre-elaborazione foto scattata/caricata su Canvas 2D (ridimensionamento, scala di grigi e rotazione 90°)
+  // Pre-elaborazione foto scattata/caricata su Canvas 2D
   const processCanvasPass = (
     file: File,
     maxDim: number,
@@ -300,7 +307,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     });
   };
 
-  // Analisi foto in 4 passaggi per estrazione precisa del codice a barre
+  // Analisi foto in 4 passaggi per estrazione del codice a barre
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -311,7 +318,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
     let decodedText: string | null = null;
 
-    // Inizializza Html5Qrcode se necessario
     if (!html5QrcodeRef.current) {
       html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
         formatsToSupport: supportedFormats,
@@ -392,6 +398,8 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     }
   };
 
+  const shouldObscureCamera = isInputFocused || manualIsbnInput.trim().length > 0;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -432,8 +440,21 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               {/* Contenitore HTML5 QR Code */}
               <div id="qr-reader" className="w-full h-full object-cover" />
 
+              {/* Oscuramento Fotocamera quando si scrive nel campo ISBN manuale */}
+              {shouldObscureCamera && !scannedBook && !isLoadingBook && (
+                <div className="absolute inset-0 bg-[#1E221D]/90 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center z-30 transition-all animate-in fade-in">
+                  <div className="w-10 h-10 rounded-2xl bg-[#5C6B55]/20 text-[#A0AF99] flex items-center justify-center mb-2 border border-[#5C6B55]/40">
+                    <EyeOff className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-[#E0DCD3]">Ricerca ISBN manuale attiva</span>
+                  <span className="text-[11px] text-[#A09A90] mt-1 max-w-xs">
+                    La fotocamera live è in pausa mentre usi la digitazione manuale dell'ISBN.
+                  </span>
+                </div>
+              )}
+
               {/* Overlay grafico del Mirino con linea laser animata */}
-              {isScanning && !scannedBook && !isLoadingBook && !scannerError && (
+              {isScanning && !scannedBook && !isLoadingBook && !scannerError && !shouldObscureCamera && (
                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10 p-6">
                   <div className="relative w-64 h-36 border-2 border-emerald-400/70 rounded-xl bg-emerald-500/5 shadow-2xl flex items-center justify-center overflow-hidden">
                     <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-emerald-400" />
@@ -454,7 +475,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               )}
 
               {/* Error Overlay */}
-              {scannerError && (
+              {scannerError && !shouldObscureCamera && (
                 <div className="absolute inset-0 bg-[#1E221D]/95 p-5 text-center flex flex-col items-center justify-center gap-2 text-rose-300 z-20">
                   <AlertCircle className="w-8 h-8 text-rose-400" />
                   <p className="text-xs font-semibold leading-relaxed max-w-xs">{scannerError}</p>
@@ -487,8 +508,10 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                   type="text"
                   value={manualIsbnInput}
                   onChange={(e) => setManualIsbnInput(e.target.value)}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
                   placeholder="Oppure digita ISBN (es. 9788804668237)..."
-                  className="w-full pl-10 pr-20 py-2.5 bg-[#F4F1EA] dark:bg-[#2A2826] text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] placeholder-[#9E988F] dark:placeholder-[#88837A] rounded-2xl border border-[#DCD5C6] dark:border-[#4A4743]/60 focus:outline-none focus:ring-2 focus:ring-[#5C6B55]"
+                  className="w-full pl-10 pr-20 py-2.5 bg-[#F4F1EA] dark:bg-[#2A2826] text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] placeholder-[#9E988F] dark:placeholder-[#88837A] rounded-2xl border border-[#DCD5C6] dark:border-[#4A4743]/60 focus:outline-none focus:ring-2 focus:ring-[#5C6B55] transition-all"
                 />
                 <button
                   type="submit"
