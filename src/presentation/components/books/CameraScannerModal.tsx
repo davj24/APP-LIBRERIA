@@ -5,6 +5,7 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { X, Camera, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, EyeOff } from 'lucide-react';
 import { useRegisterModal } from '../../context/ModalContext';
 import { federatedBookSearch } from '../../../infrastructure/services/federatedBookSearch';
+import { BookSheet, type BookSheetBook } from './BookSheet';
 
 interface CameraScannerModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   const [isLoadingBook, setIsLoadingBook] = useState(false);
   const [manualIsbnInput, setManualIsbnInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const nativeDetectorRef = useRef<any>(null);
@@ -107,11 +109,19 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         console.warn("Camera enumeration error:", camErr);
       }
 
-      // NESSUN qrbox: scansione sull'INTERO FRAME VIDEO della fotocamera per non ritagliare l'immagine
+      // NESSUN qrbox ritaglia in teoria, MA html5-qrcode ne ha bisogno per ottimizzare le performance su EAN_13 e fare fallback
+      // Usa un qrbox dinamico basato sulle dimensioni video, ma senza restringere troppo
       await html5QrcodeRef.current.start(
         cameraIdOrConfig,
         {
           fps: 25,
+          qrbox: (videoWidth, videoHeight) => {
+            const minEdge = Math.min(videoWidth, videoHeight);
+            return {
+              width: Math.min(300, videoWidth * 0.9),
+              height: Math.min(150, videoHeight * 0.4)
+            };
+          },
           aspectRatio: 1.333333
         },
         (decodedText) => {
@@ -404,7 +414,22 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
   const shouldObscureCamera = isInputFocused || manualIsbnInput.trim().length > 0;
 
+  const getBookSheetData = (): BookSheetBook | null => {
+    if (!scannedBook) return null;
+    return {
+      id: `scanned-${scannedBook.isbn || Date.now()}`,
+      title: scannedBook.title,
+      author: scannedBook.author,
+      cover: scannedBook.coverUrl,
+      description: scannedBook.notes,
+      pages: scannedBook.totalPages,
+      genre: scannedBook.genre,
+      isbn: scannedBook.isbn,
+    };
+  };
+
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -539,11 +564,19 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             {/* Scanned Result Card con Dati Reali trovati */}
             {scannedBook && (
               <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl p-3.5 border border-[#B0BEA9] dark:border-[#5C6B55] mb-3 flex gap-3 items-center animate-in fade-in">
-                <img
-                  src={scannedBook.coverUrl}
-                  alt={scannedBook.title}
-                  className="w-12 h-16 object-cover rounded-lg border border-[#DCD5C6] dark:border-[#4A4743]/60 shrink-0"
-                />
+                <button
+                  onClick={() => setIsSheetOpen(true)}
+                  className="w-12 h-16 shrink-0 relative rounded-lg overflow-hidden border border-[#DCD5C6] dark:border-[#4A4743]/60 focus:outline-none focus:ring-2 focus:ring-[#5C6B55] transition-transform active:scale-95 group"
+                >
+                  <img
+                    src={scannedBook.coverUrl}
+                    alt={scannedBook.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Search className="w-4 h-4 text-white" />
+                  </div>
+                </button>
                 <div className="flex-1 min-w-0">
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#2D382B] dark:text-[#E0DCD3] bg-[#D8E2D5] dark:bg-[#3B4838] px-2 py-0.5 rounded-full border border-[#B0BEA9] dark:border-[#5C6B55]">
                     <Check className="w-3 h-3 text-[#4D6349] dark:text-[#788C71]" /> Libro Riconosciuto
@@ -591,9 +624,21 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                 <span>Compilazione Manuale</span>
               </button>
             </div>
+            </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+    {/* Dettagli Libro Trovato */}
+    <BookSheet
+      isOpen={isSheetOpen}
+      onClose={() => setIsSheetOpen(false)}
+      book={getBookSheetData()}
+      onAddBook={() => {
+        setIsSheetOpen(false);
+        handleConfirmAdd();
+      }}
+    />
+    </>
   );
 };
