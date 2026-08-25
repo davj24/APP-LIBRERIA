@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Book } from '../../../domain/models/Book';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { X, Camera, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, EyeOff } from 'lucide-react';
+import { X, Camera, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, EyeOff, SwitchCamera } from 'lucide-react';
 import { useRegisterModal } from '../../context/ModalContext';
 import { federatedBookSearch } from '../../../infrastructure/services/federatedBookSearch';
 import { BookSheet, type BookSheetBook } from './BookSheet';
@@ -29,6 +29,8 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   const [manualIsbnInput, setManualIsbnInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
 
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const nativeDetectorRef = useRef<any>(null);
@@ -71,7 +73,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     };
   }, [isOpen]);
 
-  const startScanner = async () => {
+  const startScanner = async (overrideCameraId?: string) => {
     const element = document.getElementById("qr-reader");
     if (!element) return;
 
@@ -87,51 +89,90 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsScanning(true);
 
-      // Seleziona preferibilmente la fotocamera posteriore (Back Camera)
-      let cameraIdOrConfig: any = {
-        facingMode: "environment",
-        width: { ideal: 1920, min: 1280 },
-        height: { ideal: 1080, min: 720 }
-      };
-
+      // Enumerazione fotocamere disponibili per consentire lo switch su fotocamere multiple
+      let cameraList: Array<{ id: string; label: string }> = [];
       try {
-        const cameras = await Html5Qrcode.getCameras();
-        if (cameras && cameras.length > 0) {
-          const backCam = cameras.find(c => {
-            const label = c.label.toLowerCase();
-            return label.includes('back') || label.includes('posterior') || label.includes('rear') || label.includes('ambiente') || label.includes('environment');
-          }) || cameras[cameras.length - 1];
-          if (backCam) {
-            cameraIdOrConfig = backCam.id;
-          }
+        const cams = await Html5Qrcode.getCameras();
+        if (cams && cams.length > 0) {
+          cameraList = cams.map(c => ({ id: c.id, label: c.label }));
+          setAvailableCameras(cameraList);
         }
-      } catch (camErr) {
-        console.warn("Camera enumeration error:", camErr);
+      } catch (e) {
+        console.warn("Camera enumeration error:", e);
       }
 
-      // NESSUN qrbox ritaglia in teoria, MA html5-qrcode ne ha bisogno per ottimizzare le performance su EAN_13 e fare fallback
-      // Usa un qrbox dinamico basato sulle dimensioni video, ma senza restringere troppo
+      // Seleziona la fotocamera posteriore principale o quella scelta dall'utente
+      let cameraIdOrConfig: any = overrideCameraId || selectedCameraId;
+      if (!cameraIdOrConfig) {
+        if (cameraList.length > 0) {
+          const backCams = cameraList.filter(c => {
+            const l = c.label.toLowerCase();
+            return l.includes('back') || l.includes('posterior') || l.includes('rear') || l.includes('ambiente') || l.includes('environment');
+          });
+          if (backCams.length > 0) {
+            cameraIdOrConfig = backCams[0].id;
+          } else {
+            cameraIdOrConfig = cameraList[cameraList.length - 1].id;
+          }
+          if (typeof cameraIdOrConfig === 'string') {
+            setSelectedCameraId(cameraIdOrConfig);
+          }
+        } else {
+          cameraIdOrConfig = {
+            facingMode: "environment",
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 }
+          };
+        }
+      }
+
       await html5QrcodeRef.current.start(
         cameraIdOrConfig,
         {
           fps: 25,
           qrbox: (videoWidth, videoHeight) => {
             return {
-              width: Math.min(300, videoWidth * 0.9),
-              height: Math.min(150, videoHeight * 0.4)
+              width: Math.min(320, Math.floor(videoWidth * 0.85)),
+              height: Math.min(180, Math.floor(videoHeight * 0.45))
             };
-          },
-          aspectRatio: 1.333333
+          }
         },
         (decodedText) => {
           handleBarcodeDetected(decodedText);
         },
-        () => {
-          // Frame non decodificato
-        }
+        () => {}
       );
 
-      // Polling continuo del video element per BarcodeDetector nativo su FULL FRAME
+      // Messa a fuoco continua (Autofocus) via WebRTC Track Constraints
+      const applyContinuousFocus = async () => {
+        const videoEl = element.querySelector('video') as HTMLVideoElement | null;
+        if (videoEl && videoEl.srcObject) {
+          const stream = videoEl.srcObject as MediaStream;
+          const tracks = stream.getVideoTracks();
+          if (tracks && tracks.length > 0) {
+            const track = tracks[0];
+            const capabilities: any = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+            
+            const advancedOpts: any = {};
+            if (capabilities.focusMode && Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
+              advancedOpts.focusMode = 'continuous';
+            }
+
+            if (Object.keys(advancedOpts).length > 0) {
+              try {
+                await track.applyConstraints({ advanced: [advancedOpts] } as any);
+              } catch (err) {
+                console.warn("Autofocus constraint application fallback:", err);
+              }
+            }
+          }
+        }
+      };
+
+      setTimeout(applyContinuousFocus, 400);
+      setTimeout(applyContinuousFocus, 1200);
+
+      // Loop di rilevazione nativo con BarcodeDetector su frame video
       const attachNativeDetectorLoop = () => {
         const videoEl = element.querySelector('video') as HTMLVideoElement | null;
         if (!videoEl) {
@@ -153,9 +194,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                     handleBarcodeDetected(barcodes[0].rawValue);
                     return;
                   }
-                } catch (e) {
-                  // Fallback
-                }
+                } catch (e) {}
               }
               animationFrameRef.current = requestAnimationFrame(scanNativeFrame);
             };
@@ -175,6 +214,18 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         "Fotocamera live non accessibile. Scatta una foto al codice a barre sul retro o digita l'ISBN in basso."
       );
     }
+  };
+
+  const handleSwitchCamera = async () => {
+    if (availableCameras.length <= 1) return;
+    const currentIdx = availableCameras.findIndex(c => c.id === selectedCameraId);
+    const nextIdx = (currentIdx + 1) % availableCameras.length;
+    const nextCam = availableCameras[nextIdx];
+    setSelectedCameraId(nextCam.id);
+    await stopScanner();
+    setTimeout(() => {
+      startScanner(nextCam.id);
+    }, 250);
   };
 
   const stopScanner = async () => {
@@ -474,31 +525,39 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                 </div>
               )}
 
-              {/* Overlay grafico del Mirino con linea laser animata e linea di allineamento centrale */}
+              {/* Overlay grafico del Mirino Moderno (Senza radar statico) */}
               {isScanning && !scannedBook && !isLoadingBook && !scannerError && !shouldObscureCamera && (
-                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10 p-6">
-                  <div className="relative w-64 h-36 border-2 border-emerald-400/70 rounded-xl bg-emerald-500/5 shadow-2xl flex items-center justify-center overflow-hidden">
-                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-emerald-400" />
-                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-emerald-400" />
-                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-emerald-400" />
-                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-emerald-400" />
+                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10 p-4">
+                  {/* Pulsante Cambio Fotocamera per smartphone con fotocamere multiple */}
+                  {availableCameras.length > 1 && (
+                    <button
+                      onClick={handleSwitchCamera}
+                      className="pointer-events-auto absolute top-3 right-3 bg-black/60 hover:bg-black/80 text-white/90 px-2.5 py-1 rounded-full text-[11px] font-bold backdrop-blur-md border border-white/20 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-lg z-20"
+                      title="Cambia Fotocamera"
+                    >
+                      <SwitchCamera className="w-3.5 h-3.5" />
+                      <span>Cambia Cam</span>
+                    </button>
+                  )}
 
-                    {/* Linea Guida Orizzontale per l'allineamento centrale del Codice a barre */}
-                    <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
-                      <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent border-t border-dashed border-emerald-400/50" />
-                      <div className="absolute w-4 h-4 rounded-full border border-emerald-400/70 flex items-center justify-center bg-black/20 backdrop-blur-xs">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
-                      </div>
-                    </div>
+                  {/* Rettangolo di allineamento elegante con angoli minimali */}
+                  <div className="relative w-64 sm:w-72 h-36 border border-white/30 rounded-2xl bg-black/10 backdrop-blur-[1px] shadow-2xl flex items-center justify-center overflow-hidden">
+                    {/* Angoli Sage/Emerald Eleganti */}
+                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#B0BEA9] rounded-tl-lg" />
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#B0BEA9] rounded-tr-lg" />
+                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#B0BEA9] rounded-bl-lg" />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#B0BEA9] rounded-br-lg" />
 
+                    {/* Laser fluido di scansione verticale */}
                     <motion.div
-                      animate={{ y: [-60, 60, -60] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                      className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_8px_#34d399]"
+                      animate={{ y: [-65, 65, -65] }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                      className="w-full h-0.5 bg-gradient-to-r from-transparent via-[#B0BEA9] to-transparent shadow-[0_0_10px_#B0BEA9]"
                     />
                   </div>
-                  <span className="mt-3 text-[11px] font-bold text-emerald-200/90 bg-black/60 px-3 py-1 rounded-full backdrop-blur-xs">
-                    Allinea il codice a barre al centro
+
+                  <span className="mt-3 text-[11px] font-medium text-white/90 bg-black/60 px-3 py-1 rounded-full backdrop-blur-md border border-white/10">
+                    Inquadra il codice a barre nel rettangolo
                   </span>
                 </div>
               )}
@@ -509,7 +568,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                   <AlertCircle className="w-8 h-8 text-rose-400" />
                   <p className="text-xs font-semibold leading-relaxed max-w-xs">{scannerError}</p>
                   <button
-                    onClick={startScanner}
+                    onClick={() => startScanner()}
                     className="mt-2 px-4 py-2 bg-[#5C6B55] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-[#4D5A46] transition-all cursor-pointer"
                   >
                     Riprova Scansione
