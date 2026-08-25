@@ -27,7 +27,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   const [isLoadingBook, setIsLoadingBook] = useState(false);
   const [manualIsbnInput, setManualIsbnInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [isJustRecognized, setIsJustRecognized] = useState(false);
 
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const nativeDetectorRef = useRef<any>(null);
@@ -50,7 +49,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       setScannerError(null);
       setManualIsbnInput('');
       setIsInputFocused(false);
-      setIsJustRecognized(false);
 
       const timer = setTimeout(() => {
         if (!isMounted) return;
@@ -109,16 +107,11 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         console.warn("Camera enumeration error:", camErr);
       }
 
-      // qrbox dinamico in corrispondenza del mirino centrale per decodifica ad alta risoluzione (fondamentale per iOS Safari e browser senza BarcodeDetector nativo)
+      // NESSUN qrbox: scansione sull'INTERO FRAME VIDEO della fotocamera per non ritagliare l'immagine
       await html5QrcodeRef.current.start(
         cameraIdOrConfig,
         {
           fps: 25,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const w = Math.min(viewfinderWidth * 0.88, 300);
-            const h = Math.min(viewfinderHeight * 0.52, 170);
-            return { width: Math.floor(w), height: Math.floor(h) };
-          },
           aspectRatio: 1.333333
         },
         (decodedText) => {
@@ -195,29 +188,24 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
   const handleBarcodeDetected = async (rawCode: string) => {
     const cleanIsbn = rawCode.replace(/[-_ \s]/g, '');
-    if (!cleanIsbn || cleanIsbn.length < 8 || isJustRecognized) return;
-
-    // 1. Attiva lo stato visivo di successo e vibrazione leggera
-    setIsJustRecognized(true);
-    setDetectedIsbn(cleanIsbn);
+    if (!cleanIsbn || cleanIsbn.length < 8) return;
 
     if (navigator.vibrate) {
       try {
-        navigator.vibrate([30]);
+        navigator.vibrate([40]);
       } catch (e) {
         // Ignora
       }
     }
 
-    // 2. Arresta la fotocamera e avvia subito il caricamento della ricerca
+    setDetectedIsbn(cleanIsbn);
     await stopScanner();
     setIsLoadingBook(true);
 
     try {
-      // Ricerca federata automatica nei cataloghi (Google Books + Open Library + OPAC SBN)
+      // Ricerca federata automatica (Open Library + Google Books + OPAC SBN)
       const searchResults = await federatedBookSearch(cleanIsbn);
       setIsLoadingBook(false);
-      setIsJustRecognized(false);
 
       if (searchResults && searchResults.length > 0) {
         const book = searchResults[0];
@@ -250,7 +238,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
     } catch (err) {
       setIsLoadingBook(false);
-      setIsJustRecognized(false);
       setScannerError("Codice a barre letto (" + cleanIsbn + ") ma si è verificato un errore durante la ricerca del libro.");
     }
   };
@@ -470,73 +457,32 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                 </div>
               )}
 
-              {/* Overlay grafico del Mirino con Maschera Oscurante, Linea di Allineamento e Feedback Visivo */}
-              {(isScanning || isJustRecognized) && !scannedBook && !isLoadingBook && !scannerError && !shouldObscureCamera && (
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 overflow-hidden">
-                  {/* Oscuramento vignetta esterno con cutout al centro */}
-                  <div className="absolute inset-0 bg-black/40" />
-
-                  {/* Finestra Mirino centrale */}
-                  <div className={`relative w-72 h-40 rounded-2xl transition-all duration-300 flex items-center justify-center z-10 ${
-                    isJustRecognized 
-                      ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_30px_rgba(52,211,153,0.6)] scale-105' 
-                      : 'border border-white/30 bg-black/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]'
-                  }`}>
-                    {/* Angoli sottili ed eleganti con bordi arrotondati */}
-                    <div className={`absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 rounded-tl-xl transition-colors duration-200 ${isJustRecognized ? 'border-emerald-400' : 'border-white/80'}`} />
-                    <div className={`absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 rounded-tr-xl transition-colors duration-200 ${isJustRecognized ? 'border-emerald-400' : 'border-white/80'}`} />
-                    <div className={`absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 rounded-bl-xl transition-colors duration-200 ${isJustRecognized ? 'border-emerald-400' : 'border-white/80'}`} />
-                    <div className={`absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 rounded-br-xl transition-colors duration-200 ${isJustRecognized ? 'border-emerald-400' : 'border-white/80'}`} />
+              {/* Overlay grafico del Mirino con linea laser animata e linea di allineamento centrale */}
+              {isScanning && !scannedBook && !isLoadingBook && !scannerError && !shouldObscureCamera && (
+                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10 p-6">
+                  <div className="relative w-64 h-36 border-2 border-emerald-400/70 rounded-xl bg-emerald-500/5 shadow-2xl flex items-center justify-center overflow-hidden">
+                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-emerald-400" />
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-emerald-400" />
+                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-emerald-400" />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-emerald-400" />
 
                     {/* Linea Guida Orizzontale per l'allineamento centrale del Codice a barre */}
-                    {!isJustRecognized && (
-                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
-                        <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent border-t border-dashed border-white/60" />
-                        <div className="absolute w-5 h-5 rounded-full border border-white/60 flex items-center justify-center bg-black/30 backdrop-blur-xs">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
-                        </div>
+                    <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
+                      <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent border-t border-dashed border-emerald-400/50" />
+                      <div className="absolute w-4 h-4 rounded-full border border-emerald-400/70 flex items-center justify-center bg-black/20 backdrop-blur-xs">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
                       </div>
-                    )}
-
-                    {/* Laser di scansione sfumato e discreto */}
-                    {!isJustRecognized && (
-                      <motion.div
-                        animate={{ y: [-65, 65, -65] }}
-                        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-400/80 to-transparent shadow-[0_0_12px_rgba(52,211,153,0.8)]"
-                      />
-                    )}
-
-                    {/* Flash Visivo di Riconoscimento con Spunta Verde Animata */}
-                    <AnimatePresence>
-                      {isJustRecognized && (
-                        <motion.div
-                          initial={{ scale: 0.5, opacity: 0 }}
-                          animate={{ scale: 1.1, opacity: 1 }}
-                          exit={{ scale: 0.9, opacity: 0 }}
-                          transition={{ type: "spring", damping: 15, stiffness: 400 }}
-                          className="flex flex-col items-center gap-1.5 z-20"
-                        >
-                          <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/50">
-                            <Check className="w-7 h-7 stroke-[3]" />
-                          </div>
-                          <span className="text-xs font-bold text-emerald-300 drop-shadow-md">
-                            Codice Rilevato!
-                          </span>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* Badge Guida Utente */}
-                  {!isJustRecognized && (
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-                      <span className="text-[11px] font-semibold text-white/90 bg-black/65 px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/10 shadow-lg flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        Allinea il codice a barre al centro
-                      </span>
                     </div>
-                  )}
+
+                    <motion.div
+                      animate={{ y: [-60, 60, -60] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                      className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_8px_#34d399]"
+                    />
+                  </div>
+                  <span className="mt-3 text-[11px] font-bold text-emerald-200/90 bg-black/60 px-3 py-1 rounded-full backdrop-blur-xs">
+                    Allinea il codice a barre al centro
+                  </span>
                 </div>
               )}
 
