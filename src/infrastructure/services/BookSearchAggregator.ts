@@ -52,11 +52,11 @@ export class BookSearchAggregator {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return [];
 
-    // Lancio in parallelo veloci
+    // Lancio in parallelo con un timeout sufficiente per rete mobile (4000ms)
     const results = await Promise.allSettled([
-      this.withTimeout(this.googleAdapter.search(trimmedQuery), 1500),
-      this.withTimeout(this.openLibraryAdapter.search(trimmedQuery), 1500),
-      this.withTimeout(this.sbnAdapter.search(trimmedQuery), 1200),
+      this.withTimeout(this.googleAdapter.search(trimmedQuery), 4000),
+      this.withTimeout(this.openLibraryAdapter.search(trimmedQuery), 4000),
+      this.withTimeout(this.sbnAdapter.search(trimmedQuery), 3500),
     ]);
 
     const rawSnippets: BookSnippet[] = [];

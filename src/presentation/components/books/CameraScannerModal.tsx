@@ -233,21 +233,14 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
           notes: book.description || undefined
         });
       } else {
-        setScannedBook({
-          title: `Libro ISBN ${cleanIsbn}`,
-          author: 'Autore non specificato nei cataloghi',
-          coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
-          startDate: new Date().toISOString().split('T')[0],
-          endDate: '',
-          status: 'Da leggere',
-          totalPages: 300,
-          pagesRead: 0,
-          genre: 'Scansionato da Fotocamera',
-          isbn: cleanIsbn
-        });
+        setScannedBook(null);
+        setScannerError(
+          `Codice ISBN (${cleanIsbn}) letto con successo, ma nessun libro corrispondente è stato trovato nei cataloghi online. Verifica che il codice sia corretto o usa l'inserimento manuale.`
+        );
       }
     } catch (err) {
       setIsLoadingBook(false);
+      setScannedBook(null);
       setScannerError("Codice a barre letto (" + cleanIsbn + ") ma si è verificato un errore durante la ricerca del libro.");
     }
   };

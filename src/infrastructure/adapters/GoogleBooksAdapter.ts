@@ -40,13 +40,19 @@ export class GoogleBooksAdapter implements BookSearchPort {
     const url = `${this.baseUrl}?q=${encodeURIComponent(searchQuery)}&maxResults=20${this.getApiKeyParam()}`;
 
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        return [];
+      let response = await fetch(url);
+      let data = response.ok ? await response.json() : null;
+
+      // Fallback: se la ricerca con isbn:cleanDigits non restituisce risultati, riprova cercando direttamente cleanDigits
+      if ((!data || !data.items || data.items.length === 0) && isIsbn) {
+        const fallbackUrl = `${this.baseUrl}?q=${encodeURIComponent(cleanDigits)}&maxResults=20${this.getApiKeyParam()}`;
+        const fallbackResp = await fetch(fallbackUrl);
+        if (fallbackResp.ok) {
+          data = await fallbackResp.json();
+        }
       }
 
-      const data = await response.json();
-      if (!data.items || !Array.isArray(data.items)) return [];
+      if (!data || !data.items || !Array.isArray(data.items)) return [];
 
       return data.items.map((item: any): BookSnippet => {
         const info = item.volumeInfo || {};

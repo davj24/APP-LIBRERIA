@@ -14,7 +14,7 @@ export class OpenLibraryAdapter implements BookSearchPort {
     const trimmed = query.trim();
     if (!trimmed) return [];
     const cleanIsbn = trimmed.replace(/[-_ \s]/g, '');
-    const isIsbn = /^\d{10,13}$/.test(cleanIsbn);
+    const isIsbn = /^\d{9,13}$/.test(cleanIsbn);
 
     // 1. Ricerca diretta ISBN tramite API Data per risposta fulminea
     if (isIsbn) {
@@ -25,12 +25,12 @@ export class OpenLibraryAdapter implements BookSearchPort {
         if (bibResp.ok) {
           const bibData = await bibResp.json();
           const bookObj = bibData[bibKey];
-          if (bookObj) {
+          if (bookObj && bookObj.title) {
             return [{
               id: `ol-isbn-${cleanIsbn}`,
               isbn: cleanIsbn,
-              title: bookObj.title || 'Titolo sconosciuto',
-              author: bookObj.authors ? bookObj.authors.map((a: any) => a.name).join(', ') : 'Autore sconosciuto',
+              title: bookObj.title,
+              author: bookObj.authors ? bookObj.authors.map((a: any) => a.name).join(', ') : 'Autore non specificato',
               source: 'OpenLibrary',
               coverUrl: bookObj.cover?.medium || bookObj.cover?.large || `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-M.jpg`,
               description: typeof bookObj.notes === 'string' ? bookObj.notes : bookObj.notes?.value || null,
@@ -45,7 +45,8 @@ export class OpenLibraryAdapter implements BookSearchPort {
       }
     }
 
-    const url = `${this.searchUrl}?q=${encodeURIComponent(trimmed)}&limit=20`;
+    const searchQuery = isIsbn ? `isbn:${cleanIsbn}` : trimmed;
+    const url = `${this.searchUrl}?q=${encodeURIComponent(searchQuery)}&limit=20`;
 
     try {
       const response = await fetch(url);
