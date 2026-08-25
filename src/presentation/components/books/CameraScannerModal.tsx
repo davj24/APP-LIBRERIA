@@ -109,11 +109,16 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         console.warn("Camera enumeration error:", camErr);
       }
 
-      // NESSUN qrbox: scansione sull'INTERO FRAME VIDEO della fotocamera per non ritagliare l'immagine
+      // qrbox dinamico in corrispondenza del mirino centrale per decodifica ad alta risoluzione (fondamentale per iOS Safari e browser senza BarcodeDetector nativo)
       await html5QrcodeRef.current.start(
         cameraIdOrConfig,
         {
           fps: 25,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const w = Math.min(viewfinderWidth * 0.88, 300);
+            const h = Math.min(viewfinderHeight * 0.52, 170);
+            return { width: Math.floor(w), height: Math.floor(h) };
+          },
           aspectRatio: 1.333333
         },
         (decodedText) => {
@@ -192,12 +197,10 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     const cleanIsbn = rawCode.replace(/[-_ \s]/g, '');
     if (!cleanIsbn || cleanIsbn.length < 8 || isJustRecognized) return;
 
-    // 1. Attiva subito lo stato di riconoscimento e arresta lo scanner per congelare il video
+    // 1. Attiva lo stato visivo di successo e vibrazione leggera
     setIsJustRecognized(true);
     setDetectedIsbn(cleanIsbn);
-    await stopScanner();
 
-    // 2. Feedback aptico leggero e discreto
     if (navigator.vibrate) {
       try {
         navigator.vibrate([30]);
@@ -206,51 +209,50 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
     }
 
-    // 3. Mostra l'effetto visivo di successo (flash + spunta) per 450ms prima di avviare la ricerca libro
-    setTimeout(async () => {
-      setIsLoadingBook(true);
+    // 2. Arresta la fotocamera e avvia subito il caricamento della ricerca
+    await stopScanner();
+    setIsLoadingBook(true);
 
-      try {
-        // Ricerca federata automatica (Open Library + Google Books + OPAC SBN)
-        const searchResults = await federatedBookSearch(cleanIsbn);
-        setIsLoadingBook(false);
-        setIsJustRecognized(false);
+    try {
+      // Ricerca federata automatica nei cataloghi (Google Books + Open Library + OPAC SBN)
+      const searchResults = await federatedBookSearch(cleanIsbn);
+      setIsLoadingBook(false);
+      setIsJustRecognized(false);
 
-        if (searchResults && searchResults.length > 0) {
-          const book = searchResults[0];
-          setScannedBook({
-            title: book.title,
-            author: book.author,
-            coverUrl: book.coverUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
-            startDate: new Date().toISOString().split('T')[0],
-            endDate: '',
-            status: 'Da leggere',
-            totalPages: book.totalPages || 300,
-            pagesRead: 0,
-            genre: book.genre || 'Rilevato da Scansione',
-            isbn: book.isbn || cleanIsbn,
-            notes: book.description || undefined
-          });
-        } else {
-          setScannedBook({
-            title: `Libro ISBN ${cleanIsbn}`,
-            author: 'Autore non specificato nei cataloghi',
-            coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
-            startDate: new Date().toISOString().split('T')[0],
-            endDate: '',
-            status: 'Da leggere',
-            totalPages: 300,
-            pagesRead: 0,
-            genre: 'Scansionato da Fotocamera',
-            isbn: cleanIsbn
-          });
-        }
-      } catch (err) {
-        setIsLoadingBook(false);
-        setIsJustRecognized(false);
-        setScannerError("Codice a barre letto (" + cleanIsbn + ") ma si è verificato un errore durante la ricerca del libro.");
+      if (searchResults && searchResults.length > 0) {
+        const book = searchResults[0];
+        setScannedBook({
+          title: book.title,
+          author: book.author,
+          coverUrl: book.coverUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: '',
+          status: 'Da leggere',
+          totalPages: book.totalPages || 300,
+          pagesRead: 0,
+          genre: book.genre || 'Rilevato da Scansione',
+          isbn: book.isbn || cleanIsbn,
+          notes: book.description || undefined
+        });
+      } else {
+        setScannedBook({
+          title: `Libro ISBN ${cleanIsbn}`,
+          author: 'Autore non specificato nei cataloghi',
+          coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: '',
+          status: 'Da leggere',
+          totalPages: 300,
+          pagesRead: 0,
+          genre: 'Scansionato da Fotocamera',
+          isbn: cleanIsbn
+        });
       }
-    }, 450);
+    } catch (err) {
+      setIsLoadingBook(false);
+      setIsJustRecognized(false);
+      setScannerError("Codice a barre letto (" + cleanIsbn + ") ma si è verificato un errore durante la ricerca del libro.");
+    }
   };
 
   // Pre-elaborazione foto scattata/caricata su Canvas 2D
