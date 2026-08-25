@@ -192,9 +192,12 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     const cleanIsbn = rawCode.replace(/[-_ \s]/g, '');
     if (!cleanIsbn || cleanIsbn.length < 8 || isJustRecognized) return;
 
+    // 1. Attiva subito lo stato di riconoscimento e arresta lo scanner per congelare il video
     setIsJustRecognized(true);
     setDetectedIsbn(cleanIsbn);
+    await stopScanner();
 
+    // 2. Feedback aptico leggero e discreto
     if (navigator.vibrate) {
       try {
         navigator.vibrate([30]);
@@ -203,8 +206,8 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
     }
 
+    // 3. Mostra l'effetto visivo di successo (flash + spunta) per 450ms prima di avviare la ricerca libro
     setTimeout(async () => {
-      await stopScanner();
       setIsLoadingBook(true);
 
       try {
@@ -247,7 +250,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         setIsJustRecognized(false);
         setScannerError("Codice a barre letto (" + cleanIsbn + ") ma si è verificato un errore durante la ricerca del libro.");
       }
-    }, 400);
+    }, 450);
   };
 
   // Pre-elaborazione foto scattata/caricata su Canvas 2D
@@ -466,7 +469,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               )}
 
               {/* Overlay grafico del Mirino con Maschera Oscurante, Linea di Allineamento e Feedback Visivo */}
-              {isScanning && !scannedBook && !isLoadingBook && !scannerError && !shouldObscureCamera && (
+              {(isScanning || isJustRecognized) && !scannedBook && !isLoadingBook && !scannerError && !shouldObscureCamera && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 overflow-hidden">
                   {/* Oscuramento vignetta esterno con cutout al centro */}
                   <div className="absolute inset-0 bg-black/40" />
