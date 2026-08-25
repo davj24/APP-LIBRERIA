@@ -116,7 +116,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         {
           fps: 25,
           qrbox: (videoWidth, videoHeight) => {
-            const minEdge = Math.min(videoWidth, videoHeight);
             return {
               width: Math.min(300, videoWidth * 0.9),
               height: Math.min(150, videoHeight * 0.4)
@@ -616,7 +615,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                 <PenTool className="w-4 h-4 text-[#7A756D] dark:text-[#A09A90]" />
                 <span>Compilazione Manuale</span>
               </button>
-            </div>
             </div>
           </motion.div>
         </motion.div>
