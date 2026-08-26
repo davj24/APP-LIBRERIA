@@ -670,6 +670,33 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                   <span className="text-[11px] text-[#A09A90]">Ricerca libro in corso...</span>
                 </div>
               )}
+
+              {/* Overlay quando un libro è stato trovato: Tasto "Rifai Scansione" nello spazio della fotocamera live */}
+              {scannedBook && !isLoadingBook && (
+                <div className="absolute inset-0 bg-[#1E221D]/85 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center z-30 transition-all animate-in fade-in">
+                  <div className="w-11 h-11 rounded-2xl bg-[#5C6B55]/20 text-[#A0AF99] flex items-center justify-center mb-2 border border-[#5C6B55]/40 shadow-inner">
+                    <RefreshCw className="w-5 h-5 text-[#A0AF99]" />
+                  </div>
+                  <span className="text-xs font-bold text-[#E0DCD3] mb-0.5">Libro Trovato!</span>
+                  <p className="text-[11px] text-[#A09A90] max-w-xs mb-3">
+                    Salva il libro in basso oppure fai una nuova scansione.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScannedBook(null);
+                      setDetectedIsbn(null);
+                      setScannerError(null);
+                      setManualIsbnInput('');
+                      startScanner();
+                    }}
+                    className="px-4 py-2 bg-[#5C6B55] hover:bg-[#4D5A46] text-white text-xs font-bold rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center gap-2 border border-[#788C71]"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Scansiona Un Altro Libro</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Input manuale diretto ISBN integrato nel modal */}
