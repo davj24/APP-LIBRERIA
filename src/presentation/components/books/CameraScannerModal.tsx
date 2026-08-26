@@ -90,34 +90,22 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsScanning(true);
 
-      // Sollecita i permessi e individua la fotocamera posteriore (environment)
-      let cameraIdOrConfig: any = { facingMode: "environment" };
-      try {
-        const cams = await Html5Qrcode.getCameras();
-        if (cams && cams.length > 0) {
-          const backCams = cams.filter(c => {
-            const l = c.label.toLowerCase();
-            return l.includes('back') || l.includes('posterior') || l.includes('rear') || l.includes('ambiente') || l.includes('environment');
-          });
-          if (backCams.length > 0) {
-            cameraIdOrConfig = backCams[0].id;
-          } else {
-            cameraIdOrConfig = cams[cams.length - 1].id;
-          }
-        }
-      } catch (e) {
-        console.warn("Camera enumeration / permission check fallback:", e);
-      }
+      // Preferisci la fotocamera posteriore principale (1x) con vincoli HD (1080p ideal) per autofocus e luminosità ottimali
+      const highResEnvironmentConfig = {
+        facingMode: "environment",
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      };
 
       try {
         await html5QrcodeRef.current.start(
-          cameraIdOrConfig,
+          highResEnvironmentConfig,
           {
-            fps: 25,
+            fps: 30,
             qrbox: (videoWidth, videoHeight) => {
               return {
-                width: Math.min(320, Math.floor(videoWidth * 0.85)),
-                height: Math.min(180, Math.floor(videoHeight * 0.45))
+                width: Math.min(360, Math.floor(videoWidth * 0.90)),
+                height: Math.min(220, Math.floor(videoHeight * 0.55))
               };
             }
           },
@@ -127,16 +115,32 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
           () => {}
         );
       } catch (primaryStartErr) {
-        console.warn("Primary camera start failed, trying environment fallback:", primaryStartErr);
-        // Fallback a vincolo semplice "environment" senza ID fisici
+        console.warn("High-res environment camera start failed, trying device list fallback:", primaryStartErr);
+        
+        let cameraIdFallback: any = { facingMode: "environment" };
+        try {
+          const cams = await Html5Qrcode.getCameras();
+          if (cams && cams.length > 0) {
+            const backCams = cams.filter(c => {
+              const l = c.label.toLowerCase();
+              return (l.includes('back') || l.includes('posterior') || l.includes('rear') || l.includes('ambiente') || l.includes('main') || l.includes('0')) && !l.includes('wide') && !l.includes('ultra');
+            });
+            if (backCams.length > 0) {
+              cameraIdFallback = backCams[0].id;
+            } else {
+              cameraIdFallback = cams[0].id;
+            }
+          }
+        } catch (e) {}
+
         await html5QrcodeRef.current.start(
-          { facingMode: "environment" },
+          cameraIdFallback,
           {
             fps: 25,
             qrbox: (videoWidth, videoHeight) => {
               return {
-                width: Math.min(320, Math.floor(videoWidth * 0.85)),
-                height: Math.min(180, Math.floor(videoHeight * 0.45))
+                width: Math.min(340, Math.floor(videoWidth * 0.85)),
+                height: Math.min(200, Math.floor(videoHeight * 0.50))
               };
             }
           },
@@ -147,8 +151,8 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         );
       }
 
-      // Messa a fuoco continua (Autofocus) via WebRTC Track Constraints
-      const applyContinuousFocus = async () => {
+      // Ottimizzazione Fotocamera: Messa a fuoco continua (Autofocus), Esposizione continua e Bilanciamento Bianco
+      const applyCameraOptimizations = async () => {
         const videoEl = element.querySelector('video') as HTMLVideoElement | null;
         if (videoEl && videoEl.srcObject) {
           const stream = videoEl.srcObject as MediaStream;
@@ -161,20 +165,26 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             if (capabilities.focusMode && Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
               advancedOpts.focusMode = 'continuous';
             }
+            if (capabilities.exposureMode && Array.isArray(capabilities.exposureMode) && capabilities.exposureMode.includes('continuous')) {
+              advancedOpts.exposureMode = 'continuous';
+            }
+            if (capabilities.whiteBalanceMode && Array.isArray(capabilities.whiteBalanceMode) && capabilities.whiteBalanceMode.includes('continuous')) {
+              advancedOpts.whiteBalanceMode = 'continuous';
+            }
 
             if (Object.keys(advancedOpts).length > 0) {
               try {
                 await track.applyConstraints({ advanced: [advancedOpts] } as any);
               } catch (err) {
-                console.warn("Autofocus constraint application fallback:", err);
+                console.warn("Autofocus & exposure constraint application fallback:", err);
               }
             }
           }
         }
       };
 
-      setTimeout(applyContinuousFocus, 400);
-      setTimeout(applyContinuousFocus, 1200);
+      setTimeout(applyCameraOptimizations, 300);
+      setTimeout(applyCameraOptimizations, 1000);
 
       // Loop di rilevazione nativo con BarcodeDetector su frame video
       const attachNativeDetectorLoop = () => {
@@ -229,13 +239,35 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       if (tracks && tracks.length > 0) {
         const track = tracks[0];
         const nextState = !isFlashOn;
+        let success = false;
+
         try {
           await track.applyConstraints({
-            advanced: [{ torch: nextState }]
+            advanced: [{ torch: nextState, fillLightMode: nextState ? 'flash' : 'off' }]
           } as any);
-          setIsFlashOn(nextState);
+          success = true;
         } catch (err) {
-          console.warn("Error toggling flash/torch:", err);
+          try {
+            await track.applyConstraints({
+              advanced: [{ torch: nextState }]
+            } as any);
+            success = true;
+          } catch (err2) {
+            try {
+              if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
+                await html5QrcodeRef.current.applyVideoConstraints({
+                  advanced: [{ torch: nextState }]
+                } as any);
+                success = true;
+              }
+            } catch (err3) {
+              console.warn("Torch not supported on this camera track:", err3);
+            }
+          }
+        }
+
+        if (success) {
+          setIsFlashOn(nextState);
         }
       }
     }
@@ -587,7 +619,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             {/* Viewfinder Area con Mirino Scanner */}
             <div className="relative my-3 aspect-[4/3] w-full rounded-2xl bg-[#1E221D] overflow-hidden border border-[#383532] dark:border-[#4A4743]/60 flex items-center justify-center shrink-0">
               {/* Contenitore HTML5 QR Code */}
-              <div id="qr-reader" className="w-full h-full object-cover" />
+              <div id="qr-reader" className="w-full h-full object-cover [&_video]:w-full [&_video]:h-full [&_video]:object-cover" />
 
               {/* Oscuramento Fotocamera quando si scrive nel campo ISBN manuale */}
               {shouldObscureCamera && !scannedBook && !isLoadingBook && (
