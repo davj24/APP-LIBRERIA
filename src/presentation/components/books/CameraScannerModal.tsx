@@ -445,9 +445,72 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     if (decodedText) {
       await handleBarcodeDetected(decodedText);
     } else {
+      // PASS 5: Smart Lens Cover Recognition (nessun codice a barre trovato -> analisi testo copertina)
+      try {
+        let extractedQuery = '';
+
+        // 5a. Tentativo con TextDetector nativo (se supportato dal browser)
+        if ('TextDetector' in window) {
+          try {
+            const imageBitmap = await createImageBitmap(file);
+            const textDetector = new (window as any).TextDetector();
+            const detectedTexts = await textDetector.detect(imageBitmap);
+            if (detectedTexts && detectedTexts.length > 0) {
+              const rawWords = detectedTexts.map((t: any) => t.rawValue).filter(Boolean);
+              extractedQuery = rawWords.join(' ').replace(/[^a-zA-Z0-9àèéìòùÀÈÉÌÒÙ \s]/g, ' ').trim();
+            }
+          } catch (e) {
+            console.warn("Native TextDetector pass error:", e);
+          }
+        }
+
+        // 5b. Fallback a Tesseract.js (OCR universale in-browser)
+        if (!extractedQuery || extractedQuery.length < 3) {
+          const { createWorker } = await import('tesseract.js');
+          const worker = await createWorker('ita+eng');
+          const ret = await worker.recognize(file);
+          await worker.terminate();
+
+          if (ret && ret.data && ret.data.text) {
+            const lines = ret.data.text
+              .split('\n')
+              .map(l => l.replace(/[^a-zA-Z0-9àèéìòùÀÈÉÌÒÙ \s]/g, ' ').trim())
+              .filter(l => l.length > 2);
+            extractedQuery = lines.slice(0, 4).join(' ');
+          }
+        }
+
+        if (extractedQuery && extractedQuery.length >= 3) {
+          // Ricerca federata con il testo estratto dalla copertina del libro
+          const searchResults = await federatedBookSearch(extractedQuery);
+          setIsLoadingBook(false);
+
+          if (searchResults && searchResults.length > 0) {
+            const book = searchResults[0];
+            const coverPreview = URL.createObjectURL(file);
+            setScannedBook({
+              title: book.title,
+              author: book.author,
+              coverUrl: book.coverUrl || coverPreview,
+              startDate: new Date().toISOString().split('T')[0],
+              endDate: '',
+              status: 'Da leggere',
+              totalPages: book.totalPages || 300,
+              pagesRead: 0,
+              genre: book.genre || 'Riconosciuto da Copertina (Smart Lens)',
+              isbn: book.isbn || undefined,
+              notes: book.description || undefined
+            });
+            return;
+          }
+        }
+      } catch (ocrErr) {
+        console.warn("Smart Lens OCR Cover error:", ocrErr);
+      }
+
       setIsLoadingBook(false);
       setScannerError(
-        "Nessun codice a barre (ISBN) individuato nell'immagine selezionata. Assicurati che l'immagine mostri chiaramente il codice a barre sul retro o digita l'ISBN nel campo in basso."
+        "Nessun codice a barre o libro riconosciuto nell'immagine. Inquadra il codice a barre sul retro o digita il titolo/ISBN in basso."
       );
     }
   };
