@@ -81,6 +81,9 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       setScannerError(null);
       setIsFlashOn(false);
 
+      // Assicurati che qualsiasi istanza o stream precedente sia correttamente chiuso
+      await stopScanner();
+
       if (!html5QrcodeRef.current) {
         html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
           formatsToSupport: supportedFormats,
@@ -90,68 +93,27 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsScanning(true);
 
-      // Preferisci la fotocamera posteriore principale (1x) con vincoli HD (1080p ideal) per autofocus e luminosità ottimali
-      const highResEnvironmentConfig = {
-        facingMode: "environment",
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      };
+      // Inizializza lo scanner con la configurazione standard universale per fotocamera posteriore
+      const cameraConfig: any = { facingMode: "environment" };
 
-      try {
-        await html5QrcodeRef.current.start(
-          highResEnvironmentConfig,
-          {
-            fps: 30,
-            qrbox: (videoWidth, videoHeight) => {
-              return {
-                width: Math.min(360, Math.floor(videoWidth * 0.90)),
-                height: Math.min(220, Math.floor(videoHeight * 0.55))
-              };
-            }
-          },
-          (decodedText) => {
-            handleBarcodeDetected(decodedText);
-          },
-          () => {}
-        );
-      } catch (primaryStartErr) {
-        console.warn("High-res environment camera start failed, trying device list fallback:", primaryStartErr);
-        
-        let cameraIdFallback: any = { facingMode: "environment" };
-        try {
-          const cams = await Html5Qrcode.getCameras();
-          if (cams && cams.length > 0) {
-            const backCams = cams.filter(c => {
-              const l = c.label.toLowerCase();
-              return (l.includes('back') || l.includes('posterior') || l.includes('rear') || l.includes('ambiente') || l.includes('main') || l.includes('0')) && !l.includes('wide') && !l.includes('ultra');
-            });
-            if (backCams.length > 0) {
-              cameraIdFallback = backCams[0].id;
-            } else {
-              cameraIdFallback = cams[0].id;
-            }
+      await html5QrcodeRef.current.start(
+        cameraConfig,
+        {
+          fps: 25,
+          qrbox: (videoWidth, videoHeight) => {
+            return {
+              width: Math.min(340, Math.floor(videoWidth * 0.85)),
+              height: Math.min(200, Math.floor(videoHeight * 0.50))
+            };
           }
-        } catch (e) {}
+        },
+        (decodedText) => {
+          handleBarcodeDetected(decodedText);
+        },
+        () => {}
+      );
 
-        await html5QrcodeRef.current.start(
-          cameraIdFallback,
-          {
-            fps: 25,
-            qrbox: (videoWidth, videoHeight) => {
-              return {
-                width: Math.min(340, Math.floor(videoWidth * 0.85)),
-                height: Math.min(200, Math.floor(videoHeight * 0.50))
-              };
-            }
-          },
-          (decodedText) => {
-            handleBarcodeDetected(decodedText);
-          },
-          () => {}
-        );
-      }
-
-      // Ottimizzazione Fotocamera: Messa a fuoco continua (Autofocus), Esposizione continua e Bilanciamento Bianco
+      // Applicazione dinamica delle ottimizzazioni WebRTC (Autofocus ed Esposizione continua)
       const applyCameraOptimizations = async () => {
         const videoEl = element.querySelector('video') as HTMLVideoElement | null;
         if (videoEl && videoEl.srcObject) {
@@ -168,15 +130,12 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             if (capabilities.exposureMode && Array.isArray(capabilities.exposureMode) && capabilities.exposureMode.includes('continuous')) {
               advancedOpts.exposureMode = 'continuous';
             }
-            if (capabilities.whiteBalanceMode && Array.isArray(capabilities.whiteBalanceMode) && capabilities.whiteBalanceMode.includes('continuous')) {
-              advancedOpts.whiteBalanceMode = 'continuous';
-            }
 
             if (Object.keys(advancedOpts).length > 0) {
               try {
                 await track.applyConstraints({ advanced: [advancedOpts] } as any);
               } catch (err) {
-                console.warn("Autofocus & exposure constraint application fallback:", err);
+                console.warn("Camera constraint optimization fallback:", err);
               }
             }
           }
@@ -289,8 +248,12 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       } catch (e) {
         console.warn("Error stopping scanner:", e);
       }
-      setIsScanning(false);
+      try {
+        html5QrcodeRef.current.clear();
+      } catch (e) {}
+      html5QrcodeRef.current = null;
     }
+    setIsScanning(false);
   };
 
   const handleBarcodeDetected = async (rawCode: string) => {
