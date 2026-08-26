@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Book } from '../../../domain/models/Book';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { X, RefreshCw, Check, AlertCircle, PenTool, Search, Barcode, EyeOff, Zap, ZapOff, Image as ImageIcon } from 'lucide-react';
+import { X, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, EyeOff, Zap, ZapOff, Image as ImageIcon } from 'lucide-react';
 import { useRegisterModal } from '../../context/ModalContext';
 import { federatedBookSearch } from '../../../infrastructure/services/federatedBookSearch';
 import { BookSheet, type BookSheetBook } from './BookSheet';
@@ -57,7 +57,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       const timer = setTimeout(() => {
         if (!isMounted) return;
         startScanner();
-      }, 250);
+      }, 350);
 
       return () => {
         clearTimeout(timer);
@@ -84,6 +84,16 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       // Assicurati che qualsiasi istanza o stream precedente sia correttamente chiuso
       await stopScanner();
 
+      // Richiesta esplicita dei permessi della fotocamera per garantire il prompt del browser se necessario
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+        try {
+          const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          tempStream.getTracks().forEach(track => track.stop());
+        } catch (permErr) {
+          console.warn("Direct getUserMedia permission request warning:", permErr);
+        }
+      }
+
       if (!html5QrcodeRef.current) {
         html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
           formatsToSupport: supportedFormats,
@@ -93,22 +103,18 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsScanning(true);
 
-      // Configurazione avanzata della fotocamera per alta definizione HD (1280x720) per lettura codice a barre nitida
-      const cameraConfig: any = {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1280, min: 640 },
-        height: { ideal: 720, min: 480 }
-      };
+      // Inizializza lo scanner con la configurazione standard universale per fotocamera posteriore
+      const cameraConfig: any = { facingMode: "environment" };
 
       await html5QrcodeRef.current.start(
         cameraConfig,
         {
-          fps: 20,
-          qrbox: (videoWidth, _videoHeight) => {
-            // Mirino orientato in orizzontale (formato 3.2:1 tipico dei codici a barre ISBN/EAN-13)
-            const width = Math.min(380, Math.floor(videoWidth * 0.90));
-            const height = Math.min(190, Math.floor(width * 0.48));
-            return { width, height };
+          fps: 25,
+          qrbox: (videoWidth, videoHeight) => {
+            return {
+              width: Math.min(340, Math.floor(videoWidth * 0.85)),
+              height: Math.min(200, Math.floor(videoHeight * 0.50))
+            };
           }
         },
         (decodedText) => {
@@ -117,7 +123,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         () => {}
       );
 
-      // Applicazione dinamica delle ottimizzazioni WebRTC (Autofocus continuo ed Esposizione)
+      // Applicazione dinamica delle ottimizzazioni WebRTC (Autofocus ed Esposizione continua)
       const applyCameraOptimizations = async () => {
         const videoEl = element.querySelector('video') as HTMLVideoElement | null;
         if (videoEl && videoEl.srcObject) {
@@ -146,10 +152,10 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         }
       };
 
-      setTimeout(applyCameraOptimizations, 250);
-      setTimeout(applyCameraOptimizations, 800);
+      setTimeout(applyCameraOptimizations, 300);
+      setTimeout(applyCameraOptimizations, 1000);
 
-      // Loop di rilevazione nativo a bassissima latenza con BarcodeDetector API di sistema
+      // Loop di rilevazione nativo con BarcodeDetector su frame video
       const attachNativeDetectorLoop = () => {
         const videoEl = element.querySelector('video') as HTMLVideoElement | null;
         if (!videoEl) {
@@ -164,7 +170,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             });
 
             const scanNativeFrame = async () => {
-              if (videoEl && videoEl.readyState >= 2 && nativeDetectorRef.current && html5QrcodeRef.current?.isScanning) {
+              if (videoEl && videoEl.readyState >= 2 && nativeDetectorRef.current) {
                 try {
                   const barcodes = await nativeDetectorRef.current.detect(videoEl);
                   if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
@@ -173,9 +179,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                   }
                 } catch (e) {}
               }
-              if (html5QrcodeRef.current?.isScanning) {
-                animationFrameRef.current = requestAnimationFrame(scanNativeFrame);
-              }
+              animationFrameRef.current = requestAnimationFrame(scanNativeFrame);
             };
             scanNativeFrame();
           } catch (err) {
@@ -190,7 +194,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       console.warn("Scanner camera init error:", err);
       setIsScanning(false);
       setScannerError(
-        "Fotocamera non accessibile o permessi negati. Verifica le impostazioni del tuo browser o inserisci l'ISBN manualmente."
+        "Fotocamera live non accessibile. Verifica di aver concesso i permessi per la fotocamera nelle impostazioni del browser o digita l'ISBN nel campo in basso."
       );
     }
   };
@@ -268,8 +272,10 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
     if (navigator.vibrate) {
       try {
-        navigator.vibrate([40, 30, 40]);
-      } catch (e) {}
+        navigator.vibrate([40]);
+      } catch (e) {
+        // Ignora
+      }
     }
 
     setDetectedIsbn(cleanIsbn);
@@ -377,7 +383,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     });
   };
 
-  // Analisi immagini selezionate dalla Galleria
+  // Analisi immagini selezionate dalla Galleria (Scansione Smart Barcode / Lens)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -421,7 +427,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
     }
 
-    // PASS 3: Html5Qrcode su canvas in scala di grigi
+    // PASS 3: Html5Qrcode su canvas con contrasto scala di grigi
     if (!decodedText) {
       try {
         const bwFile = await processCanvasPass(file, 900, true, false);
@@ -431,7 +437,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
     }
 
-    // PASS 4: Html5Qrcode su canvas ruotato di 90°
+    // PASS 4: Html5Qrcode su canvas ruotato di 90° (per codici a barre verticali)
     if (!decodedText) {
       try {
         const rotatedFile = await processCanvasPass(file, 900, false, true);
@@ -444,10 +450,11 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     if (decodedText) {
       await handleBarcodeDetected(decodedText);
     } else {
-      // PASS 5: Smart Lens Cover Recognition (nessun codice a barre trovato -> OCR copertina)
+      // PASS 5: Smart Lens Cover Recognition (nessun codice a barre trovato -> analisi testo copertina)
       try {
         let extractedQuery = '';
 
+        // 5a. Tentativo con TextDetector nativo (se supportato dal browser)
         if ('TextDetector' in window) {
           try {
             const imageBitmap = await createImageBitmap(file);
@@ -462,6 +469,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
           }
         }
 
+        // 5b. Fallback a Tesseract.js (OCR universale in-browser)
         if (!extractedQuery || extractedQuery.length < 3) {
           const { createWorker } = await import('tesseract.js');
           const worker = await createWorker('ita+eng');
@@ -478,6 +486,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         }
 
         if (extractedQuery && extractedQuery.length >= 3) {
+          // Ricerca federata con il testo estratto dalla copertina del libro
           const searchResults = await federatedBookSearch(extractedQuery);
           setIsLoadingBook(false);
 
@@ -506,7 +515,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsLoadingBook(false);
       setScannerError(
-        "Nessun codice a barre o libro riconosciuto nell'immagine. Inquadra il codice a barre sul retro del libro o digita il titolo/ISBN in basso."
+        "Nessun codice a barre o libro riconosciuto nell'immagine. Inquadra il codice a barre sul retro o digita il titolo/ISBN in basso."
       );
     }
   };
@@ -552,151 +561,217 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-          className="fixed inset-0 z-[100] bg-black flex flex-col justify-between overflow-hidden select-none"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs p-4"
         >
-          {/* Sfondo Feed Fotocamera Live che occupa l'intero schermo */}
-          <div
-            id="qr-reader"
-            className="absolute inset-0 w-full h-full object-cover z-0 overflow-hidden [&_video]:w-full [&_video]:h-full [&_video]:object-cover [&_canvas]:hidden [&_img]:hidden"
-          />
-
-          {/* Oscuramento Fotocamera quando si scrive nel campo ISBN manuale */}
-          {shouldObscureCamera && !scannedBook && !isLoadingBook && (
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30 transition-all animate-in fade-in">
-              <div className="w-12 h-12 rounded-2xl bg-[#5C6B55]/30 text-[#A0AF99] flex items-center justify-center mb-3 border border-[#5C6B55]/50">
-                <EyeOff className="w-6 h-6" />
+          <motion.div
+            initial={{ y: "100%", opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: "100%", opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-3xl p-5 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 flex flex-col max-h-[90vh] overflow-y-auto transition-colors"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#EBE5D9] dark:border-[#4A4743]/50 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] border border-[#A0AF99] dark:border-[#4D5A46] flex items-center justify-center">
+                  <ScanLine className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-[#4A4743] dark:text-[#E0DCD3]">Scanner Codice ISBN</h2>
+                  <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90]">Inquadra il codice a barre sul retro del libro</p>
+                </div>
               </div>
-              <h3 className="text-sm font-bold text-white mb-1">Ricerca ISBN manuale attiva</h3>
-              <p className="text-xs text-[#A09A90] max-w-xs leading-relaxed">
-                La fotocamera live è in pausa mentre usi la digitazione manuale dell'ISBN. Premere Cerca per avviare la ricerca.
-              </p>
-            </div>
-          )}
-
-          {/* HEADER TOP CONTROLS (Tutto Schermo) */}
-          <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 pt-5 pb-6 bg-gradient-to-b from-black/90 via-black/50 to-transparent">
-            {/* Tasto Chiudi */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md text-white border border-white/20 flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-lg"
-              title="Chiudi Scanner"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Titolo e Badge Live */}
-            <div className="flex flex-col items-center">
-              <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/15 px-3 py-1 rounded-full shadow-lg">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs font-bold text-white tracking-wide">Scanner ISBN</span>
-              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Controllo Flash (Torch) */}
-            <button
-              type="button"
-              onClick={toggleFlash}
-              className={`w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-lg ${
-                isFlashOn
-                  ? 'bg-amber-400 text-amber-950 border-amber-300 shadow-amber-500/30'
-                  : 'bg-black/40 hover:bg-black/70 text-white border-white/20'
-              }`}
-              title={isFlashOn ? "Spegni Flash" : "Accendi Flash"}
-            >
-              {isFlashOn ? (
-                <Zap className="w-5 h-5 fill-current text-amber-950" />
-              ) : (
-                <ZapOff className="w-5 h-5 text-white" />
+            {/* Viewfinder Area con Mirino Scanner */}
+            <div className="relative my-3 aspect-[4/3] w-full rounded-2xl bg-[#1E221D] overflow-hidden border border-[#383532] dark:border-[#4A4743]/60 flex items-center justify-center shrink-0">
+              {/* Contenitore HTML5 QR Code */}
+              <div id="qr-reader" className="w-full h-full object-cover [&_video]:w-full [&_video]:h-full [&_video]:object-cover" />
+
+              {/* Oscuramento Fotocamera quando si scrive nel campo ISBN manuale */}
+              {shouldObscureCamera && !scannedBook && !isLoadingBook && (
+                <div className="absolute inset-0 bg-[#1E221D]/90 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center z-30 transition-all animate-in fade-in">
+                  <div className="w-10 h-10 rounded-2xl bg-[#5C6B55]/20 text-[#A0AF99] flex items-center justify-center mb-2 border border-[#5C6B55]/40">
+                    <EyeOff className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-[#E0DCD3]">Ricerca ISBN manuale attiva</span>
+                  <span className="text-[11px] text-[#A09A90] mt-1 max-w-xs">
+                    La fotocamera live è in pausa mentre usi la digitazione manuale dell'ISBN.
+                  </span>
+                </div>
               )}
-            </button>
-          </div>
 
-          {/* CENTRO VIEWPORT: Mirino Laser HD a Tutto Schermo */}
-          <div className="relative z-10 flex-1 flex flex-col items-center justify-center pointer-events-none p-4">
-            {isScanning && !scannedBook && !isLoadingBook && !scannerError && !shouldObscureCamera && (
-              <div className="flex flex-col items-center justify-center w-full max-w-sm">
-                {/* Rettangolo ISBN Rettangolare Elegante */}
-                <div className="relative w-80 sm:w-96 h-48 sm:h-52 border border-white/30 rounded-3xl bg-black/15 backdrop-blur-[1px] shadow-2xl flex items-center justify-center overflow-hidden">
-                  {/* Angoli Verdi Sage/Emerald */}
-                  <div className="absolute top-0 left-0 w-6 h-6 border-t-3 border-l-3 border-[#B0BEA9] rounded-tl-2xl" />
-                  <div className="absolute top-0 right-0 w-6 h-6 border-t-3 border-r-3 border-[#B0BEA9] rounded-tr-2xl" />
-                  <div className="absolute bottom-0 left-0 w-6 h-6 border-b-3 border-l-3 border-[#B0BEA9] rounded-bl-2xl" />
-                  <div className="absolute bottom-0 right-0 w-6 h-6 border-b-3 border-r-3 border-[#B0BEA9] rounded-br-2xl" />
+              {/* Overlay grafico del Mirino Moderno */}
+              {isScanning && !scannedBook && !isLoadingBook && !scannerError && !shouldObscureCamera && (
+                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10 p-4">
+                  {/* Pulsante Controllo Flash (Torch) manuale per l'utente */}
+                  <button
+                    type="button"
+                    onClick={toggleFlash}
+                    className={`pointer-events-auto absolute top-3 right-3 px-3 py-1.5 rounded-full text-[11px] font-bold backdrop-blur-md border transition-all active:scale-95 cursor-pointer shadow-lg z-20 flex items-center gap-1.5 ${
+                      isFlashOn
+                        ? 'bg-amber-400 text-amber-950 border-amber-300 shadow-amber-500/20'
+                        : 'bg-black/60 hover:bg-black/80 text-white/90 border-white/20'
+                    }`}
+                    title={isFlashOn ? "Spegni Flash" : "Accendi Flash"}
+                  >
+                    {isFlashOn ? (
+                      <>
+                        <Zap className="w-3.5 h-3.5 fill-current text-amber-950" />
+                        <span>Flash ON</span>
+                      </>
+                    ) : (
+                      <>
+                        <ZapOff className="w-3.5 h-3.5 text-white/90" />
+                        <span>Flash OFF</span>
+                      </>
+                    )}
+                  </button>
 
-                  {/* Linea Laser Animata */}
-                  <motion.div
-                    animate={{ y: [-80, 80, -80] }}
-                    transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                    className="w-full h-0.5 bg-gradient-to-r from-transparent via-[#B0BEA9] to-transparent shadow-[0_0_15px_#B0BEA9]"
-                  />
+                  {/* Rettangolo di allineamento elegante con angoli minimali */}
+                  <div className="relative w-64 sm:w-72 h-36 border border-white/30 rounded-2xl bg-black/10 backdrop-blur-[1px] shadow-2xl flex items-center justify-center overflow-hidden">
+                    {/* Angoli Sage/Emerald Eleganti */}
+                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#B0BEA9] rounded-tl-lg" />
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#B0BEA9] rounded-tr-lg" />
+                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#B0BEA9] rounded-bl-lg" />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#B0BEA9] rounded-br-lg" />
+
+                    {/* Laser fluido di scansione verticale */}
+                    <motion.div
+                      animate={{ y: [-65, 65, -65] }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                      className="w-full h-0.5 bg-gradient-to-r from-transparent via-[#B0BEA9] to-transparent shadow-[0_0_10px_#B0BEA9]"
+                    />
+                  </div>
+
+                  <span className="mt-3 text-[11px] font-medium text-white/90 bg-black/60 px-3 py-1 rounded-full backdrop-blur-md border border-white/10">
+                    Inquadra il codice a barre nel rettangolo
+                  </span>
                 </div>
+              )}
 
-                <span className="mt-4 text-xs font-medium text-white/90 bg-black/60 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/15 text-center shadow-lg">
-                  Inquadra il codice a barre ISBN sul retro del libro
-                </span>
-              </div>
-            )}
-
-            {/* Error Overlay */}
-            {scannerError && !shouldObscureCamera && (
-              <div className="pointer-events-auto max-w-xs bg-black/90 backdrop-blur-md border border-rose-500/30 rounded-3xl p-5 text-center flex flex-col items-center gap-3 text-rose-200 shadow-2xl animate-in zoom-in-95">
-                <AlertCircle className="w-9 h-9 text-rose-400 shrink-0" />
-                <p className="text-xs font-medium leading-relaxed">{scannerError}</p>
-                <button
-                  onClick={() => startScanner()}
-                  className="px-4 py-2 bg-[#5C6B55] hover:bg-[#4D5A46] text-white text-xs font-bold rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer border border-[#788C71]"
-                >
-                  Riprova Scansione
-                </button>
-              </div>
-            )}
-
-            {/* Loading Status Overlay */}
-            {isLoadingBook && (
-              <div className="pointer-events-auto max-w-xs bg-black/90 backdrop-blur-md border border-emerald-500/30 rounded-3xl p-6 text-center flex flex-col items-center gap-3 shadow-2xl animate-in zoom-in-95">
-                <RefreshCw className="w-9 h-9 text-emerald-400 animate-spin" />
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-white">
-                    Codice ISBN {detectedIsbn ? `(${detectedIsbn})` : ''} letto!
-                  </h4>
-                  <p className="text-[11px] text-[#A09A90]">Ricerca scheda libro in corso nei cataloghi...</p>
+              {/* Error Overlay */}
+              {scannerError && !shouldObscureCamera && (
+                <div className="absolute inset-0 bg-[#1E221D]/95 p-5 text-center flex flex-col items-center justify-center gap-2 text-rose-300 z-20">
+                  <AlertCircle className="w-8 h-8 text-rose-400" />
+                  <p className="text-xs font-semibold leading-relaxed max-w-xs">{scannerError}</p>
+                  <button
+                    onClick={() => startScanner()}
+                    className="mt-2 px-4 py-2 bg-[#5C6B55] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-[#4D5A46] transition-all cursor-pointer"
+                  >
+                    Riprova Scansione
+                  </button>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
 
-          {/* BOTTOM CONTROLS & MANUAL INPUT (Tutto Schermo) */}
-          <div className="relative z-20 px-4 sm:px-6 pt-4 pb-6 bg-gradient-to-t from-black/95 via-black/80 to-transparent space-y-3">
-            {/* Form Input Manuale ISBN */}
-            <form onSubmit={handleManualIsbnSubmit} className="w-full">
+              {/* Loading Status Overlay con ricerca ISBN */}
+              {isLoadingBook && (
+                <div className="absolute inset-0 bg-[#1E221D]/90 backdrop-blur-xs flex flex-col items-center justify-center gap-2 z-20">
+                  <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
+                  <span className="text-xs font-semibold text-emerald-200">
+                    Codice ISBN {detectedIsbn ? `(${detectedIsbn})` : ''} rilevato!
+                  </span>
+                  <span className="text-[11px] text-[#A09A90]">Ricerca libro in corso...</span>
+                </div>
+              )}
+
+              {/* Overlay quando un libro è stato trovato: Tasto "Rifai Scansione" nello spazio della fotocamera live */}
+              {scannedBook && !isLoadingBook && (
+                <div className="absolute inset-0 bg-[#1E221D]/85 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center z-30 transition-all animate-in fade-in">
+                  <div className="w-11 h-11 rounded-2xl bg-[#5C6B55]/20 text-[#A0AF99] flex items-center justify-center mb-2 border border-[#5C6B55]/40 shadow-inner">
+                    <RefreshCw className="w-5 h-5 text-[#A0AF99]" />
+                  </div>
+                  <span className="text-xs font-bold text-[#E0DCD3] mb-0.5">Libro Trovato!</span>
+                  <p className="text-[11px] text-[#A09A90] max-w-xs mb-3">
+                    Salva il libro in basso oppure fai una nuova scansione.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScannedBook(null);
+                      setDetectedIsbn(null);
+                      setScannerError(null);
+                      setManualIsbnInput('');
+                      startScanner();
+                    }}
+                    className="px-4 py-2 bg-[#5C6B55] hover:bg-[#4D5A46] text-white text-xs font-bold rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center gap-2 border border-[#788C71]"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Scansiona Un Altro Libro</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Input manuale diretto ISBN integrato nel modal */}
+            <form onSubmit={handleManualIsbnSubmit} className="mb-3">
               <div className="relative flex items-center">
-                <Barcode className="absolute left-4 w-4 h-4 text-[#A09A90] pointer-events-none" />
+                <Barcode className="absolute left-3.5 w-4 h-4 text-[#7A756D] dark:text-[#A09A90] pointer-events-none" />
                 <input
                   type="text"
                   value={manualIsbnInput}
                   onChange={(e) => setManualIsbnInput(e.target.value)}
                   onFocus={() => setIsInputFocused(true)}
                   onBlur={() => setIsInputFocused(false)}
-                  placeholder="Oppure digita codice ISBN (es. 9788804668237)..."
-                  className="w-full pl-11 pr-24 py-3 bg-black/50 backdrop-blur-md text-xs font-semibold text-white placeholder-[#88837A] rounded-2xl border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#B0BEA9] focus:border-transparent transition-all shadow-inner"
+                  placeholder="Oppure digita ISBN (es. 9788804668237)..."
+                  className="w-full pl-10 pr-20 py-2.5 bg-[#F4F1EA] dark:bg-[#2A2826] text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] placeholder-[#9E988F] dark:placeholder-[#88837A] rounded-2xl border border-[#DCD5C6] dark:border-[#4A4743]/60 focus:outline-none focus:ring-2 focus:ring-[#5C6B55] transition-all"
                 />
                 <button
                   type="submit"
                   disabled={!manualIsbnInput.trim()}
-                  className="absolute right-2 px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] disabled:opacity-40 text-white rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
+                  className="absolute right-1.5 px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] disabled:opacity-50 text-white rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
                 >
-                  <Search className="w-3.5 h-3.5" />
+                  <Search className="w-3 h-3" />
                   <span>Cerca</span>
                 </button>
               </div>
             </form>
 
-            {/* Pulsanti Azioni Rapide */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <label className="py-3 px-3 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md rounded-2xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all border border-white/15 cursor-pointer shadow-md">
-                <ImageIcon className="w-4 h-4 text-[#B0BEA9] shrink-0" />
+            {/* Scanned Result Card con Dati Reali trovati */}
+            {scannedBook && (
+              <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl p-3.5 border border-[#B0BEA9] dark:border-[#5C6B55] mb-3 flex gap-3 items-center animate-in fade-in">
+                <button
+                  onClick={() => setIsSheetOpen(true)}
+                  className="w-12 h-16 shrink-0 relative rounded-lg overflow-hidden border border-[#DCD5C6] dark:border-[#4A4743]/60 focus:outline-none focus:ring-2 focus:ring-[#5C6B55] transition-transform active:scale-95 group"
+                >
+                  <img
+                    src={scannedBook.coverUrl}
+                    alt={scannedBook.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Search className="w-4 h-4 text-white" />
+                  </div>
+                </button>
+                <div className="flex-1 min-w-0">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#2D382B] dark:text-[#E0DCD3] bg-[#D8E2D5] dark:bg-[#3B4838] px-2 py-0.5 rounded-full border border-[#B0BEA9] dark:border-[#5C6B55]">
+                    <Check className="w-3 h-3 text-[#4D6349] dark:text-[#788C71]" /> Libro Riconosciuto
+                  </span>
+                  <h4 className="font-bold text-xs text-[#4A4743] dark:text-[#E0DCD3] truncate mt-1">{scannedBook.title}</h4>
+                  <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90] truncate">{scannedBook.author}</p>
+                  {scannedBook.isbn && (
+                    <p className="text-[10px] text-[#5C6B55] dark:text-[#A0AF99] font-mono mt-0.5">ISBN: {scannedBook.isbn}</p>
+                  )}
+                </div>
+                <button
+                  onClick={handleConfirmAdd}
+                  className="px-3.5 py-2 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-xs font-bold active:scale-95 transition-all shadow-md shrink-0 cursor-pointer"
+                >
+                  Salva Libro
+                </button>
+              </div>
+            )}
+
+            {/* Action Controls */}
+            <div className="grid grid-cols-2 gap-3 mt-auto pt-1 shrink-0">
+              <label className="py-3 px-3 bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] dark:hover:bg-[#4D5A46] text-[#31362F] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all border border-[#A0AF99] dark:border-[#4D5A46] cursor-pointer">
+                <ImageIcon className="w-4 h-4 shrink-0" />
                 <span className="truncate">Carica da Galleria</span>
                 <input
                   type="file"
@@ -714,84 +789,16 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                     onOpenManualEntry();
                   }
                 }}
-                className="py-3 px-3 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md rounded-2xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all border border-white/15 cursor-pointer shadow-md"
+                className="py-3 px-3 bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer shadow-sm"
               >
-                <PenTool className="w-4 h-4 text-[#B0BEA9] shrink-0" />
+                <PenTool className="w-4 h-4 text-[#7A756D] dark:text-[#A09A90] shrink-0" />
                 <span className="truncate">Compilazione Manuale</span>
               </button>
             </div>
-          </div>
-
-          {/* BOOK FOUND BOTTOM SHEET SLIDE-UP */}
-          <AnimatePresence>
-            {scannedBook && !isLoadingBook && (
-              <motion.div
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                className="absolute bottom-0 left-0 right-0 z-40 bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] rounded-t-3xl p-5 shadow-2xl border-t border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <button
-                      onClick={() => setIsSheetOpen(true)}
-                      className="w-14 h-20 shrink-0 relative rounded-xl overflow-hidden border border-[#DCD5C6] dark:border-[#4A4743]/60 focus:outline-none focus:ring-2 focus:ring-[#5C6B55] shadow-md group cursor-pointer"
-                    >
-                      <img
-                        src={scannedBook.coverUrl}
-                        alt={scannedBook.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Search className="w-5 h-5 text-white" />
-                      </div>
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#2D382B] dark:text-[#E0DCD3] bg-[#D8E2D5] dark:bg-[#3B4838] px-2.5 py-0.5 rounded-full border border-[#B0BEA9] dark:border-[#5C6B55] mb-1">
-                        <Check className="w-3 h-3 text-[#4D6349] dark:text-[#788C71]" /> Libro Riconosciuto
-                      </span>
-                      <h4 className="font-bold text-sm text-[#4A4743] dark:text-[#E0DCD3] truncate">{scannedBook.title}</h4>
-                      <p className="text-xs text-[#7A756D] dark:text-[#A09A90] truncate mt-0.5">{scannedBook.author}</p>
-                      {scannedBook.isbn && (
-                        <p className="text-[10px] text-[#5C6B55] dark:text-[#A0AF99] font-mono mt-1">ISBN: {scannedBook.isbn}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScannedBook(null);
-                      setDetectedIsbn(null);
-                      setScannerError(null);
-                      setManualIsbnInput('');
-                      startScanner();
-                    }}
-                    className="py-3 px-3 bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer shadow-sm"
-                  >
-                    <RefreshCw className="w-4 h-4 text-[#7A756D] dark:text-[#A09A90]" />
-                    <span>Rifai Scansione</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleConfirmAdd}
-                    className="py-3 px-3 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md cursor-pointer border border-[#788C71]"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Salva Libro</span>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
-
     {/* Dettagli Libro Trovato */}
     <BookSheet
       isOpen={isSheetOpen}
