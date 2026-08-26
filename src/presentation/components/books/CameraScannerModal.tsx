@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Book } from '../../../domain/models/Book';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { X, Camera, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, EyeOff, SwitchCamera } from 'lucide-react';
+import { X, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, EyeOff, Zap, ZapOff } from 'lucide-react';
 import { useRegisterModal } from '../../context/ModalContext';
 import { federatedBookSearch } from '../../../infrastructure/services/federatedBookSearch';
 import { BookSheet, type BookSheetBook } from './BookSheet';
@@ -29,8 +29,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   const [manualIsbnInput, setManualIsbnInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([]);
-  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+  const [isFlashOn, setIsFlashOn] = useState(false);
 
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const nativeDetectorRef = useRef<any>(null);
@@ -53,6 +52,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       setScannerError(null);
       setManualIsbnInput('');
       setIsInputFocused(false);
+      setIsFlashOn(false);
 
       const timer = setTimeout(() => {
         if (!isMounted) return;
@@ -73,12 +73,13 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     };
   }, [isOpen]);
 
-  const startScanner = async (overrideCameraId?: string) => {
+  const startScanner = async () => {
     const element = document.getElementById("qr-reader");
     if (!element) return;
 
     try {
       setScannerError(null);
+      setIsFlashOn(false);
 
       if (!html5QrcodeRef.current) {
         html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
@@ -89,45 +90,14 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsScanning(true);
 
-      // Enumerazione fotocamere disponibili per consentire lo switch su fotocamere multiple
-      let cameraList: Array<{ id: string; label: string }> = [];
-      try {
-        const cams = await Html5Qrcode.getCameras();
-        if (cams && cams.length > 0) {
-          cameraList = cams.map(c => ({ id: c.id, label: c.label }));
-          setAvailableCameras(cameraList);
-        }
-      } catch (e) {
-        console.warn("Camera enumeration error:", e);
-      }
-
-      // Seleziona la fotocamera posteriore principale o quella scelta dall'utente
-      let cameraIdOrConfig: any = overrideCameraId || selectedCameraId;
-      if (!cameraIdOrConfig) {
-        if (cameraList.length > 0) {
-          const backCams = cameraList.filter(c => {
-            const l = c.label.toLowerCase();
-            return l.includes('back') || l.includes('posterior') || l.includes('rear') || l.includes('ambiente') || l.includes('environment');
-          });
-          if (backCams.length > 0) {
-            cameraIdOrConfig = backCams[0].id;
-          } else {
-            cameraIdOrConfig = cameraList[cameraList.length - 1].id;
-          }
-          if (typeof cameraIdOrConfig === 'string') {
-            setSelectedCameraId(cameraIdOrConfig);
-          }
-        } else {
-          cameraIdOrConfig = {
-            facingMode: "environment",
-            width: { ideal: 1920, min: 1280 },
-            height: { ideal: 1080, min: 720 }
-          };
-        }
-      }
+      const cameraConfig = {
+        facingMode: "environment",
+        width: { ideal: 1920, min: 1280 },
+        height: { ideal: 1080, min: 720 }
+      };
 
       await html5QrcodeRef.current.start(
-        cameraIdOrConfig,
+        cameraConfig,
         {
           fps: 25,
           qrbox: (videoWidth, videoHeight) => {
@@ -211,24 +181,35 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       console.warn("Scanner camera init error:", err);
       setIsScanning(false);
       setScannerError(
-        "Fotocamera live non accessibile. Scatta una foto al codice a barre sul retro o digita l'ISBN in basso."
+        "Fotocamera live non accessibile. Digita l'ISBN nel campo in basso o usa la compilazione manuale."
       );
     }
   };
 
-  const handleSwitchCamera = async () => {
-    if (availableCameras.length <= 1) return;
-    const currentIdx = availableCameras.findIndex(c => c.id === selectedCameraId);
-    const nextIdx = (currentIdx + 1) % availableCameras.length;
-    const nextCam = availableCameras[nextIdx];
-    setSelectedCameraId(nextCam.id);
-    await stopScanner();
-    setTimeout(() => {
-      startScanner(nextCam.id);
-    }, 250);
+  const toggleFlash = async () => {
+    const element = document.getElementById("qr-reader");
+    const videoEl = element?.querySelector('video') as HTMLVideoElement | null;
+    if (videoEl && videoEl.srcObject) {
+      const stream = videoEl.srcObject as MediaStream;
+      const tracks = stream.getVideoTracks();
+      if (tracks && tracks.length > 0) {
+        const track = tracks[0];
+        const nextState = !isFlashOn;
+        try {
+          await track.applyConstraints({
+            advanced: [{ torch: nextState }]
+          } as any);
+          setIsFlashOn(nextState);
+        } catch (err) {
+          console.warn("Error toggling flash/torch:", err);
+        }
+      }
+    }
   };
 
   const stopScanner = async () => {
+    setIsFlashOn(false);
+
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -292,149 +273,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       setIsLoadingBook(false);
       setScannedBook(null);
       setScannerError("Codice a barre letto (" + cleanIsbn + ") ma si è verificato un errore durante la ricerca del libro.");
-    }
-  };
-
-  // Pre-elaborazione foto scattata/caricata su Canvas 2D
-  const processCanvasPass = (
-    file: File,
-    maxDim: number,
-    grayscale = false,
-    rotate90 = false
-  ): Promise<File> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-
-        const canvas = document.createElement('canvas');
-        if (rotate90) {
-          canvas.width = height;
-          canvas.height = width;
-        } else {
-          canvas.width = width;
-          canvas.height = height;
-        }
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve(file);
-
-        if (rotate90) {
-          ctx.translate(height / 2, width / 2);
-          ctx.rotate((90 * Math.PI) / 180);
-          ctx.drawImage(img, -width / 2, -height / 2, width, height);
-        } else {
-          ctx.drawImage(img, 0, 0, width, height);
-        }
-
-        if (grayscale) {
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imgData.data;
-          for (let i = 0; i < data.length; i += 4) {
-            const avg = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-            const v = avg > 115 ? 255 : 0;
-            data[i] = v;
-            data[i + 1] = v;
-            data[i + 2] = v;
-          }
-          ctx.putImageData(imgData, 0, 0);
-        }
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-          } else {
-            resolve(file);
-          }
-        }, 'image/jpeg', 0.95);
-      };
-      img.onerror = () => resolve(file);
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
-  // Analisi foto in 4 passaggi per estrazione del codice a barre
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    await stopScanner();
-    setIsLoadingBook(true);
-    setScannerError(null);
-
-    let decodedText: string | null = null;
-
-    if (!html5QrcodeRef.current) {
-      html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
-        formatsToSupport: supportedFormats,
-        verbose: false
-      });
-    }
-
-    // PASS 1: Native BarcodeDetector su file originale
-    if ('BarcodeDetector' in window) {
-      try {
-        const imageBitmap = await createImageBitmap(file);
-        const detector = new (window as any).BarcodeDetector({
-          formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e']
-        });
-        const barcodes = await detector.detect(imageBitmap);
-        if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-          decodedText = barcodes[0].rawValue;
-        }
-      } catch (err) {
-        console.warn("Pass 1 error:", err);
-      }
-    }
-
-    // PASS 2: Html5Qrcode su canvas ridimensionato a 1200px
-    if (!decodedText) {
-      try {
-        const resizedFile = await processCanvasPass(file, 1200, false, false);
-        decodedText = await html5QrcodeRef.current.scanFile(resizedFile, true);
-      } catch (err) {
-        console.warn("Pass 2 error:", err);
-      }
-    }
-
-    // PASS 3: Html5Qrcode su canvas con contrasto scala di grigi
-    if (!decodedText) {
-      try {
-        const bwFile = await processCanvasPass(file, 900, true, false);
-        decodedText = await html5QrcodeRef.current.scanFile(bwFile, true);
-      } catch (err) {
-        console.warn("Pass 3 error:", err);
-      }
-    }
-
-    // PASS 4: Html5Qrcode su canvas ruotato di 90° (per codici a barre verticali)
-    if (!decodedText) {
-      try {
-        const rotatedFile = await processCanvasPass(file, 900, false, true);
-        decodedText = await html5QrcodeRef.current.scanFile(rotatedFile, true);
-      } catch (err) {
-        console.warn("Pass 4 error:", err);
-      }
-    }
-
-    if (decodedText) {
-      await handleBarcodeDetected(decodedText);
-    } else {
-      setIsLoadingBook(false);
-      setScannerError(
-        "Nessun codice a barre (ISBN) individuato nella foto. Assicurati che le barre nere sul retro del libro siano ben visibili e a fuoco."
-      );
     }
   };
 
@@ -525,20 +363,32 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                 </div>
               )}
 
-              {/* Overlay grafico del Mirino Moderno (Senza radar statico) */}
+              {/* Overlay grafico del Mirino Moderno */}
               {isScanning && !scannedBook && !isLoadingBook && !scannerError && !shouldObscureCamera && (
                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10 p-4">
-                  {/* Pulsante Cambio Fotocamera per smartphone con fotocamere multiple */}
-                  {availableCameras.length > 1 && (
-                    <button
-                      onClick={handleSwitchCamera}
-                      className="pointer-events-auto absolute top-3 right-3 bg-black/60 hover:bg-black/80 text-white/90 px-2.5 py-1 rounded-full text-[11px] font-bold backdrop-blur-md border border-white/20 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-lg z-20"
-                      title="Cambia Fotocamera"
-                    >
-                      <SwitchCamera className="w-3.5 h-3.5" />
-                      <span>Cambia Cam</span>
-                    </button>
-                  )}
+                  {/* Pulsante Controllo Flash (Torch) manuale per l'utente */}
+                  <button
+                    type="button"
+                    onClick={toggleFlash}
+                    className={`pointer-events-auto absolute top-3 right-3 px-3 py-1.5 rounded-full text-[11px] font-bold backdrop-blur-md border transition-all active:scale-95 cursor-pointer shadow-lg z-20 flex items-center gap-1.5 ${
+                      isFlashOn
+                        ? 'bg-amber-400 text-amber-950 border-amber-300 shadow-amber-500/20'
+                        : 'bg-black/60 hover:bg-black/80 text-white/90 border-white/20'
+                    }`}
+                    title={isFlashOn ? "Spegni Flash" : "Accendi Flash"}
+                  >
+                    {isFlashOn ? (
+                      <>
+                        <Zap className="w-3.5 h-3.5 fill-current text-amber-950" />
+                        <span>Flash ON</span>
+                      </>
+                    ) : (
+                      <>
+                        <ZapOff className="w-3.5 h-3.5 text-white/90" />
+                        <span>Flash OFF</span>
+                      </>
+                    )}
+                  </button>
 
                   {/* Rettangolo di allineamento elegante con angoli minimali */}
                   <div className="relative w-64 sm:w-72 h-36 border border-white/30 rounded-2xl bg-black/10 backdrop-blur-[1px] shadow-2xl flex items-center justify-center overflow-hidden">
@@ -648,19 +498,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             )}
 
             {/* Action Controls */}
-            <div className="grid grid-cols-2 gap-3 mt-auto pt-1 shrink-0">
-              <label className="py-3 px-4 bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] dark:hover:bg-[#4D5A46] text-[#31362F] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all border border-[#A0AF99] dark:border-[#4D5A46] cursor-pointer">
-                <Camera className="w-4 h-4" />
-                <span>Scatta Foto</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-
+            <div className="mt-auto pt-1 shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -669,7 +507,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                     onOpenManualEntry();
                   }
                 }}
-                className="py-3 px-4 bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer"
+                className="w-full py-3 px-4 bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer shadow-sm"
               >
                 <PenTool className="w-4 h-4 text-[#7A756D] dark:text-[#A09A90]" />
                 <span>Compilazione Manuale</span>
