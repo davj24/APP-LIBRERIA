@@ -30,6 +30,26 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
+  // Blocco dello scorrimento del background a livello globale quando una scheda/modale è aperta
+  useEffect(() => {
+    const isAnyModalOpen = modalCount > 0;
+    if (isAnyModalOpen) {
+      const originalBodyOverflow = document.body.style.overflow;
+      const originalBodyTouchAction = document.body.style.touchAction;
+      const originalDocOverflow = document.documentElement.style.overflow;
+
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      document.documentElement.style.overflow = 'hidden';
+
+      return () => {
+        document.body.style.overflow = originalBodyOverflow;
+        document.body.style.touchAction = originalBodyTouchAction;
+        document.documentElement.style.overflow = originalDocOverflow;
+      };
+    }
+  }, [modalCount > 0]);
+
   return (
     <ModalContext.Provider
       value={{

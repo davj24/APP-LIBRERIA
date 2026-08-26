@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Book, BookStatus } from '../../../domain/models/Book';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { BookOpen, Clock, CheckCircle2, Edit3, X, Save, Sparkles } from 'lucide-react';
+import { useRegisterModal } from '../../context/ModalContext';
 
 interface CurrentlyReadingCardProps {
   books: Book[];
@@ -18,6 +19,8 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
   const activeList = readingBooks.length > 0 ? readingBooks : (books[0] ? [books[0]] : []);
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPageModalOpen, setIsPageModalOpen] = useState(false);
+  useRegisterModal(isPageModalOpen);
 
   useEffect(() => {
     if (currentIndex >= activeList.length) {
@@ -30,7 +33,6 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
   const pagesRead = currentBook?.pagesRead || (currentBook ? Math.round((currentBook.totalPages || 300) * 0.45) : 0);
   const totalPages = currentBook?.totalPages || 300;
 
-  const [isPageModalOpen, setIsPageModalOpen] = useState(false);
   const [pageInput, setPageInput] = useState<string>(pagesRead.toString());
 
   useEffect(() => {

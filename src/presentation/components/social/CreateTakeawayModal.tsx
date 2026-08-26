@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Star, Globe, Users, Lock } from 'lucide-react';
 import type { Book } from '../../../domain/models/Book';
 import type { PrivacyLevel } from '../../../domain/models/social';
+import { useRegisterModal } from '../../context/ModalContext';
 
 interface CreateTakeawayModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export const CreateTakeawayModal: React.FC<CreateTakeawayModalProps> = ({
   userBooks,
   onSubmitTakeaway
 }) => {
+  useRegisterModal(isOpen);
   const [selectedBookId, setSelectedBookId] = useState<string>(userBooks[0]?.id || '');
   const [rating, setRating] = useState<number>(5);
   const [content, setContent] = useState('');
