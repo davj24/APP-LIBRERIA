@@ -90,28 +90,62 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsScanning(true);
 
-      const cameraConfig = {
-        facingMode: "environment",
-        width: { ideal: 1920, min: 1280 },
-        height: { ideal: 1080, min: 720 }
-      };
-
-      await html5QrcodeRef.current.start(
-        cameraConfig,
-        {
-          fps: 25,
-          qrbox: (videoWidth, videoHeight) => {
-            return {
-              width: Math.min(320, Math.floor(videoWidth * 0.85)),
-              height: Math.min(180, Math.floor(videoHeight * 0.45))
-            };
+      // Sollecita i permessi e individua la fotocamera posteriore (environment)
+      let cameraIdOrConfig: any = { facingMode: "environment" };
+      try {
+        const cams = await Html5Qrcode.getCameras();
+        if (cams && cams.length > 0) {
+          const backCams = cams.filter(c => {
+            const l = c.label.toLowerCase();
+            return l.includes('back') || l.includes('posterior') || l.includes('rear') || l.includes('ambiente') || l.includes('environment');
+          });
+          if (backCams.length > 0) {
+            cameraIdOrConfig = backCams[0].id;
+          } else {
+            cameraIdOrConfig = cams[cams.length - 1].id;
           }
-        },
-        (decodedText) => {
-          handleBarcodeDetected(decodedText);
-        },
-        () => {}
-      );
+        }
+      } catch (e) {
+        console.warn("Camera enumeration / permission check fallback:", e);
+      }
+
+      try {
+        await html5QrcodeRef.current.start(
+          cameraIdOrConfig,
+          {
+            fps: 25,
+            qrbox: (videoWidth, videoHeight) => {
+              return {
+                width: Math.min(320, Math.floor(videoWidth * 0.85)),
+                height: Math.min(180, Math.floor(videoHeight * 0.45))
+              };
+            }
+          },
+          (decodedText) => {
+            handleBarcodeDetected(decodedText);
+          },
+          () => {}
+        );
+      } catch (primaryStartErr) {
+        console.warn("Primary camera start failed, trying environment fallback:", primaryStartErr);
+        // Fallback a vincolo semplice "environment" senza ID fisici
+        await html5QrcodeRef.current.start(
+          { facingMode: "environment" },
+          {
+            fps: 25,
+            qrbox: (videoWidth, videoHeight) => {
+              return {
+                width: Math.min(320, Math.floor(videoWidth * 0.85)),
+                height: Math.min(180, Math.floor(videoHeight * 0.45))
+              };
+            }
+          },
+          (decodedText) => {
+            handleBarcodeDetected(decodedText);
+          },
+          () => {}
+        );
+      }
 
       // Messa a fuoco continua (Autofocus) via WebRTC Track Constraints
       const applyContinuousFocus = async () => {
@@ -181,7 +215,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       console.warn("Scanner camera init error:", err);
       setIsScanning(false);
       setScannerError(
-        "Fotocamera live non accessibile. Digita l'ISBN nel campo in basso o usa la compilazione manuale."
+        "Fotocamera live non accessibile. Verifica di aver concesso i permessi per la fotocamera nelle impostazioni del browser o digita l'ISBN nel campo in basso."
       );
     }
   };
