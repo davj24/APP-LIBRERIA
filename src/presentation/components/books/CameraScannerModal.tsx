@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Book } from '../../../domain/models/Book';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { X, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, EyeOff, Zap, ZapOff } from 'lucide-react';
+import { X, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, EyeOff, Zap, ZapOff, Image as ImageIcon } from 'lucide-react';
 import { useRegisterModal } from '../../context/ModalContext';
 import { federatedBookSearch } from '../../../infrastructure/services/federatedBookSearch';
 import { BookSheet, type BookSheetBook } from './BookSheet';
@@ -305,8 +305,150 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
     } catch (err) {
       setIsLoadingBook(false);
-      setScannedBook(null);
       setScannerError("Codice a barre letto (" + cleanIsbn + ") ma si è verificato un errore durante la ricerca del libro.");
+    }
+  };
+
+  // Pre-elaborazione foto caricata dalla galleria su Canvas 2D per scansione ad alta risoluzione
+  const processCanvasPass = (
+    file: File,
+    maxDim: number,
+    grayscale = false,
+    rotate90 = false
+  ): Promise<File> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        if (rotate90) {
+          canvas.width = height;
+          canvas.height = width;
+        } else {
+          canvas.width = width;
+          canvas.height = height;
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(file);
+
+        if (rotate90) {
+          ctx.translate(height / 2, width / 2);
+          ctx.rotate((90 * Math.PI) / 180);
+          ctx.drawImage(img, -width / 2, -height / 2, width, height);
+        } else {
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+
+        if (grayscale) {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imgData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            const avg = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+            const v = avg > 115 ? 255 : 0;
+            data[i] = v;
+            data[i + 1] = v;
+            data[i + 2] = v;
+          }
+          ctx.putImageData(imgData, 0, 0);
+        }
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', 0.95);
+      };
+      img.onerror = () => resolve(file);
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  // Analisi immagini selezionate dalla Galleria (Scansione Smart Barcode / Lens)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await stopScanner();
+    setIsLoadingBook(true);
+    setScannerError(null);
+
+    let decodedText: string | null = null;
+
+    if (!html5QrcodeRef.current) {
+      html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
+        formatsToSupport: supportedFormats,
+        verbose: false
+      });
+    }
+
+    // PASS 1: Native BarcodeDetector su file originale
+    if ('BarcodeDetector' in window) {
+      try {
+        const imageBitmap = await createImageBitmap(file);
+        const detector = new (window as any).BarcodeDetector({
+          formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e']
+        });
+        const barcodes = await detector.detect(imageBitmap);
+        if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+          decodedText = barcodes[0].rawValue;
+        }
+      } catch (err) {
+        console.warn("Pass 1 error:", err);
+      }
+    }
+
+    // PASS 2: Html5Qrcode su canvas ridimensionato a 1200px
+    if (!decodedText) {
+      try {
+        const resizedFile = await processCanvasPass(file, 1200, false, false);
+        decodedText = await html5QrcodeRef.current.scanFile(resizedFile, true);
+      } catch (err) {
+        console.warn("Pass 2 error:", err);
+      }
+    }
+
+    // PASS 3: Html5Qrcode su canvas con contrasto scala di grigi
+    if (!decodedText) {
+      try {
+        const bwFile = await processCanvasPass(file, 900, true, false);
+        decodedText = await html5QrcodeRef.current.scanFile(bwFile, true);
+      } catch (err) {
+        console.warn("Pass 3 error:", err);
+      }
+    }
+
+    // PASS 4: Html5Qrcode su canvas ruotato di 90° (per codici a barre verticali)
+    if (!decodedText) {
+      try {
+        const rotatedFile = await processCanvasPass(file, 900, false, true);
+        decodedText = await html5QrcodeRef.current.scanFile(rotatedFile, true);
+      } catch (err) {
+        console.warn("Pass 4 error:", err);
+      }
+    }
+
+    if (decodedText) {
+      await handleBarcodeDetected(decodedText);
+    } else {
+      setIsLoadingBook(false);
+      setScannerError(
+        "Nessun codice a barre (ISBN) individuato nell'immagine selezionata. Assicurati che l'immagine mostri chiaramente il codice a barre sul retro o digita l'ISBN nel campo in basso."
+      );
     }
   };
 
@@ -532,7 +674,18 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             )}
 
             {/* Action Controls */}
-            <div className="mt-auto pt-1 shrink-0">
+            <div className="grid grid-cols-2 gap-3 mt-auto pt-1 shrink-0">
+              <label className="py-3 px-3 bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] dark:hover:bg-[#4D5A46] text-[#31362F] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all border border-[#A0AF99] dark:border-[#4D5A46] cursor-pointer">
+                <ImageIcon className="w-4 h-4 shrink-0" />
+                <span className="truncate">Carica da Galleria</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+
               <button
                 type="button"
                 onClick={() => {
@@ -541,10 +694,10 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                     onOpenManualEntry();
                   }
                 }}
-                className="w-full py-3 px-4 bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer shadow-sm"
+                className="py-3 px-3 bg-[#F4F1EA] dark:bg-[#2A2826] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer shadow-sm"
               >
-                <PenTool className="w-4 h-4 text-[#7A756D] dark:text-[#A09A90]" />
-                <span>Compilazione Manuale</span>
+                <PenTool className="w-4 h-4 text-[#7A756D] dark:text-[#A09A90] shrink-0" />
+                <span className="truncate">Compilazione Manuale</span>
               </button>
             </div>
           </motion.div>
