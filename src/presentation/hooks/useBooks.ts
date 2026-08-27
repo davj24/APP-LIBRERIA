@@ -243,15 +243,20 @@ export function useBooks() {
       if (book.id === id) {
         let startDate = book.startDate;
         let endDate = book.endDate;
+        let pagesRead = book.pagesRead;
 
-        if (status === 'In lettura' && !startDate) {
+        if (status === 'Da leggere') {
+          startDate = '';
+          endDate = '';
+          pagesRead = 0;
+        } else if (status === 'In lettura' && !startDate) {
           startDate = today;
         } else if (status === 'Letto') {
           if (!startDate) startDate = today;
           endDate = today;
         }
 
-        updatedBookRef = { ...book, status, startDate, endDate };
+        updatedBookRef = { ...book, status, startDate, endDate, pagesRead };
         return updatedBookRef;
       }
       return book;

@@ -392,7 +392,17 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                     <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">Stato Lettura</label>
                     <select
                       value={formData.status || 'Da leggere'}
-                      onChange={e => setFormData({ ...formData, status: e.target.value as BookStatus })}
+                      onChange={e => {
+                        const newStatus = e.target.value as BookStatus;
+                        const today = new Date().toISOString().split('T')[0];
+                        if (newStatus === 'Da leggere') {
+                          setFormData({ ...formData, status: newStatus, pagesRead: 0, startDate: '', endDate: '' });
+                        } else if (newStatus === 'In lettura') {
+                          setFormData({ ...formData, status: newStatus, startDate: formData.startDate || today, endDate: '' });
+                        } else if (newStatus === 'Letto') {
+                          setFormData({ ...formData, status: newStatus, startDate: formData.startDate || today, endDate: formData.endDate || today });
+                        }
+                      }}
                       className="w-full bg-[#FCFBF8] dark:bg-[#33302D] border border-[#DCD5C6] dark:border-[#4A4743]/50 rounded-xl p-3 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:ring-2 focus:ring-[#B0BEA9]"
                     >
                       <option value="Da leggere">Da leggere</option>
@@ -424,9 +434,9 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                         disabled={!formData.genre}
                         value={formData.subgenre || ''}
                         onChange={e => setFormData({ ...formData, subgenre: e.target.value })}
-                        className="w-full bg-[#FCFBF8] dark:bg-[#33302D] border border-[#DCD5C6] dark:border-[#4A4743]/50 rounded-xl p-3 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:ring-2 focus:ring-[#B0BEA9] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-[#FCFBF8] dark:bg-[#33302D] border border-[#DCD5C6] dark:border-[#4A4743]/50 rounded-xl p-3 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:ring-2 focus:ring-[#B0BEA9] disabled:opacity-50"
                       >
-                        <option value="">{formData.genre ? "Seleziona Sottogenere..." : "Scegli prima un Genere"}</option>
+                        <option value="">Seleziona Sottogenere...</option>
                         {formData.genre && GENRES_MAP[formData.genre]?.map(sub => (
                           <option key={sub} value={sub}>{sub}</option>
                         ))}
@@ -435,19 +445,21 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">Pagine Lette</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        min="0"
-                        value={formData.pagesRead ?? 0}
-                        onChange={e => setFormData({ ...formData, pagesRead: Number(e.target.value) })}
-                        className="w-full px-3 py-2 rounded-xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#B0BEA9] dark:focus:border-[#5C6B55]"
-                      />
-                    </div>
+                  <div className={`grid gap-3 ${formData.status !== 'Da leggere' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    {formData.status !== 'Da leggere' && (
+                      <div>
+                        <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">Pagine Lette</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          min="0"
+                          value={formData.pagesRead ?? 0}
+                          onChange={e => setFormData({ ...formData, pagesRead: Number(e.target.value) })}
+                          className="w-full px-3 py-2 rounded-xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#B0BEA9] dark:focus:border-[#5C6B55]"
+                        />
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">Pagine Totali</label>

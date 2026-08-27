@@ -37,7 +37,7 @@ export const BookCard: React.FC<BookCardProps> = ({ book, onStatusChange, onSele
     }
   };
 
-  const progress = book.totalPages && book.pagesRead
+  const progress = book.status !== 'Da leggere' && book.totalPages && book.pagesRead
     ? Math.min(100, Math.round((book.pagesRead / book.totalPages) * 100))
     : null;
 

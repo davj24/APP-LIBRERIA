@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Book, BookStatus } from '../../../domain/models/Book';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
-import { BookOpen, Clock, CheckCircle2, Edit3, X, Save, Sparkles } from 'lucide-react';
+import { BookOpen, Clock, CheckCircle2, Edit3, X, Save } from 'lucide-react';
 import { useRegisterModal } from '../../context/ModalContext';
 
 interface CurrentlyReadingCardProps {
@@ -98,10 +98,6 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
       }
     }
     setIsPageModalOpen(false);
-  };
-
-  const handleQuickSetPage = (targetPages: number) => {
-    setPageInput(targetPages.toString());
   };
 
   return (
@@ -289,41 +285,15 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
                   </div>
                 </div>
 
-                {/* Quick Preset Buttons */}
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold text-[#7A756D] dark:text-[#A09A90] uppercase tracking-wider block">
-                    Avanzamento Rapido
-                  </span>
-                  <div className="grid grid-cols-4 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickSetPage(Math.min(totalPages, pagesRead + 5))}
-                      className="py-2 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                    >
-                      +5 Pag.
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickSetPage(Math.min(totalPages, pagesRead + 10))}
-                      className="py-2 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                    >
-                      +10 Pag.
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickSetPage(Math.min(totalPages, pagesRead + 25))}
-                      className="py-2 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                    >
-                      +25 Pag.
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickSetPage(totalPages)}
-                      className="py-2 bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                    >
-                      <Sparkles className="w-3 h-3" /> Fine
-                    </button>
-                  </div>
+                {/* Tasto Azzera / Ripristina Pagina a 0 */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setPageInput('0')}
+                    className="text-[11px] font-semibold text-[#7A756D] hover:text-[#4A4743] dark:text-[#A09A90] dark:hover:text-[#E0DCD3] underline cursor-pointer"
+                  >
+                    Ripristina a Pagina 0
+                  </button>
                 </div>
 
                 {/* Action buttons */}

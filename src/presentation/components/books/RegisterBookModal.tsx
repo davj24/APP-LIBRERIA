@@ -42,8 +42,13 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
   const handleStatusChange = (newStatus: BookStatus) => {
     setStatus(newStatus);
     const today = new Date().toISOString().split('T')[0];
-    if (newStatus === 'In lettura' && !startDate) {
+    if (newStatus === 'Da leggere') {
+      setPagesRead('0');
+      setStartDate('');
+      setEndDate('');
+    } else if (newStatus === 'In lettura' && !startDate) {
       setStartDate(today);
+      setEndDate('');
     } else if (newStatus === 'Letto') {
       if (!startDate) setStartDate(today);
       if (!endDate) setEndDate(today);
@@ -161,23 +166,25 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
                 </div>
               </div>
 
-              {/* Pagine Lette e Totali (se In lettura o per monitorare) */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] mb-1">
-                    Pagina Attuale
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    min="0"
-                    placeholder="es. 120"
-                    value={pagesRead}
-                    onChange={(e) => setPagesRead(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] outline-none focus:border-[#5C6B55]"
-                  />
-                </div>
+              {/* Pagine Lette e Totali */}
+              <div className={`grid gap-3 ${status !== 'Da leggere' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {status !== 'Da leggere' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] mb-1">
+                      Pagina Attuale
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      min="0"
+                      placeholder="es. 120"
+                      value={pagesRead}
+                      onChange={(e) => setPagesRead(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] outline-none focus:border-[#5C6B55]"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] mb-1">
                     Pagine Totali
