@@ -23,16 +23,23 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
   const [totalPages, setTotalPages] = useState<string>('');
   const [pagesRead, setPagesRead] = useState<string>('');
   const [genre, setGenre] = useState('');
+  const [customGenre, setCustomGenre] = useState('');
   const [subgenre, setSubgenre] = useState('');
+  const [customSubgenre, setCustomSubgenre] = useState('');
 
   const handleGenreChange = (newGenre: string) => {
     setGenre(newGenre);
+    setCustomGenre('');
     setSubgenre(''); // Reset subgenre when main genre changes
+    setCustomSubgenre('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !author.trim()) return;
+
+    const finalGenre = genre === 'ALTRO_CUSTOM' ? customGenre.trim() : genre.trim();
+    const finalSubgenre = subgenre === 'ALTRO_CUSTOM' ? customSubgenre.trim() : subgenre.trim();
 
     onAddBook({
       title: title.trim(),
@@ -43,8 +50,8 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
       endDate: endDate || (status === 'Letto' ? new Date().toISOString().split('T')[0] : ''),
       totalPages: totalPages ? parseInt(totalPages, 10) : undefined,
       pagesRead: pagesRead ? parseInt(pagesRead, 10) : undefined,
-      genre: genre.trim() || 'Narrativa',
-      subgenre: subgenre.trim() || undefined
+      genre: finalGenre || 'Narrativa & Classici',
+      subgenre: finalSubgenre || undefined
     });
 
     // Reset form
@@ -57,7 +64,9 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
     setTotalPages('');
     setPagesRead('');
     setGenre('');
+    setCustomGenre('');
     setSubgenre('');
+    setCustomSubgenre('');
     onClose();
   };
 
@@ -150,13 +159,25 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
                   <select
                     value={genre}
                     onChange={(e) => handleGenreChange(e.target.value)}
-                    className="w-full bg-[#FCFBF8] dark:bg-[#33302D] border border-[#DCD5C6] dark:border-[#4A4743]/50 rounded-xl p-3 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:ring-2 focus:ring-[#B0BEA9]"
+                    className="w-full bg-[#FCFBF8] dark:bg-[#33302D] border border-[#DCD5C6] dark:border-[#4A4743]/50 rounded-xl p-2.5 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:ring-2 focus:ring-[#B0BEA9]"
                   >
                     <option value="">Seleziona Genere...</option>
                     {Object.keys(GENRES_MAP).map(g => (
                       <option key={g} value={g}>{g}</option>
                     ))}
+                    <option value="ALTRO_CUSTOM">✏️ Altro / Personalizzato...</option>
                   </select>
+
+                  {genre === 'ALTRO_CUSTOM' && (
+                    <input
+                      type="text"
+                      placeholder="Scrivi genere personalizzato..."
+                      value={customGenre}
+                      onChange={(e) => setCustomGenre(e.target.value)}
+                      required
+                      className="w-full mt-2 px-3 py-2 bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] outline-none focus:border-[#5C6B55]"
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -167,13 +188,25 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
                     disabled={!genre}
                     value={subgenre}
                     onChange={(e) => setSubgenre(e.target.value)}
-                    className="w-full bg-[#FCFBF8] dark:bg-[#33302D] border border-[#DCD5C6] dark:border-[#4A4743]/50 rounded-xl p-3 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:ring-2 focus:ring-[#B0BEA9] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-[#FCFBF8] dark:bg-[#33302D] border border-[#DCD5C6] dark:border-[#4A4743]/50 rounded-xl p-2.5 text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:ring-2 focus:ring-[#B0BEA9] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">{genre ? "Seleziona Sottogenere..." : "Scegli prima un Genere"}</option>
-                    {genre && GENRES_MAP[genre]?.map(sub => (
+                    {genre && genre !== 'ALTRO_CUSTOM' && GENRES_MAP[genre]?.map(sub => (
                       <option key={sub} value={sub}>{sub}</option>
                     ))}
+                    {genre && <option value="ALTRO_CUSTOM">✏️ Altro / Personalizzato...</option>}
                   </select>
+
+                  {subgenre === 'ALTRO_CUSTOM' && (
+                    <input
+                      type="text"
+                      placeholder="Scrivi sottogenere personalizzato..."
+                      value={customSubgenre}
+                      onChange={(e) => setCustomSubgenre(e.target.value)}
+                      required
+                      className="w-full mt-2 px-3 py-2 bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] outline-none focus:border-[#5C6B55]"
+                    />
+                  )}
                 </div>
               </div>
 

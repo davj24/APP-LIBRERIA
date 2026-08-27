@@ -414,6 +414,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                         {Object.keys(GENRES_MAP).map(g => (
                           <option key={g} value={g}>{g}</option>
                         ))}
+                        <option value="ALTRO_CUSTOM">✏️ Altro / Personalizzato...</option>
                       </select>
                     </div>
 
@@ -429,6 +430,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                         {formData.genre && GENRES_MAP[formData.genre]?.map(sub => (
                           <option key={sub} value={sub}>{sub}</option>
                         ))}
+                        {formData.genre && <option value="ALTRO_CUSTOM">✏️ Altro / Personalizzato...</option>}
                       </select>
                     </div>
                   </div>
