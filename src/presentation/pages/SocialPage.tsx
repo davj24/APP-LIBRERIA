@@ -28,46 +28,13 @@ import {
 import { useBooks } from '../hooks/useBooks';
 import { useRegisterModal } from '../context/ModalContext';
 
-interface SuggestedReader {
-  id: string;
-  nome_completo: string;
-  username: string;
-  avatar_url: string;
-  readingNow: string;
-  isAdded?: boolean;
-}
-
-const INITIAL_SUGGESTED_READERS: SuggestedReader[] = [
-  {
-    id: 'sug-1',
-    nome_completo: 'Damiano Rossi',
-    username: 'damiano_reads',
-    avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
-    readingNow: 'Dune: Parte Seconda'
-  },
-  {
-    id: 'sug-2',
-    nome_completo: 'Tommaso Bianchi',
-    username: 'tommy_books',
-    avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&q=80&w=150',
-    readingNow: "L'Ombra del Vento"
-  },
-  {
-    id: 'sug-3',
-    nome_completo: 'Elena Verdi',
-    username: 'elena_pages',
-    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
-    readingNow: '1984'
-  }
-];
-
 export const SocialPage: React.FC = () => {
   // Tab attivo: 'amici' (default e primario) oppure 'globale' (secondario)
   const [activeTab, setActiveTab] = useState<'amici' | 'globale'>('amici');
 
   // Stati Amici e Ricerca Utenti
   const [friendsList, setFriendsList] = useState<UserProfileSocial[]>([]);
-  const [suggestedReaders, setSuggestedReaders] = useState<SuggestedReader[]>(INITIAL_SUGGESTED_READERS);
+  const [suggestedReaders, setSuggestedReaders] = useState<UserProfileSocial[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserProfileSocial[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -100,7 +67,7 @@ export const SocialPage: React.FC = () => {
   const { books: myBooks } = useBooks();
   useRegisterModal(isCreateModalOpen || isAdviceModalOpen);
 
-  // Caricamento Iniziale Amici e Feed da Supabase
+  // Caricamento Iniziale Amici, Suggeriti e Feed da Supabase
   useEffect(() => {
     loadSocialData();
   }, []);
@@ -108,12 +75,14 @@ export const SocialPage: React.FC = () => {
   const loadSocialData = async () => {
     setIsLoadingFeed(true);
     try {
-      const [friendsData, feedData] = await Promise.all([
+      const [friendsData, feedData, suggestedData] = await Promise.all([
         socialService.getFriends(),
-        socialService.getSpuntiFeed()
+        socialService.getSpuntiFeed(),
+        socialService.getSuggestedUsers()
       ]);
       setFriendsList(friendsData);
       setSpuntiFeed(feedData);
+      setSuggestedReaders(suggestedData);
     } catch (err) {
       console.warn('Errore durante il caricamento dei dati social Supabase:', err);
     } finally {
@@ -185,12 +154,7 @@ export const SocialPage: React.FC = () => {
     }
   };
 
-  // Aggiungi lettore consigliato
-  const handleAddSuggested = (id: string) => {
-    setSuggestedReaders(prev =>
-      prev.map(r => (r.id === id ? { ...r, isAdded: true } : r))
-    );
-  };
+
 
   // Invia richiesta di consiglio
   const handleSendAdviceRequest = (e: React.FormEvent) => {
@@ -461,52 +425,63 @@ export const SocialPage: React.FC = () => {
                     )}
                   </div>
                 ) : (
-                  /* Se search vuota: mostra LETTORI CONSIGLIATI */
-                  <div className="space-y-3 pt-2">
-                    <span className="text-[11px] font-extrabold text-[#5C6B55] dark:text-[#A8BB9C] uppercase tracking-wider block">
-                      Lettori Consigliati per te
-                    </span>
-                    <div className="space-y-2.5">
-                      {suggestedReaders.map((reader) => (
-                        <div
-                          key={reader.id}
-                          className="flex items-center justify-between p-3 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={reader.avatar_url}
-                              alt={reader.nome_completo}
-                              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#5C6B55]/40 shrink-0"
-                            />
-                            <div className="min-w-0">
-                              <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] truncate">
-                                {reader.nome_completo}
-                              </h4>
-                              <p className="text-[10px] text-[#7A756D] dark:text-[#9A9488] truncate flex items-center gap-1">
-                                <BookOpen size={11} className="text-[#5C6B55]" />
-                                <span>Sta leggendo: <strong className="text-[#31362F] dark:text-[#E0DCD3]">{reader.readingNow}</strong></span>
-                              </p>
+                  /* Se search vuota: mostra LETTORI CONSIGLIATI (se presenti su Supabase) */
+                  suggestedReaders.length > 0 ? (
+                    <div className="space-y-3 pt-2">
+                      <span className="text-[11px] font-extrabold text-[#5C6B55] dark:text-[#A8BB9C] uppercase tracking-wider block">
+                        Lettori Consigliati per te
+                      </span>
+                      <div className="space-y-2.5">
+                        {suggestedReaders.map((reader) => (
+                          <div
+                            key={reader.id}
+                            className="flex items-center justify-between p-3 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img
+                                src={reader.avatar_url}
+                                alt={reader.nome_completo}
+                                className="w-10 h-10 rounded-full object-cover ring-2 ring-[#5C6B55]/40 shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                                  {reader.nome_completo}
+                                </h4>
+                                <p className="text-[10px] text-[#7A756D] dark:text-[#9A9488] truncate">
+                                  @{reader.username}
+                                </p>
+                              </div>
                             </div>
-                          </div>
 
-                          {reader.isAdded ? (
-                            <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30 flex items-center gap-1">
-                              <Check size={13} />
-                              Inviata
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => handleAddSuggested(reader.id)}
-                              className="px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
-                            >
-                              <UserPlus size={13} />
-                              <span>Aggiungi</span>
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                            {reader.friendshipState === 'accettata' ? (
+                              <span className="px-3 py-1.5 bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold border border-[#B0BEA9]">
+                                <Check size={13} />
+                                Amico
+                              </span>
+                            ) : reader.friendshipState === 'in_attesa' ? (
+                              <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30 flex items-center gap-1">
+                                <Check size={13} />
+                                Inviata
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleSendFriendRequest(reader.id)}
+                                disabled={sendingRequestTo === reader.id}
+                                className="px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                              >
+                                {sendingRequestTo === reader.id ? (
+                                  <Loader2 size={13} className="animate-spin" />
+                                ) : (
+                                  <UserPlus size={13} />
+                                )}
+                                <span>Aggiungi</span>
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  ) : null
                 )}
               </section>
 

@@ -296,6 +296,43 @@ export async function createSpunto(data: {
   };
 }
 
+/**
+ * 7. Recupera lettori suggeriti reali dal database (profili diversi dall'utente corrente).
+ */
+export async function getSuggestedUsers(): Promise<UserProfileSocial[]> {
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const currentUserId = authData?.user?.id;
+
+    let query = supabase.from('profili').select('*').limit(10);
+    if (currentUserId) {
+      query = query.neq('id', currentUserId);
+    }
+
+    let { data } = await query;
+    if (!data || data.length === 0) {
+      let fallbackQuery = supabase.from('profiles').select('*').limit(10);
+      if (currentUserId) {
+        fallbackQuery = fallbackQuery.neq('id', currentUserId);
+      }
+      const { data: fallbackData } = await fallbackQuery;
+      data = fallbackData || [];
+    }
+
+    return (data || []).map(u => ({
+      id: u.id,
+      username: u.username || 'utente',
+      nome_completo: u.nome_completo || u.full_name || 'Lettore BiblioDesk',
+      avatar_url: u.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+      bio: u.bio || '',
+      friendshipState: 'nessuna'
+    }));
+  } catch (err) {
+    console.warn('Errore durante il recupero dei lettori suggeriti:', err);
+    return [];
+  }
+}
+
 export const socialService = {
   searchUsers,
   sendFriendRequest,
@@ -303,4 +340,6 @@ export const socialService = {
   getFriends,
   getSpuntiFeed,
   createSpunto,
+  getSuggestedUsers,
 };
+
