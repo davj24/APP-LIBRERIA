@@ -256,7 +256,7 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     categoryName: '📚 Libreria & Formati',
     icon: Library,
     iconColor: 'text-amber-600 dark:text-amber-400',
-    getValue: ({ toReadCount }) => `${toReadCount > 0 ? toReadCount : 15} In Coda`
+    getValue: ({ toReadCount }) => `${toReadCount || 0} In Coda`
   },
   {
     id: 'next_up',
@@ -276,7 +276,7 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     categoryName: '📚 Libreria & Formati',
     icon: Repeat,
     iconColor: 'text-emerald-600 dark:text-emerald-400',
-    getValue: ({ reReadsCount }) => `${reReadsCount || 4} Riletture`
+    getValue: ({ reReadsCount }) => `${reReadsCount || 0} Riletture`
   },
   {
     id: 'notes_count',
@@ -381,18 +381,18 @@ export const ProfilePage: React.FC = () => {
     readCount,
     readingCount,
     totalPages: calculatedTotalPages,
-    readingGoal: userProfile.readingGoal || 50,
-    streakDays: 18,
-    averagePace: 30,
+    readingGoal: userProfile.readingGoal || 24,
+    streakDays: 0,
+    averagePace: 0,
     dominantGenre: getDominantGenre(),
-    notesCount: 128,
+    notesCount: 0,
     nextBookTitle: collections[0]?.items[0]?.title || 'Nessun libro in wishlist',
     currentProgressPercent,
-    timeSlotText: 'Lettore Notturno',
-    primaryFormatText: '80% Cartaceo',
-    toReadCount: toReadCount > 0 ? toReadCount : 15,
-    maxStreakDays: 21,
-    reReadsCount: 4
+    timeSlotText: 'Lettore',
+    primaryFormatText: 'Cartaceo',
+    toReadCount: toReadCount,
+    maxStreakDays: 0,
+    reReadsCount: 0
   };
 
   const handleOpenEdit = () => {

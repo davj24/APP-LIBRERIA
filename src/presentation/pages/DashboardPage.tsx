@@ -53,7 +53,7 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Animated Reading Streak Badge */}
-        <ReadingStreakBadge daysStreak={14} />
+        <ReadingStreakBadge daysStreak={0} />
       </div>
 
       {/* Hero Reading Focus Card */}

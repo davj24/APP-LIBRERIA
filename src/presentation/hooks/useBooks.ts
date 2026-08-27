@@ -25,14 +25,21 @@ function mapDbRecordToBook(rec: any): Book {
   };
 }
 
+const MOCK_BOOK_IDS = ['1', '2', '3'];
+
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+        if (Array.isArray(parsed)) {
+          // Purga i vecchi libri mock se presenti nelle vecchie sessioni del browser
+          const cleaned = parsed.filter((b: any) => b && !MOCK_BOOK_IDS.includes(String(b.id)));
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+          }
+          return cleaned;
         }
       } catch (e) {
         console.error('Failed to parse saved books', e);
@@ -67,7 +74,7 @@ export function useBooks() {
           return;
         }
 
-        if (data && Array.isArray(data) && data.length > 0 && isMounted) {
+        if (data && Array.isArray(data) && isMounted) {
           const remoteBooks = data.map(mapDbRecordToBook);
           setBooks(remoteBooks);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteBooks));
