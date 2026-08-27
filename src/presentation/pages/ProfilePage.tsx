@@ -122,33 +122,7 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
   }
 ];
 
-interface FriendActivity {
-  id: string;
-  name: string;
-  avatar: string;
-  readingNow: string;
-  streakDays: number;
-  status: string;
-}
 
-const MOCK_FRIENDS: FriendActivity[] = [
-  {
-    id: 'f1',
-    name: 'Damiano',
-    avatar: 'D',
-    readingNow: 'Dune: Parte Seconda',
-    streakDays: 18,
-    status: 'In lettura'
-  },
-  {
-    id: 'f2',
-    name: 'Tommaso',
-    avatar: 'T',
-    readingNow: 'L\'Ombra del Vento',
-    streakDays: 24,
-    status: 'Streak Attiva 🔥'
-  }
-];
 
 const BANNER_PRESETS = [
   { name: 'Neutro', class: 'bg-neutral-200 dark:bg-neutral-800' },
@@ -412,7 +386,7 @@ export const ProfilePage: React.FC = () => {
   const bannerCameraInputRef = useRef<HTMLInputElement>(null);
   const bannerGalleryInputRef = useRef<HTMLInputElement>(null);
 
-  const [friends] = useState<FriendActivity[]>(MOCK_FRIENDS);
+
 
   const readCount = books.filter(b => b.status === 'Letto').length;
   const readingCount = books.filter(b => b.status === 'In lettura').length;
@@ -1123,52 +1097,7 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Sezione Amici / Social Hub */}
-        <div className="rounded-[2rem] bg-white dark:bg-neutral-900 p-6 shadow-xl ring-1 ring-neutral-100 dark:ring-neutral-800 space-y-4 transition-colors">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-neutral-900 dark:text-white leading-tight flex items-center gap-2">
-                <span>I miei Amici</span>
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                  Social Hub
-                </span>
-              </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-                Condividi letture e sfide di streak con i tuoi amici
-              </p>
-            </div>
-          </div>
 
-          <div className="space-y-2.5 pt-1">
-            {friends.map(friend => (
-              <div
-                key={friend.id}
-                className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-3.5 border border-neutral-200 dark:border-neutral-700/60 flex items-center justify-between gap-3 shadow-xs"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] font-bold text-sm flex items-center justify-center shrink-0">
-                    {friend.avatar}
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate">{friend.name}</h4>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate flex items-center gap-1">
-                      <BookOpen className="w-3 h-3 text-neutral-400" />
-                      <span>{friend.readingNow}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 bg-white dark:bg-neutral-900 px-2.5 py-1 rounded-full border border-neutral-200 dark:border-neutral-700 text-[11px] font-bold text-neutral-700 dark:text-neutral-300 shrink-0">
-                  <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                  <span>{friend.streakDays} gg</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* MODALE "VEDI TUTTE LE RACCOLTE" CON RICERCA RAPIDA */}
