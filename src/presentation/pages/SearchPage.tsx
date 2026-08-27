@@ -392,6 +392,16 @@ export const SearchPage: React.FC = () => {
           };
           await handleSelectWebBook(webBookItem);
         }}
+        onRegisterBook={async (customizedBook) => {
+          setIsSheetOpen(false);
+          const result = await addBookToLibrary(customizedBook);
+          if (result.success) {
+            setToast({
+              type: 'success',
+              message: `"${customizedBook.title}" registrato con successo nella tua libreria!`
+            });
+          }
+        }}
       />
 
       {/* Book Detail Modal per la consultazione dei libri locali */}

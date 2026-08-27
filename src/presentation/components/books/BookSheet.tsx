@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Heart, Plus, Check, Share2, BookOpen, Building2 } from 'lucide-react';
+import { X, Heart, Plus, Check, Share2, BookOpen, Building2, PenTool } from 'lucide-react';
 import { SaveToListModal } from './SaveToListModal';
 import { BookStoreActions } from './BookStoreActions';
-import type { BookStatus } from '../../../domain/models/Book';
+import { RegisterBookModal } from './RegisterBookModal';
+import type { Book, BookStatus } from '../../../domain/models/Book';
 import { useRegisterModal } from '../../context/ModalContext';
 
 export interface BookSheetBook {
@@ -31,6 +32,7 @@ interface BookSheetProps {
   book: BookSheetBook | null;
   isLoadingDetails?: boolean;
   onAddBook?: (book: BookSheetBook) => void;
+  onRegisterBook?: (customizedBook: Omit<Book, 'id'>) => void;
 }
 
 function getValidImageUrl(url?: string | null): string | null {
@@ -47,10 +49,12 @@ export const BookSheet: React.FC<BookSheetProps> = ({
   book,
   isLoadingDetails = false,
   onAddBook,
+  onRegisterBook,
 }) => {
   useRegisterModal(isOpen);
   const [isAdded, setIsAdded] = useState(false);
   const [isSaveToListOpen, setIsSaveToListOpen] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
   if (!book) return null;
 
@@ -195,7 +199,7 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                 <button
                   onClick={handleAdd}
                   disabled={isAdded}
-                  className={`flex-1 py-3.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98 cursor-pointer ${
+                  className={`flex-1 py-3.5 px-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-98 cursor-pointer ${
                     isAdded
                       ? 'bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] cursor-default'
                       : 'bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] hover:bg-[#A0AF99] dark:hover:bg-[#4D5A47]'
@@ -204,7 +208,7 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                   {isAdded ? (
                     <>
                       <Check className="w-4 h-4" />
-                      <span>Aggiunto in Libreria!</span>
+                      <span>Aggiunto!</span>
                     </>
                   ) : (
                     <>
@@ -212,6 +216,16 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                       <span>Aggiungi in Libreria</span>
                     </>
                   )}
+                </button>
+
+                {/* Tasto Registra / Personalizza */}
+                <button
+                  onClick={() => setIsRegisterOpen(true)}
+                  className="py-3.5 px-3.5 rounded-2xl bg-[#EBE5D9] dark:bg-[#383532] text-[#31362F] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] transition-colors border border-[#DCD5C6]/60 dark:border-[#4A4743]/60 shrink-0 cursor-pointer active:scale-95 text-xs font-extrabold flex items-center gap-1"
+                  title="Personalizza e Registra"
+                >
+                  <PenTool className="w-4 h-4 text-[#5C6B55] dark:text-[#A8BB9C]" />
+                  <span>Registra</span>
                 </button>
 
                 {/* TASTO CUORE: Apre la schermata di selezione delle liste */}
@@ -281,6 +295,34 @@ export const BookSheet: React.FC<BookSheetProps> = ({
               coverUrl={cleanCoverUrl}
               isFavorite={book.isFavorite}
               onSaveToList={handleSaveToList}
+            />
+
+            {/* Modale Registra & Personalizza Libro */}
+            <RegisterBookModal
+              isOpen={isRegisterOpen}
+              onClose={() => setIsRegisterOpen(false)}
+              initialBook={{
+                title: book.title,
+                author: book.author,
+                coverUrl: cleanCoverUrl || undefined,
+                totalPages: book.pages ? Number(book.pages) : undefined,
+                genre: book.genre,
+                isbn: book.isbn || undefined,
+                notes: book.description || undefined
+              }}
+              onConfirmSave={(customizedBook) => {
+                setIsRegisterOpen(false);
+                if (onRegisterBook) {
+                  onRegisterBook(customizedBook);
+                } else if (onAddBook) {
+                  onAddBook({
+                    ...book,
+                    cover: customizedBook.coverUrl,
+                    pages: customizedBook.totalPages,
+                  });
+                }
+                onClose();
+              }}
             />
           </motion.div>
         </div>

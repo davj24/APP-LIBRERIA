@@ -6,6 +6,7 @@ import { X, RefreshCw, Check, AlertCircle, PenTool, ScanLine, Search, Barcode, E
 import { useRegisterModal } from '../../context/ModalContext';
 import { federatedBookSearch } from '../../../infrastructure/services/federatedBookSearch';
 import { BookSheet, type BookSheetBook } from './BookSheet';
+import { RegisterBookModal } from './RegisterBookModal';
 
 interface CameraScannerModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   const [manualIsbnInput, setManualIsbnInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isFlashOn, setIsFlashOn] = useState(false);
 
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
@@ -759,12 +761,23 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                     <p className="text-[10px] text-[#5C6B55] dark:text-[#A0AF99] font-mono mt-0.5">ISBN: {scannedBook.isbn}</p>
                   )}
                 </div>
-                <button
-                  onClick={handleConfirmAdd}
-                  className="px-3.5 py-2 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-xs font-bold active:scale-95 transition-all shadow-md shrink-0 cursor-pointer"
-                >
-                  Salva Libro
-                </button>
+                <div className="flex flex-col gap-1.5 shrink-0">
+                  <button
+                    onClick={handleConfirmAdd}
+                    className="px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-xs font-bold active:scale-95 transition-all shadow-md cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <span>Aggiungi</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsRegisterOpen(true)}
+                    className="px-3.5 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-xs font-bold active:scale-95 transition-all border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <PenTool className="w-3.5 h-3.5 text-[#5C6B55] dark:text-[#A8BB9C]" />
+                    <span>Registra</span>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -799,6 +812,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         </motion.div>
       )}
     </AnimatePresence>
+
     {/* Dettagli Libro Trovato */}
     <BookSheet
       isOpen={isSheetOpen}
@@ -807,6 +821,18 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       onAddBook={() => {
         setIsSheetOpen(false);
         handleConfirmAdd();
+      }}
+    />
+
+    {/* Modale Registra & Personalizza Libro */}
+    <RegisterBookModal
+      isOpen={isRegisterOpen}
+      onClose={() => setIsRegisterOpen(false)}
+      initialBook={scannedBook}
+      onConfirmSave={(customizedBook) => {
+        setIsRegisterOpen(false);
+        onBookScanned(customizedBook);
+        onClose();
       }}
     />
     </>
