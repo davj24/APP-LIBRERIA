@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Book, BookStatus } from '../../../domain/models/Book';
 import { GENRES_MAP } from '../../../domain/constants/genres';
-import { X, BookPlus, AlertTriangle } from 'lucide-react';
+import { X, BookPlus } from 'lucide-react';
 
 import { useRegisterModal } from '../../context/ModalContext';
 
@@ -26,42 +26,6 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
   const [customGenre, setCustomGenre] = useState('');
   const [subgenre, setSubgenre] = useState('');
   const [customSubgenre, setCustomSubgenre] = useState('');
-
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const [isScrollAtTop, setIsScrollAtTop] = useState(true);
-
-  useEffect(() => {
-    if (isOpen) {
-      setShowDiscardConfirm(false);
-      setIsScrollAtTop(true);
-    }
-  }, [isOpen]);
-
-  const checkIsDirty = (): boolean => {
-    return Boolean(
-      title.trim() ||
-      author.trim() ||
-      coverUrl.trim() ||
-      genre.trim() ||
-      subgenre.trim() ||
-      totalPages.trim() ||
-      pagesRead.trim()
-    );
-  };
-
-  const handleAttemptClose = () => {
-    if (checkIsDirty()) {
-      setShowDiscardConfirm(true);
-    } else {
-      onClose();
-    }
-  };
-
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    if (info.offset.y > 120 || info.velocity.y > 350) {
-      handleAttemptClose();
-    }
-  };
 
   const handleGenreChange = (newGenre: string) => {
     setGenre(newGenre);
@@ -113,50 +77,33 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={handleAttemptClose}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs p-0 sm:p-4"
         >
           <motion.div
             initial={{ y: "100%", opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: "100%", opacity: 0, scale: 0.95 }}
-            transition={{ type: "spring", damping: 28, stiffness: 320 }}
-            drag="y"
-            dragConstraints={{ top: 0 }}
-            dragElastic={{ top: 0, bottom: 0.5 }}
-            dragListener={isScrollAtTop}
-            onDragEnd={handleDragEnd}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-[2.25rem] sm:rounded-3xl shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-[90vh] flex flex-col transition-colors overflow-hidden relative select-none"
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto border border-[#EBE5D9] dark:border-[#4A4743]/60 transition-colors"
           >
-            {/* Drag Handle Bar Visiva per iOS/Android Bottom Sheet */}
-            <div className="w-full pt-2.5 pb-1 flex justify-center bg-[#FCFBF8] dark:bg-[#33302D] cursor-grab active:cursor-grabbing shrink-0">
-              <div className="w-12 h-1.5 bg-[#DCD5C6] dark:bg-[#4A4743] rounded-full" />
-            </div>
-
-            {/* Scrollable Content Container con separazione dallo Swipe */}
-            <div
-              onScroll={(e) => setIsScrollAtTop(e.currentTarget.scrollTop <= 5)}
-              className="flex-1 overflow-y-auto p-5 pt-1 space-y-4"
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#EBE5D9] dark:border-[#4A4743]/50">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] flex items-center justify-center">
-                    <BookPlus className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-[#4A4743] dark:text-[#E0DCD3]">Aggiungi nuovo libro</h2>
-                    <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90]">Inserisci i dettagli della tua lettura</p>
-                  </div>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#EBE5D9] dark:border-[#4A4743]/50 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] flex items-center justify-center">
+                  <BookPlus className="w-4 h-4" />
                 </div>
-                <button
-                  onClick={handleAttemptClose}
-                  className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] flex items-center justify-center transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div>
+                  <h2 className="text-base font-bold text-[#4A4743] dark:text-[#E0DCD3]">Aggiungi nuovo libro</h2>
+                  <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90]">Inserisci i dettagli della tua lettura</p>
+                </div>
               </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-3.5">
@@ -334,8 +281,8 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={handleAttemptClose}
-                  className="px-4 py-2.5 rounded-xl border border-[#DCD5C6] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] font-semibold text-xs hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-colors cursor-pointer"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl border border-[#DCD5C6] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] font-semibold text-xs hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-colors"
                 >
                   Annulla
                 </button>
@@ -343,49 +290,15 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
                   whileTap={{ scale: 0.95 }}
                   transition={{ type: "spring", stiffness: 400, damping: 20 }}
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] shadow-md shadow-[#B0BEA9]/30 hover:bg-[#A0AF99] active:scale-95 transition-all border border-[#A0AF99] dark:border-[#4D5A46] cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] shadow-md shadow-[#B0BEA9]/30 hover:bg-[#A0AF99] active:scale-95 transition-all border border-[#A0AF99] dark:border-[#4D5A46]"
                 >
                   Salva Libro
                 </motion.button>
               </div>
             </form>
-          </div>
-
-          {/* Dialog di Conferma Scarto Modifiche (Dirty Check) */}
-          <AnimatePresence>
-            {showDiscardConfirm && (
-              <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-6 text-center animate-in fade-in duration-150">
-                <div className="bg-[#FCFBF8] dark:bg-[#2A2826] p-5 sm:p-6 rounded-3xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4 max-w-xs shadow-2xl">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
-                    <AlertTriangle size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-[#31362F] dark:text-[#E0DCD3]">Vuoi scartare le modifiche?</h3>
-                    <p className="text-xs text-[#7A756D] dark:text-[#9A9488] mt-1 leading-relaxed">
-                      Hai iniziato ad inserire i dati del libro. Se esci ora, le informazioni inserite andranno perse.
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2 pt-1">
-                    <button
-                      onClick={onClose}
-                      className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
-                    >
-                      Scarta Modifiche
-                    </button>
-                    <button
-                      onClick={() => setShowDiscardConfirm(false)}
-                      className="w-full py-2.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    >
-                      Continua Inserimento
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </AnimatePresence>
+          </motion.div>
         </motion.div>
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
+      )}
+    </AnimatePresence>
+  );
 };
