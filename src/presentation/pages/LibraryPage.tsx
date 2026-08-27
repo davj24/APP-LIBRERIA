@@ -12,12 +12,16 @@ import { SearchBar, type FormattedBookResult } from '../components/books/SearchB
 import { BookSheet, type BookSheetBook } from '../components/books/BookSheet';
 import { CurrentlyReadingCard } from '../components/dashboard/CurrentlyReadingCard';
 import { useBooks } from '../hooks/useBooks';
+import { useUserProfile } from '../hooks/useUserProfile';
 import { getBookDetail } from '../../infrastructure/services/federatedBookSearch';
-import { BookOpen, Clock, CheckCircle2, Users, Tag } from 'lucide-react';
+import { BookOpen, Clock, CheckCircle2, Users, Tag, Camera, PlusCircle, Sparkles } from 'lucide-react';
 
 export type LibrarySubTab = 'books' | 'authors' | 'genres';
 
 export const LibraryPage: React.FC = () => {
+  const { profile } = useUserProfile();
+  const userFirstName = profile?.name ? profile.name.split(' ')[0] : 'Lettore';
+
   const [activeSubTab, setActiveSubTab] = useState<LibrarySubTab>('books');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -150,6 +154,50 @@ export const LibraryPage: React.FC = () => {
         transition={{ duration: 0.25, ease: "easeInOut" }}
         className="space-y-4"
       >
+        {/* WELCOME SCREEN SCHERMATA DI BENVENUTO SE 0 LIBRI IN LIBRERIA */}
+        {books.length === 0 && !trimmedQuery ? (
+          <div className="bg-[#EFECE6] dark:bg-[#272422] border border-[#E2DDD2] dark:border-[#36322E] rounded-3xl p-6 sm:p-8 text-center space-y-6 shadow-sm">
+            <div className="w-16 h-16 rounded-3xl bg-[#5C6B55]/15 dark:bg-[#A8BB9C]/15 text-[#5C6B55] dark:text-[#A8BB9C] flex items-center justify-center mx-auto border border-[#5C6B55]/30">
+              <BookOpen size={32} />
+            </div>
+
+            <div className="max-w-md mx-auto space-y-2">
+              <h2 className="text-xl sm:text-2xl font-black text-[#31362F] dark:text-[#E0DCD3] tracking-tight">
+                Benvenuto nella tua Libreria, {userFirstName}! 📚
+              </h2>
+              <p className="text-xs sm:text-sm text-[#7A756D] dark:text-[#9A9488] leading-relaxed">
+                La tua libreria personale è ancora vuota. Aggiungi il tuo primo libro per iniziare a monitorare le tue letture, salvare i tuoi takeaway e tracciare la tua streak!
+              </p>
+            </div>
+
+            {/* Pulsanti Azione Rapida */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto pt-2">
+              <button
+                onClick={() => setIsCameraModalOpen(true)}
+                className="p-4 rounded-2xl bg-[#5C6B55] hover:bg-[#4D5A46] text-white text-xs font-extrabold flex items-center justify-center gap-2.5 shadow-md active:scale-95 transition-all cursor-pointer border border-[#788C71]"
+              >
+                <Camera size={18} />
+                <span>Scansiona con Fotocamera</span>
+              </button>
+
+              <button
+                onClick={() => setIsManualModalOpen(true)}
+                className="p-4 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] hover:bg-[#EFECE6] dark:hover:bg-[#272422] text-[#31362F] dark:text-[#E0DCD3] text-xs font-extrabold flex items-center justify-center gap-2.5 border border-[#E2DDD2] dark:border-[#36322E] shadow-xs active:scale-95 transition-all cursor-pointer"
+              >
+                <PlusCircle size={18} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
+                <span>Inserisci Manualmente</span>
+              </button>
+            </div>
+
+            <div className="pt-3 border-t border-[#E2DDD2] dark:border-[#36322E] max-w-sm mx-auto">
+              <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] font-medium flex items-center justify-center gap-1.5">
+                <Sparkles size={13} className="text-amber-500 fill-amber-500" />
+                <span>Oppure usa la barra in alto per cercare tra oltre 25M di libri!</span>
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
             {/* Invito alla ricerca se nessun libro locale corrisponde */}
             {trimmedQuery && localFilteredBooks.length === 0 && (
               <div className="bg-[#EBE5D9]/60 dark:bg-[#383532]/60 rounded-2xl p-3 text-center border border-[#DCD5C6] dark:border-[#4A4743]/50 max-w-md mx-auto">
@@ -264,7 +312,9 @@ export const LibraryPage: React.FC = () => {
                 onSelectBook={(book) => setSelectedBook(book)}
               />
             )}
-          </motion.div>
+          </>
+        )}
+      </motion.div>
 
       {/* Book Detail & Edit Modal per i libri della libreria locale */}
       <BookDetailModal

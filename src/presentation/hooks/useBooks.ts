@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import type { Book, BookStatus } from '../../domain/models/Book';
-import { INITIAL_MOCK_BOOKS } from '../../infrastructure/mock/mockBooks';
 import { supabase } from '../../infrastructure/supabase/client';
 
 const STORAGE_KEY = 'bibliodesk_books_v1';
@@ -39,7 +38,7 @@ export function useBooks() {
         console.error('Failed to parse saved books', e);
       }
     }
-    return INITIAL_MOCK_BOOKS;
+    return [];
   });
 
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('Tutti');

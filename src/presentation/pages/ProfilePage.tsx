@@ -71,22 +71,7 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
     description: 'Libri che desideri acquistare e leggere prossimamente.',
     iconName: 'Heart',
     accentColor: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
-    items: [
-      {
-        id: 'w1',
-        title: 'Klara e il Sole',
-        author: 'Kazuo Ishiguro',
-        price: '304 pag.',
-        coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400'
-      },
-      {
-        id: 'w2',
-        title: 'La vegetariana',
-        author: 'Han Kang',
-        price: '180 pag.',
-        coverUrl: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400'
-      }
-    ]
+    items: []
   },
   {
     id: 'c2',
@@ -94,15 +79,7 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
     description: 'Titoli già acquistati e in tuo possesso pronti in coda di lettura.',
     iconName: 'Library',
     accentColor: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-    items: [
-      {
-        id: 'w3',
-        title: 'Dune: Parte Seconda',
-        author: 'Frank Herbert',
-        price: '650 pag.',
-        coverUrl: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&q=80&w=400'
-      }
-    ]
+    items: []
   },
   {
     id: 'c3',
@@ -110,15 +87,7 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
     description: 'I capolavori indimenticabili che hanno lasciato il segno.',
     iconName: 'Trophy',
     accentColor: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20',
-    items: [
-      {
-        id: 'w4',
-        title: 'L\'Ombra del Vento',
-        author: 'Carlos Ruiz Zafón',
-        price: '528 pag.',
-        coverUrl: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&q=80&w=400'
-      }
-    ]
+    items: []
   }
 ];
 
@@ -417,7 +386,7 @@ export const ProfilePage: React.FC = () => {
     averagePace: 30,
     dominantGenre: getDominantGenre(),
     notesCount: 128,
-    nextBookTitle: collections[0]?.items[0]?.title || 'Klara e il Sole',
+    nextBookTitle: collections[0]?.items[0]?.title || 'Nessun libro in wishlist',
     currentProgressPercent,
     timeSlotText: 'Lettore Notturno',
     primaryFormatText: '80% Cartaceo',

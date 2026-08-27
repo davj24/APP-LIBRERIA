@@ -123,30 +123,5 @@ export const INITIAL_TAKEAWAYS: BookTakeaway[] = [
 ];
 
 // 5. Wishlist Regali Segreti (Anti-Doppioni)
-export const INITIAL_SECRET_WISHLIST: SecretWishlistItem[] = [
-  {
-    id: 'wish-1',
-    title: 'Fahrenheit 451',
-    author: 'Ray Bradbury',
-    coverUrl: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&q=80&w=400',
-    price: '12,50 €',
-    isReservedByFriend: true,
-    reservedByUserName: 'Elena Rostagno'
-  },
-  {
-    id: 'wish-2',
-    title: 'La Svastica sul Sole',
-    author: 'Philip K. Dick',
-    coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
-    price: '14,00 €',
-    isReservedByFriend: false
-  },
-  {
-    id: 'wish-3',
-    title: 'Guida Galattica per gli Autostoppisti',
-    author: 'Douglas Adams',
-    coverUrl: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400',
-    price: '11,00 €',
-    isReservedByFriend: false
-  }
-];
+export const INITIAL_SECRET_WISHLIST: SecretWishlistItem[] = [];
+
