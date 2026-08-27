@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Book, BookStatus } from '../../domain/models/Book';
 import { supabase } from '../../infrastructure/supabase/client';
 
@@ -50,68 +50,79 @@ export function useBooks() {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('Tutti');
   const [isLoadingSync, setIsLoadingSync] = useState(false);
 
-  // Sincronizzazione automatica da Supabase all'avvio / login (Fase 1: Offline-first)
+  // Sincronizzazione atomica e resiliente da Supabase (Cloud -> Cache Locale -> UI)
+  const syncFromSupabase = useCallback(async () => {
+    try {
+      setIsLoadingSync(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        setIsLoadingSync(false);
+        return;
+      }
+
+      // Query 1: tentativo standard con ordinamento per data creazione
+      let { data, error } = await supabase
+        .from('libreria_personale')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Fallback 1: se created_at non esiste nella tabella o la query da errore, prova select semplice
+      if (error || !data) {
+        const fallback1 = await supabase
+          .from('libreria_personale')
+          .select('*');
+        data = fallback1.data;
+        error = fallback1.error;
+      }
+
+      if (error) {
+        console.warn('Query Supabase libreria_personale fallita (offline o errore DB):', error.message);
+        return;
+      }
+
+      if (data && Array.isArray(data)) {
+        const remoteBooks = data.map(mapDbRecordToBook);
+        const localBooks = getLatestLocalBooks();
+        const mergedMap = new Map<string, Book>();
+
+        // 1. Inserisci i libri remoti da Supabase (Ground Truth Cloud)
+        remoteBooks.forEach(b => mergedMap.set(b.id, b));
+
+        // 2. Preserva i libri locali non ancora salvati nel Cloud (per ID o per titolo + autore)
+        localBooks.forEach(localB => {
+          if (mergedMap.has(localB.id)) return;
+
+          const existsInRemote = remoteBooks.some(
+            remoteB =>
+              remoteB.title.trim().toLowerCase() === localB.title.trim().toLowerCase() &&
+              remoteB.author.trim().toLowerCase() === localB.author.trim().toLowerCase()
+          );
+
+          if (!existsInRemote) {
+            mergedMap.set(localB.id, localB);
+          }
+        });
+
+        const mergedBooks = Array.from(mergedMap.values());
+        setBooks(mergedBooks);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedBooks));
+        window.dispatchEvent(new Event(UPDATE_EVENT));
+      }
+    } catch (err) {
+      console.warn('Sincronizzazione Supabase offline-first fallback a cache locale:', err);
+    } finally {
+      setIsLoadingSync(false);
+    }
+  }, []);
+
+  // Sincronizzazione automatica all'avvio e ai cambi di stato
   useEffect(() => {
     let isMounted = true;
 
-    async function syncFromSupabase() {
-      try {
-        setIsLoadingSync(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-          setIsLoadingSync(false);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('libreria_personale')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.warn('Query Supabase libreria_personale fallita (offline o errore DB):', error.message);
-          return;
-        }
-
-        if (data && Array.isArray(data) && isMounted) {
-          const remoteBooks = data.map(mapDbRecordToBook);
-
-          // Merge a prova di bomba: unisci i libri remoti da Supabase con la cache locale
-          // Mantiene SEMPRE intatti i libri locali aggiunti dall'utente
-          const localBooks = getLatestLocalBooks();
-          const mergedMap = new Map<string, Book>();
-
-          // 1. Inserisci prima i libri remoti da Supabase
-          remoteBooks.forEach(b => mergedMap.set(b.id, b));
-
-          // 2. Preserva tutti i libri locali non ancora presenti in Supabase (per ID o per titolo + autore)
-          localBooks.forEach(localB => {
-            if (mergedMap.has(localB.id)) return;
-
-            const existsByTitleAuthor = remoteBooks.some(
-              remoteB =>
-                remoteB.title.trim().toLowerCase() === localB.title.trim().toLowerCase() &&
-                remoteB.author.trim().toLowerCase() === localB.author.trim().toLowerCase()
-            );
-
-            if (!existsByTitleAuthor) {
-              mergedMap.set(localB.id, localB);
-            }
-          });
-
-          const mergedBooks = Array.from(mergedMap.values());
-          setBooks(mergedBooks);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedBooks));
-        }
-      } catch (err) {
-        console.warn('Sincronizzazione Supabase offline-first fallback a cache locale:', err);
-      } finally {
-        if (isMounted) setIsLoadingSync(false);
-      }
+    // 1. Sincronizzazione iniziale all'avvio dell'hook
+    if (isMounted) {
+      syncFromSupabase();
     }
-
-    // 1. Sincronizzazione iniziale all'avvio
-    syncFromSupabase();
 
     // 2. Sincronizzazione automatica al ripristino o cambio sessione Auth
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
@@ -120,7 +131,7 @@ export function useBooks() {
       }
     });
 
-    // 3. Sincronizzazione al rientro nell'App sulla Schermata Home (PWA focus / visibility)
+    // 3. Sincronizzazione al rientro nell'App (PWA focus / visibility)
     const handleFocusOrVisibility = () => {
       if (document.visibilityState === 'visible') {
         syncFromSupabase();
@@ -130,7 +141,7 @@ export function useBooks() {
     window.addEventListener('focus', handleFocusOrVisibility);
     document.addEventListener('visibilitychange', handleFocusOrVisibility);
 
-    // Event listener per sincronizzazione istantanea tra hook diversi nell'app
+    // Event listener per sincronizzazione istantanea tra hook diversi nella stessa scheda
     const handleBooksUpdated = () => {
       setBooks(getLatestLocalBooks());
     };
@@ -143,7 +154,7 @@ export function useBooks() {
       document.removeEventListener('visibilitychange', handleFocusOrVisibility);
       window.removeEventListener(UPDATE_EVENT, handleBooksUpdated);
     };
-  }, []);
+  }, [syncFromSupabase]);
 
   // Salva ogni modifica nel localStorage e notifica gli altri hook
   const saveBooksLocally = (newBooks: Book[]) => {
@@ -154,7 +165,7 @@ export function useBooks() {
 
   /**
    * addBookToLibrary - Approccio Offline-First Garantito (Fase 3)
-   * Il libro viene SEMPRE salvato con successo in locale ed è totalmente protetto dai refresh.
+   * Il libro viene SEMPRE salvato con successo in locale e sul Cloud Supabase.
    */
   const addBookToLibrary = async (bookData: Omit<Book, 'id'>): Promise<{ success: boolean; book?: Book; error?: string }> => {
     const tempId = `book-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -183,7 +194,7 @@ export function useBooks() {
     saveBooksLocally(updatedBooks);
 
     try {
-      // 2. Sincronizzazione in background su Supabase
+      // 2. Sincronizzazione immediata su Supabase
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
@@ -208,14 +219,25 @@ export function useBooks() {
           .insert([insertPayload])
           .select();
 
-        if (error && error.message?.includes('subgenre')) {
-          delete insertPayload.subgenre;
+        // Fallback 1: se colonna subgenre o simile fallisce
+        if (error) {
+          console.warn('Avviso prima insert Supabase (tentativo payload essenziale):', error.message);
+          const minimalPayload = {
+            user_id: session.user.id,
+            title: newBook.title,
+            author: newBook.author,
+            cover_url: newBook.coverUrl,
+            status: newBook.status || 'Da leggere'
+          };
           const retry = await supabase
             .from('libreria_personale')
-            .insert([insertPayload])
+            .insert([minimalPayload])
             .select();
-          data = retry.data;
-          error = retry.error;
+
+          if (retry.data && retry.data[0]) {
+            data = retry.data;
+            error = null;
+          }
         }
 
         if (error) {
@@ -368,6 +390,7 @@ export function useBooks() {
     deleteBook,
     updateBookStatus,
     updateBookPages,
-    updateBook
+    updateBook,
+    syncFromSupabase
   };
 }
