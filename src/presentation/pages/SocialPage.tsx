@@ -26,9 +26,13 @@ import {
   type SpuntoSocial
 } from '../../infrastructure/services/socialService';
 import { useBooks } from '../hooks/useBooks';
+import { useUserProfile } from '../hooks/useUserProfile';
 import { useRegisterModal } from '../context/ModalContext';
 
 export const SocialPage: React.FC = () => {
+  const { profile } = useUserProfile();
+  const userFirstName = profile?.name ? profile.name.split(' ')[0] : 'Lettore';
+
   // Tab attivo: 'amici' (default e primario) oppure 'globale' (secondario)
   const [activeTab, setActiveTab] = useState<'amici' | 'globale'>('amici');
 
@@ -291,22 +295,22 @@ export const SocialPage: React.FC = () => {
           {friendsList.length === 0 ? (
             <div className="space-y-5">
 
-              {/* HERO BANNER DI BENVENUTO */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#5C6B55] to-[#455240] dark:from-[#384334] dark:to-[#252C22] text-white p-6 rounded-3xl shadow-xl space-y-3 border border-[#788C71]/40">
+              {/* HERO BANNER DI BENVENUTO PERSONALE */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#5C6B55] to-[#455240] dark:from-[#384334] dark:to-[#252C22] text-white p-5 sm:p-6 rounded-3xl shadow-xl space-y-2 border border-[#788C71]/40">
                 <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
-                    <Users size={18} />
+                  <div className="w-8 h-8 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
+                    <Users size={16} />
                   </div>
                   <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#E0E9DC]">
-                    Benvenuto in BiblioSocial
+                    La tua cerchia social
                   </span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-black leading-tight text-white">
-                  La tua cerchia di lettori ti aspetta
+                  Ciao, {userFirstName}! 👋
                 </h2>
                 <p className="text-xs text-[#E0E9DC] leading-relaxed">
-                  Collega i tuoi amici per scoprire cosa stanno leggendo in tempo reale, confrontare le streak di lettura e condividere le citazioni ed i takeaway più ispiratori.
+                  Connetti i tuoi amici per scoprire cosa stanno leggendo in tempo reale, confrontare le streak di lettura e condividere i migliori spunti dai libri.
                 </p>
               </div>
 
@@ -485,28 +489,7 @@ export const SocialPage: React.FC = () => {
                 )}
               </section>
 
-              {/* CARD "CHIEDI UN CONSIGLIO DI LETTURA" */}
-              <div className="bg-[#EFECE6] dark:bg-[#272422] p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
-                    <HelpCircle size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3]">
-                      Cerchi idee per il prossimo libro?
-                    </h3>
-                    <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488]">
-                      Invia una richiesta di consiglio alla tua rete
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsAdviceModalOpen(true)}
-                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
-                >
-                  Chiedi Consiglio
-                </button>
-              </div>
+
 
               {/* CALLOUT AL FEED GLOBALE SECONDARIO */}
               <div className="bg-[#F7F4EE] dark:bg-[#201E1C] p-4 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] flex items-center justify-between gap-3">
@@ -573,10 +556,19 @@ export const SocialPage: React.FC = () => {
 
               {/* FEED SPUNTI DEGLI AMICI */}
               <section className="space-y-3">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
-                  <MessageSquareQuote size={15} className="text-[#5C6B55]" />
-                  Attività e Spunti Amici
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
+                    <MessageSquareQuote size={15} className="text-[#5C6B55]" />
+                    Attività e Spunti Amici
+                  </h3>
+                  <button
+                    onClick={() => setIsAdviceModalOpen(true)}
+                    className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-bold shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <HelpCircle size={13} />
+                    <span>Chiedi Consiglio</span>
+                  </button>
+                </div>
                 {spuntiFeed.length === 0 ? (
                   <div className="p-6 rounded-3xl bg-[#EFECE6] dark:bg-[#272422] text-center text-xs text-[#7A756D]">
                     I tuoi amici non hanno ancora pubblicato spunti. Pubblicane uno tu!
@@ -651,12 +643,21 @@ export const SocialPage: React.FC = () => {
                 Feed Spunti della Community Globale
               </span>
             </div>
-            <button
-              onClick={() => setActiveTab('amici')}
-              className="text-[11px] font-bold text-[#5C6B55] dark:text-[#A8BB9C] hover:underline cursor-pointer"
-            >
-              Torna ai miei amici
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsAdviceModalOpen(true)}
+                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-bold shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+              >
+                <HelpCircle size={13} />
+                <span>Chiedi Consiglio</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('amici')}
+                className="text-[11px] font-bold text-[#5C6B55] dark:text-[#A8BB9C] hover:underline cursor-pointer"
+              >
+                Torna ai miei amici
+              </button>
+            </div>
           </div>
 
           {isLoadingFeed ? (
