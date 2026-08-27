@@ -24,6 +24,43 @@ export interface SpuntoSocial {
   autore_username?: string;
 }
 
+const STORAGE_KEY_FRIENDS = 'bibliodesk_social_friends_v1';
+const STORAGE_KEY_SPUNTI = 'bibliodesk_social_spunti_v1';
+
+function getLocalSpunti(): SpuntoSocial[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_SPUNTI);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalSpunti(spunti: SpuntoSocial[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY_SPUNTI, JSON.stringify(spunti));
+  } catch (e) {
+    console.warn('Failed to save local spunti:', e);
+  }
+}
+
+function getLocalFriends(): UserProfileSocial[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_FRIENDS);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalFriends(friends: UserProfileSocial[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify(friends));
+  } catch (e) {
+    console.warn('Failed to save local friends:', e);
+  }
+}
+
 /**
  * 1. Cerca utenti nella tabella `profili` (con fallback su `profiles`) per username o nome_completo.
  */
@@ -34,14 +71,12 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
   const { data: authData } = await supabase.auth.getUser();
   const currentUserId = authData?.user?.id;
 
-  // Tentativo di ricerca su tabella `profili`
   let { data, error } = await supabase
     .from('profili')
     .select('*')
     .or(`username.ilike.%${trimmed}%,nome_completo.ilike.%${trimmed}%`)
     .limit(20);
 
-  // Fallback su tabella `profiles` se `profili` non restituisce risultati o genera errore schema
   if (error || !data || data.length === 0) {
     const { data: fallbackData } = await supabase
       .from('profiles')
@@ -62,7 +97,6 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
 
   if (!data) return [];
 
-  // Filtra l'utente corrente dai risultati di ricerca
   const filtered = data.filter(u => u.id !== currentUserId);
 
   if (!currentUserId || filtered.length === 0) {
@@ -76,7 +110,6 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
     }));
   }
 
-  // Controlla lo stato delle amicizie nella tabella `amicizie`
   const targetIds = filtered.map(u => u.id);
   const { data: friendships } = await supabase
     .from('amicizie')
@@ -139,101 +172,136 @@ export async function acceptFriendRequest(friendshipId: string): Promise<boolean
 }
 
 /**
- * 4. Recupera l'elenco degli utenti con cui c'è un'amicizia accettata.
+ * 4. Recupera l'elenco degli utenti con cui c'è un'amicizia accettata (con cache locale salvaguardata).
  */
 export async function getFriends(): Promise<UserProfileSocial[]> {
-  const { data: authData } = await supabase.auth.getUser();
-  const currentUserId = authData?.user?.id;
-  if (!currentUserId) return [];
+  const localFriends = getLocalFriends();
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const currentUserId = authData?.user?.id;
+    if (!currentUserId) return localFriends;
 
-  const { data: friendships, error } = await supabase
-    .from('amicizie')
-    .select('*')
-    .eq('stato', 'accettata')
-    .or(`user_id.eq.${currentUserId},amico_id.eq.${currentUserId}`);
-
-  if (error || !friendships || friendships.length === 0) return [];
-
-  const friendIds = friendships.map(f => (f.user_id === currentUserId ? f.amico_id : f.user_id));
-
-  let { data: profiles } = await supabase
-    .from('profili')
-    .select('*')
-    .in('id', friendIds);
-
-  if (!profiles || profiles.length === 0) {
-    const { data: fallbackProfiles } = await supabase
-      .from('profiles')
+    const { data: friendships, error } = await supabase
+      .from('amicizie')
       .select('*')
-      .in('id', friendIds);
-    profiles = fallbackProfiles || [];
-  }
+      .eq('stato', 'accettata')
+      .or(`user_id.eq.${currentUserId},amico_id.eq.${currentUserId}`);
 
-  return (profiles || []).map(p => ({
-    id: p.id,
-    username: p.username || 'amico',
-    nome_completo: p.nome_completo || p.full_name || 'Amico Lettore',
-    avatar_url: p.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-    bio: p.bio || '',
-    friendshipState: 'accettata'
-  }));
-}
+    if (error || !friendships || friendships.length === 0) return localFriends;
 
-/**
- * 5. Recupera gli ultimi spunti pubblicati unendo i dati del profilo autore.
- */
-export async function getSpuntiFeed(): Promise<SpuntoSocial[]> {
-  const { data: spunti, error } = await supabase
-    .from('spunti_social')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(30);
+    const friendIds = friendships.map(f => (f.user_id === currentUserId ? f.amico_id : f.user_id));
 
-  if (error || !spunti || spunti.length === 0) return [];
-
-  const userIds = Array.from(new Set(spunti.map(s => s.user_id).filter(Boolean)));
-
-  const profileMap: Record<string, { nome: string; avatar: string; username: string }> = {};
-  if (userIds.length > 0) {
     let { data: profiles } = await supabase
       .from('profili')
       .select('*')
-      .in('id', userIds);
+      .in('id', friendIds);
 
     if (!profiles || profiles.length === 0) {
       const { data: fallbackProfiles } = await supabase
         .from('profiles')
         .select('*')
-        .in('id', userIds);
+        .in('id', friendIds);
       profiles = fallbackProfiles || [];
     }
 
-    (profiles || []).forEach(p => {
-      profileMap[p.id] = {
-        nome: p.nome_completo || p.full_name || p.username || 'Lettore BiblioDesk',
-        avatar: p.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-        username: p.username || 'utente'
-      };
-    });
-  }
+    const remoteFriends: UserProfileSocial[] = (profiles || []).map(p => ({
+      id: p.id,
+      username: p.username || 'amico',
+      nome_completo: p.nome_completo || p.full_name || 'Amico Lettore',
+      avatar_url: p.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+      bio: p.bio || '',
+      friendshipState: 'accettata'
+    }));
 
-  return spunti.map(s => ({
-    id: s.id?.toString() || Date.now().toString(),
-    user_id: s.user_id,
-    libro_titolo: s.libro_titolo || 'Senza titolo',
-    libro_autore: s.libro_autore || 'Autore sconosciuto',
-    libro_copertina: s.libro_copertina || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
-    testo_spunto: s.testo_spunto || s.testo || '',
-    tipo_spunto: s.tipo_spunto || 'Takeaway',
-    created_at: s.created_at || new Date().toISOString(),
-    autore_nome: profileMap[s.user_id]?.nome || 'Lettore BiblioDesk',
-    autore_avatar: profileMap[s.user_id]?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-    autore_username: profileMap[s.user_id]?.username || 'utente'
-  }));
+    // Merge tra remoto e locale
+    const mergedMap = new Map<string, UserProfileSocial>();
+    remoteFriends.forEach(f => mergedMap.set(f.id, f));
+    localFriends.forEach(f => {
+      if (!mergedMap.has(f.id)) mergedMap.set(f.id, f);
+    });
+
+    const merged = Array.from(mergedMap.values());
+    saveLocalFriends(merged);
+    return merged;
+  } catch (err) {
+    console.warn('Fallback amicizie a locale:', err);
+    return localFriends;
+  }
 }
 
 /**
- * 6. Pubblica un nuovo spunto associato a auth.uid().
+ * 5. Recupera gli ultimi spunti pubblicati unendo i dati del profilo autore (con cache locale salvaguardata).
+ */
+export async function getSpuntiFeed(): Promise<SpuntoSocial[]> {
+  const localSpunti = getLocalSpunti();
+
+  try {
+    const { data: spunti, error } = await supabase
+      .from('spunti_social')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    if (error || !spunti || spunti.length === 0) return localSpunti;
+
+    const userIds = Array.from(new Set(spunti.map(s => s.user_id).filter(Boolean)));
+
+    const profileMap: Record<string, { nome: string; avatar: string; username: string }> = {};
+    if (userIds.length > 0) {
+      let { data: profiles } = await supabase
+        .from('profili')
+        .select('*')
+        .in('id', userIds);
+
+      if (!profiles || profiles.length === 0) {
+        const { data: fallbackProfiles } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', userIds);
+        profiles = fallbackProfiles || [];
+      }
+
+      (profiles || []).forEach(p => {
+        profileMap[p.id] = {
+          nome: p.nome_completo || p.full_name || p.username || 'Lettore BiblioDesk',
+          avatar: p.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+          username: p.username || 'utente'
+        };
+      });
+    }
+
+    const remoteSpunti: SpuntoSocial[] = spunti.map(s => ({
+      id: s.id?.toString() || Date.now().toString(),
+      user_id: s.user_id,
+      libro_titolo: s.libro_titolo || 'Senza titolo',
+      libro_autore: s.libro_autore || 'Autore sconosciuto',
+      libro_copertina: s.libro_copertina || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
+      testo_spunto: s.testo_spunto || s.testo || '',
+      tipo_spunto: s.tipo_spunto || 'Takeaway',
+      created_at: s.created_at || new Date().toISOString(),
+      autore_nome: profileMap[s.user_id]?.nome || 'Lettore BiblioDesk',
+      autore_avatar: profileMap[s.user_id]?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+      autore_username: profileMap[s.user_id]?.username || 'utente'
+    }));
+
+    // Merge a prova di bomba tra remoto e locale
+    const mergedMap = new Map<string, SpuntoSocial>();
+    remoteSpunti.forEach(s => mergedMap.set(s.id, s));
+    localSpunti.forEach(s => {
+      if (!mergedMap.has(s.id)) mergedMap.set(s.id, s);
+    });
+
+    const merged = Array.from(mergedMap.values());
+    saveLocalSpunti(merged);
+    return merged;
+  } catch (err) {
+    console.warn('Fallback spunti feed a cache locale:', err);
+    return localSpunti;
+  }
+}
+
+/**
+ * 6. Pubblica un nuovo spunto associato a auth.uid() con salvataggio locale immediato.
  */
 export async function createSpunto(data: {
   libro_titolo: string;
@@ -243,61 +311,64 @@ export async function createSpunto(data: {
   tipo_spunto: string;
 }): Promise<SpuntoSocial> {
   const { data: authData } = await supabase.auth.getUser();
-  const currentUserId = authData?.user?.id;
-  if (!currentUserId) throw new Error('Devi aver effettuato l\'accesso per condividere uno spunto.');
+  const currentUserId = authData?.user?.id || 'offline-user';
 
-  const payload = {
+  const newSpunto: SpuntoSocial = {
+    id: `spunto-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     user_id: currentUserId,
     libro_titolo: data.libro_titolo.trim(),
-    libro_autore: data.libro_autore?.trim() || null,
-    libro_copertina: data.libro_copertina?.trim() || null,
+    libro_autore: data.libro_autore?.trim() || 'Autore sconosciuto',
+    libro_copertina: data.libro_copertina?.trim() || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
     testo_spunto: data.testo_spunto.trim(),
     tipo_spunto: data.tipo_spunto || 'Takeaway',
+    created_at: new Date().toISOString(),
+    autore_nome: 'Tu',
+    autore_avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+    autore_username: 'tu'
   };
 
-  const { data: inserted, error } = await supabase
-    .from('spunti_social')
-    .insert(payload)
-    .select()
-    .single();
+  // 1. Salvataggio locale immediato
+  const localCurrent = getLocalSpunti();
+  saveLocalSpunti([newSpunto, ...localCurrent]);
 
-  if (error) {
-    console.error('Errore pubblicazione spunto:', error);
-    throw error;
+  try {
+    if (currentUserId !== 'offline-user') {
+      const payload = {
+        user_id: currentUserId,
+        libro_titolo: data.libro_titolo.trim(),
+        libro_autore: data.libro_autore?.trim() || null,
+        libro_copertina: data.libro_copertina?.trim() || null,
+        testo_spunto: data.testo_spunto.trim(),
+        tipo_spunto: data.tipo_spunto || 'Takeaway',
+      };
+
+      const { data: inserted, error } = await supabase
+        .from('spunti_social')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (!error && inserted) {
+        const realSpunto: SpuntoSocial = {
+          ...newSpunto,
+          id: inserted.id?.toString() || newSpunto.id,
+          created_at: inserted.created_at || newSpunto.created_at
+        };
+        const updatedLocal = [realSpunto, ...localCurrent.filter(s => s.id !== newSpunto.id)];
+        saveLocalFriends([]); // ping
+        saveLocalSpunti(updatedLocal);
+        return realSpunto;
+      }
+    }
+  } catch (err) {
+    console.warn('Pubblicazione cloud spunto offline-first, conservato in locale:', err);
   }
 
-  let { data: profile } = await supabase
-    .from('profili')
-    .select('*')
-    .eq('id', currentUserId)
-    .single();
-
-  if (!profile) {
-    const { data: fallbackProfile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', currentUserId)
-      .single();
-    profile = fallbackProfile;
-  }
-
-  return {
-    id: inserted.id?.toString() || Date.now().toString(),
-    user_id: currentUserId,
-    libro_titolo: inserted.libro_titolo,
-    libro_autore: inserted.libro_autore || '',
-    libro_copertina: inserted.libro_copertina || '',
-    testo_spunto: inserted.testo_spunto,
-    tipo_spunto: inserted.tipo_spunto,
-    created_at: inserted.created_at,
-    autore_nome: profile?.nome_completo || profile?.full_name || 'Tu',
-    autore_avatar: profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-    autore_username: profile?.username || 'tu'
-  };
+  return newSpunto;
 }
 
 /**
- * 7. Recupera lettori suggeriti reali dal database (profili diversi dall'utente corrente).
+ * 7. Recupera lettori suggeriti reali dal database.
  */
 export async function getSuggestedUsers(): Promise<UserProfileSocial[]> {
   try {
@@ -342,4 +413,3 @@ export const socialService = {
   createSpunto,
   getSuggestedUsers,
 };
-
