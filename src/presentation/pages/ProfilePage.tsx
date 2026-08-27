@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { 
   Settings2, Camera, PenLine, BookCheck, BookOpen, X, Check, LayoutGrid, Heart, 
-  Users, Plus, Flame, BookmarkPlus, Library, Sparkles, Image as ImageIcon, Trash2, 
+  Plus, Flame, BookmarkPlus, Library, Sparkles, Image as ImageIcon, Trash2, 
   Palette, Bookmark, Target, Clock, Brain, Lightbulb, FastForward, CheckCircle2,
   GripVertical, Minus, SlidersHorizontal, ArrowLeftRight, PieChart, Moon, Book,
   Trophy, Repeat, FolderPlus,

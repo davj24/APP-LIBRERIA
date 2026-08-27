@@ -13,7 +13,12 @@ import {
   Send,
   Loader2,
   BookmarkCheck,
-  BookmarkPlus
+  BookmarkPlus,
+  Globe,
+  Share2,
+  Link,
+  HelpCircle,
+  ChevronRight
 } from 'lucide-react';
 import {
   socialService,
@@ -23,13 +28,59 @@ import {
 import { useBooks } from '../hooks/useBooks';
 import { useRegisterModal } from '../context/ModalContext';
 
+interface SuggestedReader {
+  id: string;
+  nome_completo: string;
+  username: string;
+  avatar_url: string;
+  readingNow: string;
+  isAdded?: boolean;
+}
+
+const INITIAL_SUGGESTED_READERS: SuggestedReader[] = [
+  {
+    id: 'sug-1',
+    nome_completo: 'Damiano Rossi',
+    username: 'damiano_reads',
+    avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
+    readingNow: 'Dune: Parte Seconda'
+  },
+  {
+    id: 'sug-2',
+    nome_completo: 'Tommaso Bianchi',
+    username: 'tommy_books',
+    avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&q=80&w=150',
+    readingNow: "L'Ombra del Vento"
+  },
+  {
+    id: 'sug-3',
+    nome_completo: 'Elena Verdi',
+    username: 'elena_pages',
+    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
+    readingNow: '1984'
+  }
+];
+
 export const SocialPage: React.FC = () => {
+  // Tab attivo: 'amici' (default e primario) oppure 'globale' (secondario)
+  const [activeTab, setActiveTab] = useState<'amici' | 'globale'>('amici');
+
   // Stati Amici e Ricerca Utenti
   const [friendsList, setFriendsList] = useState<UserProfileSocial[]>([]);
+  const [suggestedReaders, setSuggestedReaders] = useState<SuggestedReader[]>(INITIAL_SUGGESTED_READERS);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserProfileSocial[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [sendingRequestTo, setSendingRequestTo] = useState<string | null>(null);
+
+  // Stato Invito Amici
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  // Stato Modale "Chiedi un Consiglio"
+  const [isAdviceModalOpen, setIsAdviceModalOpen] = useState(false);
+  const [adviceGenre, setAdviceGenre] = useState('');
+  const [adviceNote, setAdviceNote] = useState('');
+  const [adviceSent, setAdviceSent] = useState(false);
 
   // Stati Feed Spunti Social
   const [spuntiFeed, setSpuntiFeed] = useState<SpuntoSocial[]>([]);
@@ -47,9 +98,9 @@ export const SocialPage: React.FC = () => {
   const [publishError, setPublishError] = useState<string | null>(null);
 
   const { books: myBooks } = useBooks();
-  useRegisterModal(isCreateModalOpen);
+  useRegisterModal(isCreateModalOpen || isAdviceModalOpen);
 
-  // 1. Caricamento Iniziale Amici e Feed da Supabase
+  // Caricamento Iniziale Amici e Feed da Supabase
   useEffect(() => {
     loadSocialData();
   }, []);
@@ -70,7 +121,7 @@ export const SocialPage: React.FC = () => {
     }
   };
 
-  // 2. Ricerca Utenti in tempo reale
+  // Ricerca Utenti in tempo reale
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -93,7 +144,7 @@ export const SocialPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // 3. Invio Richiesta Amicizia
+  // Invio Richiesta Amicizia
   const handleSendFriendRequest = async (targetUserId: string) => {
     setSendingRequestTo(targetUserId);
     try {
@@ -108,7 +159,52 @@ export const SocialPage: React.FC = () => {
     }
   };
 
-  // 4. Pubblicazione Nuovo Spunto Social
+  // Invita Amici con Web Share o Clipboard
+  const handleInviteFriends = async () => {
+    const shareText = "Unisciti a me su Libreria per condividere i nostri progressi di lettura, le sfide di streak e i migliori spunti dai libri! 📚✨";
+    const shareUrl = window.location.origin;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Libreria — BiblioSocial',
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch (e) {
+        console.log('Share dismissed', e);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+        setInviteCopied(true);
+        setTimeout(() => setInviteCopied(false), 2500);
+      } catch (err) {
+        alert('Impossibile copiare il link di invito.');
+      }
+    }
+  };
+
+  // Aggiungi lettore consigliato
+  const handleAddSuggested = (id: string) => {
+    setSuggestedReaders(prev =>
+      prev.map(r => (r.id === id ? { ...r, isAdded: true } : r))
+    );
+  };
+
+  // Invia richiesta di consiglio
+  const handleSendAdviceRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdviceSent(true);
+    setTimeout(() => {
+      setIsAdviceModalOpen(false);
+      setAdviceSent(false);
+      setAdviceGenre('');
+      setAdviceNote('');
+    }, 1800);
+  };
+
+  // Pubblicazione Nuovo Spunto Social
   const handlePublishSpunto = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBookTitle.trim() || !newTestoSpunto.trim()) {
@@ -177,7 +273,7 @@ export const SocialPage: React.FC = () => {
             BiblioSocial
           </h1>
           <p className="text-xs text-[#7A756D] dark:text-[#9E988F] font-medium">
-            La tua community di lettori, amici e spunti di lettura
+            La tua cerchia di lettori, amici e condivisione
           </p>
         </div>
         <button
@@ -189,236 +285,608 @@ export const SocialPage: React.FC = () => {
         </button>
       </header>
 
-      {/* BARRA & SCHEDA "CERCA AMICI" */}
-      <section className="bg-[#EFECE6] dark:bg-[#272422] p-4 sm:p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
-            <Users size={15} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
-            Cerca Nuovi Amici
-          </h2>
+      {/* SELETTORE TAB: I MIEI AMICI (PRIMARIO) vs COMMUNITY GLOBALE (SECONDARIO) */}
+      <div className="flex items-center p-1 bg-[#EFECE6] dark:bg-[#272422] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs">
+        <button
+          onClick={() => setActiveTab('amici')}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'amici'
+              ? 'bg-[#5C6B55] text-white shadow-sm'
+              : 'text-[#7A756D] dark:text-[#9A9488] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
+          }`}
+        >
+          <Users size={15} />
+          <span>I Miei Amici</span>
           {friendsList.length > 0 && (
-            <span className="text-[11px] text-[#5C6B55] dark:text-[#A8BB9C] font-bold">
-              {friendsList.length} {friendsList.length === 1 ? 'amico' : 'amici'}
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              activeTab === 'amici' ? 'bg-white/20 text-white' : 'bg-[#5C6B55]/15 text-[#5C6B55] dark:text-[#A8BB9C]'
+            }`}>
+              {friendsList.length}
             </span>
           )}
-        </div>
+        </button>
 
-        {/* Input di Ricerca */}
-        <div className="relative flex items-center">
-          <Search className="absolute left-3.5 w-4 h-4 text-[#7A756D] dark:text-[#9A9488] pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cerca utenti per username o nome completo..."
-            className="w-full pl-10 pr-4 py-2.5 bg-[#F7F4EE] dark:bg-[#201E1C] text-xs font-semibold text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] focus:outline-none focus:ring-2 focus:ring-[#5C6B55] transition-all"
-          />
-          {isSearching && (
-            <Loader2 className="absolute right-3.5 w-4 h-4 text-[#5C6B55] animate-spin" />
-          )}
-        </div>
+        <button
+          onClick={() => setActiveTab('globale')}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'globale'
+              ? 'bg-[#5C6B55] text-white shadow-sm'
+              : 'text-[#7A756D] dark:text-[#9A9488] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
+          }`}
+        >
+          <Globe size={15} />
+          <span>Community Globale</span>
+        </button>
+      </div>
 
-        {/* Risultati della Ricerca */}
-        {searchQuery.trim().length > 0 && (
-          <div className="space-y-2 pt-1 border-t border-[#E2DDD2] dark:border-[#36322E]">
-            {searchResults.length === 0 && !isSearching ? (
-              <p className="text-xs text-[#7A756D] dark:text-[#9A9488] text-center py-2 italic">
-                Nessun utente trovato per "{searchQuery}".
-              </p>
-            ) : (
-              searchResults.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={user.avatar_url}
-                      alt={user.nome_completo}
-                      className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/30 shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
-                        {user.nome_completo}
-                      </h4>
-                      <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate">
-                        @{user.username}
-                      </p>
-                    </div>
+      {/* TAB 1: I MIEI AMICI (FOCUS PRIMARIO) */}
+      {activeTab === 'amici' && (
+        <div className="space-y-6">
+
+          {/* CASO A: ZERO AMICI (EMPTY STATE FOCALIZZATO SUGLI AMICI) */}
+          {friendsList.length === 0 ? (
+            <div className="space-y-5">
+
+              {/* HERO BANNER DI BENVENUTO */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#5C6B55] to-[#455240] dark:from-[#384334] dark:to-[#252C22] text-white p-6 rounded-3xl shadow-xl space-y-3 border border-[#788C71]/40">
+                <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
+                    <Users size={18} />
                   </div>
+                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#E0E9DC]">
+                    Benvenuto in BiblioSocial
+                  </span>
+                </div>
+                <h2 className="text-lg sm:text-xl font-black leading-tight text-white">
+                  La tua cerchia di lettori ti aspetta
+                </h2>
+                <p className="text-xs text-[#E0E9DC] leading-relaxed">
+                  Collega i tuoi amici per scoprire cosa stanno leggendo in tempo reale, confrontare le streak di lettura e condividere le citazioni ed i takeaway più ispiratori.
+                </p>
+              </div>
 
-                  {user.friendshipState === 'accettata' ? (
-                    <span className="px-3 py-1.5 bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold flex items-center gap-1 border border-[#B0BEA9]">
-                      <Check size={13} />
-                      Amico
-                    </span>
-                  ) : user.friendshipState === 'in_attesa' ? (
-                    <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30">
-                      Richiesta inviata
-                    </span>
+              {/* CARD INVITA AMICI (QUICK SHARE) */}
+              <div className="bg-[#EFECE6] dark:bg-[#272422] p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#5C6B55]/15 dark:bg-[#A8BB9C]/15 text-[#5C6B55] dark:text-[#A8BB9C] flex items-center justify-center shrink-0">
+                    <Share2 size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3]">
+                      Invita i tuoi amici di lettura
+                    </h3>
+                    <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488]">
+                      Invia un invito rapido via WhatsApp, Telegram o social
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleInviteFriends}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white text-xs font-bold rounded-2xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 shrink-0 border border-[#788C71]"
+                >
+                  {inviteCopied ? (
+                    <>
+                      <Check size={15} />
+                      <span>Link Copiato!</span>
+                    </>
                   ) : (
-                    <button
-                      onClick={() => handleSendFriendRequest(user.id)}
-                      disabled={sendingRequestTo === user.id}
-                      className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      {sendingRequestTo === user.id ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <UserPlus size={13} />
-                      )}
-                      <span>Aggiungi amico</span>
-                    </button>
+                    <>
+                      <Link size={15} />
+                      <span>Condividi Invito</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* SCHEDA "CERCA & LETTORI CONSIGLIATI" */}
+              <section className="bg-[#EFECE6] dark:bg-[#272422] p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
+                    <Search size={15} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
+                    Cerca o Aggiungi Lettori
+                  </h3>
+                </div>
+
+                {/* Input Ricerca */}
+                <div className="relative flex items-center">
+                  <Search className="absolute left-3.5 w-4 h-4 text-[#7A756D] dark:text-[#9A9488] pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Cerca per username o nome completo..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#F7F4EE] dark:bg-[#201E1C] text-xs font-semibold text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] focus:outline-none focus:ring-2 focus:ring-[#5C6B55] transition-all"
+                  />
+                  {isSearching && (
+                    <Loader2 className="absolute right-3.5 w-4 h-4 text-[#5C6B55] animate-spin" />
                   )}
                 </div>
-              ))
-            )}
-          </div>
-        )}
-      </section>
 
-      {/* AMICI CONNESSI (Avatar Row) */}
-      {friendsList.length > 0 && (
-        <section className="space-y-2">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488]">
-            I Tuoi Amici
-          </h2>
-          <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
-            {friendsList.map((friend) => (
-              <div key={friend.id} className="flex flex-col items-center gap-1 shrink-0">
-                <img
-                  src={friend.avatar_url}
-                  alt={friend.nome_completo}
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-[#5C6B55]/50 shadow-xs"
-                />
-                <span className="text-[11px] font-bold text-[#31362F] dark:text-[#E0DCD3] truncate max-w-[65px]">
-                  {friend.nome_completo.split(' ')[0]}
-                </span>
+                {/* Se search active: mostra risultati ricerca */}
+                {searchQuery.trim().length > 0 ? (
+                  <div className="space-y-2 pt-1 border-t border-[#E2DDD2] dark:border-[#36322E]">
+                    {searchResults.length === 0 && !isSearching ? (
+                      <p className="text-xs text-[#7A756D] dark:text-[#9A9488] text-center py-2 italic">
+                        Nessun utente trovato per "{searchQuery}".
+                      </p>
+                    ) : (
+                      searchResults.map((user) => (
+                        <div
+                          key={user.id}
+                          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={user.avatar_url}
+                              alt={user.nome_completo}
+                              className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/30 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <h4 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                                {user.nome_completo}
+                              </h4>
+                              <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate">
+                                @{user.username}
+                              </p>
+                            </div>
+                          </div>
+
+                          {user.friendshipState === 'accettata' ? (
+                            <span className="px-3 py-1.5 bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold flex items-center gap-1 border border-[#B0BEA9]">
+                              <Check size={13} />
+                              Amico
+                            </span>
+                          ) : user.friendshipState === 'in_attesa' ? (
+                            <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30">
+                              Richiesta inviata
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSendFriendRequest(user.id)}
+                              disabled={sendingRequestTo === user.id}
+                              className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              {sendingRequestTo === user.id ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <UserPlus size={13} />
+                              )}
+                              <span>Aggiungi amico</span>
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  /* Se search vuota: mostra LETTORI CONSIGLIATI */
+                  <div className="space-y-3 pt-2">
+                    <span className="text-[11px] font-extrabold text-[#5C6B55] dark:text-[#A8BB9C] uppercase tracking-wider block">
+                      Lettori Consigliati per te
+                    </span>
+                    <div className="space-y-2.5">
+                      {suggestedReaders.map((reader) => (
+                        <div
+                          key={reader.id}
+                          className="flex items-center justify-between p-3 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={reader.avatar_url}
+                              alt={reader.nome_completo}
+                              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#5C6B55]/40 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                                {reader.nome_completo}
+                              </h4>
+                              <p className="text-[10px] text-[#7A756D] dark:text-[#9A9488] truncate flex items-center gap-1">
+                                <BookOpen size={11} className="text-[#5C6B55]" />
+                                <span>Sta leggendo: <strong className="text-[#31362F] dark:text-[#E0DCD3]">{reader.readingNow}</strong></span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {reader.isAdded ? (
+                            <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30 flex items-center gap-1">
+                              <Check size={13} />
+                              Inviata
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleAddSuggested(reader.id)}
+                              className="px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+                            >
+                              <UserPlus size={13} />
+                              <span>Aggiungi</span>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* CARD "CHIEDI UN CONSIGLIO DI LETTURA" */}
+              <div className="bg-[#EFECE6] dark:bg-[#272422] p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <HelpCircle size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3]">
+                      Cerchi idee per il prossimo libro?
+                    </h3>
+                    <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488]">
+                      Invia una richiesta di consiglio alla tua rete
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAdviceModalOpen(true)}
+                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+                >
+                  Chiedi Consiglio
+                </button>
               </div>
-            ))}
-          </div>
-        </section>
+
+              {/* CALLOUT AL FEED GLOBALE SECONDARIO */}
+              <div className="bg-[#F7F4EE] dark:bg-[#201E1C] p-4 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Globe size={16} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
+                  <span className="text-xs text-[#7A756D] dark:text-[#9A9488] font-medium">
+                    Vuoi sfogliare gli spunti di tutta la community?
+                  </span>
+                </div>
+                <button
+                  onClick={() => setActiveTab('globale')}
+                  className="text-xs font-extrabold text-[#5C6B55] dark:text-[#A8BB9C] hover:underline flex items-center gap-0.5 cursor-pointer shrink-0"
+                >
+                  <span>Esplora Globale</span>
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+
+            </div>
+          ) : (
+            /* CASO B: L'UTENTE HA AMICI CONNESSI */
+            <div className="space-y-6">
+              {/* BARRA "CERCA AMICI" */}
+              <section className="bg-[#EFECE6] dark:bg-[#272422] p-4 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
+                    <Users size={15} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
+                    I Tuoi Amici ({friendsList.length})
+                  </h2>
+                </div>
+
+                <div className="relative flex items-center">
+                  <Search className="absolute left-3.5 w-4 h-4 text-[#7A756D] dark:text-[#9A9488] pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Cerca altri utenti..."
+                    className="w-full pl-10 pr-4 py-2 bg-[#F7F4EE] dark:bg-[#201E1C] text-xs font-semibold text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] focus:outline-none"
+                  />
+                </div>
+              </section>
+
+              {/* RIGA AMICI CONNESSI */}
+              <section className="space-y-2">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488]">
+                  Amici Connessi
+                </h3>
+                <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
+                  {friendsList.map((friend) => (
+                    <div key={friend.id} className="flex flex-col items-center gap-1 shrink-0">
+                      <img
+                        src={friend.avatar_url}
+                        alt={friend.nome_completo}
+                        className="w-12 h-12 rounded-full object-cover ring-2 ring-[#5C6B55]/50 shadow-xs"
+                      />
+                      <span className="text-[11px] font-bold text-[#31362F] dark:text-[#E0DCD3] truncate max-w-[65px]">
+                        {friend.nome_completo.split(' ')[0]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* FEED SPUNTI DEGLI AMICI */}
+              <section className="space-y-3">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
+                  <MessageSquareQuote size={15} className="text-[#5C6B55]" />
+                  Attività e Spunti Amici
+                </h3>
+                {spuntiFeed.length === 0 ? (
+                  <div className="p-6 rounded-3xl bg-[#EFECE6] dark:bg-[#272422] text-center text-xs text-[#7A756D]">
+                    I tuoi amici non hanno ancora pubblicato spunti. Pubblicane uno tu!
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {spuntiFeed.map((spunto) => (
+                      <article
+                        key={spunto.id}
+                        className="bg-[#EFECE6] dark:bg-[#272422] p-4 sm:p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={spunto.autore_avatar}
+                              alt={spunto.autore_nome}
+                              className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/40"
+                            />
+                            <div>
+                              <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3]">
+                                {spunto.autore_nome}
+                              </h4>
+                              <span className="text-[10px] text-[#7A756D] dark:text-[#9A9488]">
+                                {formatTimeAgo(spunto.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#5C6B55]/15 border border-[#5C6B55]/30 text-[#3B4838] dark:text-[#A8BB9C]">
+                            {spunto.tipo_spunto}
+                          </span>
+                        </div>
+
+                        <div className="p-3 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A] flex items-center gap-3">
+                          <img
+                            src={spunto.libro_copertina || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400'}
+                            alt={spunto.libro_titolo}
+                            className="w-10 h-14 rounded-lg object-cover border border-[#DCD5C6] dark:border-[#4A4743]/60 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <h5 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                              {spunto.libro_titolo}
+                            </h5>
+                            {spunto.libro_autore && (
+                              <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate mt-0.5">
+                                {spunto.libro_autore}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-[#4A4743] dark:text-[#D5D0C5] leading-relaxed italic font-serif bg-[#F7F4EE]/50 dark:bg-[#201E1C]/50 p-3 rounded-2xl">
+                          "{spunto.testo_spunto}"
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
+        </div>
       )}
 
-      {/* FEED DEGLI SPUNTI */}
-      <section className="space-y-4 pt-1">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
-            <MessageSquareQuote size={15} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
-            Feed Spunti & Riflessioni
-          </h2>
-          <span className="text-[11px] text-[#7A756D] dark:text-[#9A9488] font-medium">
-            {spuntiFeed.length} pubblicati
-          </span>
-        </div>
-
-        {isLoadingFeed ? (
-          <div className="flex flex-col items-center justify-center py-10 text-[#7A756D] space-y-2">
-            <Loader2 size={28} className="animate-spin text-[#5C6B55]" />
-            <p className="text-xs font-semibold">Caricamento dello spunto feed...</p>
-          </div>
-        ) : spuntiFeed.length === 0 ? (
-          <div className="bg-[#EFECE6] dark:bg-[#272422] p-8 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] text-center space-y-3">
-            <Sparkles size={32} className="mx-auto text-[#5C6B55]" />
-            <h3 className="text-sm font-bold text-[#31362F] dark:text-[#E0DCD3]">Nessuno spunto pubblicato ancora</h3>
-            <p className="text-xs text-[#7A756D] dark:text-[#9A9488] max-w-xs mx-auto">
-              Sii il primo a condividere una citazione, un takeaway o una riflessione su un libro!
-            </p>
+      {/* TAB 2: COMMUNITY GLOBALE (SECONDARIO E SU RICHIESTA) */}
+      {activeTab === 'globale' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#EFECE6] dark:bg-[#272422] border border-[#E2DDD2] dark:border-[#36322E]">
+            <div className="flex items-center gap-2">
+              <Globe size={16} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
+              <span className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3]">
+                Feed Spunti della Community Globale
+              </span>
+            </div>
             <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-4 py-2 bg-[#5C6B55] text-white text-xs font-bold rounded-xl shadow-md hover:bg-[#4D5A46] transition-all cursor-pointer inline-flex items-center gap-1.5"
+              onClick={() => setActiveTab('amici')}
+              className="text-[11px] font-bold text-[#5C6B55] dark:text-[#A8BB9C] hover:underline cursor-pointer"
             >
-              <PlusCircle size={14} />
-              Condividi uno Spunto
+              Torna ai miei amici
             </button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {spuntiFeed.map((spunto) => {
-              const isSaved = savedSpuntiIds.includes(spunto.id);
 
-              return (
-                <article
-                  key={spunto.id}
-                  className="bg-[#EFECE6] dark:bg-[#272422] p-4 sm:p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs space-y-3.5"
-                >
-                  {/* Header Autore */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
+          {isLoadingFeed ? (
+            <div className="flex flex-col items-center justify-center py-10 text-[#7A756D] space-y-2">
+              <Loader2 size={28} className="animate-spin text-[#5C6B55]" />
+              <p className="text-xs font-semibold">Caricamento spunti della community...</p>
+            </div>
+          ) : spuntiFeed.length === 0 ? (
+            <div className="bg-[#EFECE6] dark:bg-[#272422] p-8 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] text-center space-y-3">
+              <Sparkles size={32} className="mx-auto text-[#5C6B55]" />
+              <h3 className="text-sm font-bold text-[#31362F] dark:text-[#E0DCD3]">Nessuno spunto pubblicato ancora</h3>
+              <p className="text-xs text-[#7A756D] dark:text-[#9A9488] max-w-xs mx-auto">
+                Sii il primo a condividere una citazione, un takeaway o una riflessione su un libro!
+              </p>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-4 py-2 bg-[#5C6B55] text-white text-xs font-bold rounded-xl shadow-md hover:bg-[#4D5A46] transition-all cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <PlusCircle size={14} />
+                Condividi uno Spunto
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {spuntiFeed.map((spunto) => {
+                const isSaved = savedSpuntiIds.includes(spunto.id);
+
+                return (
+                  <article
+                    key={spunto.id}
+                    className="bg-[#EFECE6] dark:bg-[#272422] p-4 sm:p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs space-y-3.5"
+                  >
+                    {/* Header Autore */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={spunto.autore_avatar}
+                          alt={spunto.autore_nome}
+                          className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/40"
+                        />
+                        <div>
+                          <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3]">
+                            {spunto.autore_nome}
+                          </h4>
+                          <span className="text-[10px] text-[#7A756D] dark:text-[#9A9488]">
+                            {formatTimeAgo(spunto.created_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#5C6B55]/15 border border-[#5C6B55]/30 text-[#3B4838] dark:text-[#A8BB9C]">
+                        {spunto.tipo_spunto === 'Takeaway' && '💡 Takeaway'}
+                        {spunto.tipo_spunto === 'Citazione' && '💬 Citazione'}
+                        {spunto.tipo_spunto === 'Recensione' && '⭐ Recensione'}
+                        {spunto.tipo_spunto === 'Riflessione' && '🧠 Riflessione'}
+                        {!['Takeaway', 'Citazione', 'Recensione', 'Riflessione'].includes(spunto.tipo_spunto) && spunto.tipo_spunto}
+                      </span>
+                    </div>
+
+                    {/* Libro miniaturizzato */}
+                    <div className="p-3 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A] flex items-center gap-3">
                       <img
-                        src={spunto.autore_avatar}
-                        alt={spunto.autore_nome}
-                        className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/40"
+                        src={spunto.libro_copertina || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400'}
+                        alt={spunto.libro_titolo}
+                        className="w-10 h-14 rounded-lg object-cover border border-[#DCD5C6] dark:border-[#4A4743]/60 shrink-0 shadow-xs"
                       />
-                      <div>
-                        <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3]">
-                          {spunto.autore_nome}
-                        </h4>
-                        <span className="text-[10px] text-[#7A756D] dark:text-[#9A9488]">
-                          {formatTimeAgo(spunto.created_at)}
-                        </span>
+                      <div className="min-w-0 flex-1">
+                        <h5 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                          {spunto.libro_titolo}
+                        </h5>
+                        {spunto.libro_autore && (
+                          <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate mt-0.5">
+                            {spunto.libro_autore}
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    {/* Badge Tipo Spunto */}
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#5C6B55]/15 border border-[#5C6B55]/30 text-[#3B4838] dark:text-[#A8BB9C]">
-                      {spunto.tipo_spunto === 'Takeaway' && '💡 Takeaway'}
-                      {spunto.tipo_spunto === 'Citazione' && '💬 Citazione'}
-                      {spunto.tipo_spunto === 'Recensione' && '⭐ Recensione'}
-                      {spunto.tipo_spunto === 'Riflessione' && '🧠 Riflessione'}
-                      {!['Takeaway', 'Citazione', 'Recensione', 'Riflessione'].includes(spunto.tipo_spunto) && spunto.tipo_spunto}
-                    </span>
-                  </div>
+                    {/* Testo Spunto */}
+                    <p className="text-xs sm:text-sm text-[#4A4743] dark:text-[#D5D0C5] leading-relaxed italic font-serif bg-[#F7F4EE]/50 dark:bg-[#201E1C]/50 p-3 rounded-2xl border border-[#E8E3D8]/50 dark:border-[#312E2A]/50">
+                      "{spunto.testo_spunto}"
+                    </p>
 
-                  {/* Libro miniaturizzato */}
-                  <div className="p-3 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A] flex items-center gap-3">
-                    <img
-                      src={spunto.libro_copertina || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400'}
-                      alt={spunto.libro_titolo}
-                      className="w-10 h-14 rounded-lg object-cover border border-[#DCD5C6] dark:border-[#4A4743]/60 shrink-0 shadow-xs"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <h5 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
-                        {spunto.libro_titolo}
-                      </h5>
-                      {spunto.libro_autore && (
-                        <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate mt-0.5">
-                          {spunto.libro_autore}
-                        </p>
-                      )}
+                    {/* Footer Azioni */}
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        onClick={() => toggleSaveSpunto(spunto.id)}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-[#7A756D] dark:text-[#9A9488] hover:text-[#31362F] dark:hover:text-[#E0DCD3] transition-colors cursor-pointer"
+                      >
+                        {isSaved ? (
+                          <>
+                            <BookmarkCheck size={15} className="text-emerald-600 dark:text-emerald-400" />
+                            <span className="text-emerald-700 dark:text-emerald-400 font-bold">Salvato</span>
+                          </>
+                        ) : (
+                          <>
+                            <BookmarkPlus size={15} />
+                            <span>Salva negli appunti</span>
+                          </>
+                        )}
+                      </button>
                     </div>
-                  </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
-                  {/* Testo dello Spunto */}
-                  <p className="text-xs sm:text-sm text-[#4A4743] dark:text-[#D5D0C5] leading-relaxed italic font-serif bg-[#F7F4EE]/50 dark:bg-[#201E1C]/50 p-3 rounded-2xl border border-[#E8E3D8]/50 dark:border-[#312E2A]/50">
-                    "{spunto.testo_spunto}"
+      {/* MODALE "CHIEDI UN CONSIGLIO DI LETTURA" */}
+      <AnimatePresence>
+        {isAdviceModalOpen && (
+          <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAdviceModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative z-10 w-full max-w-lg bg-[#FCFBF8] dark:bg-[#2A2826] rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-[#EBE5D9] dark:border-[#4A4743]/50">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center">
+                    <HelpCircle size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#4A4743] dark:text-[#E0DCD3]">
+                      Richiedi un Consiglio di Lettura
+                    </h3>
+                    <p className="text-[11px] text-[#7A756D] dark:text-[#A09A90]">
+                      Fatti consigliare un buon libro dai tuoi compagni
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAdviceModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] flex items-center justify-center cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {adviceSent ? (
+                <div className="py-8 text-center space-y-2">
+                  <div className="w-12 h-12 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+                    <Check size={24} />
+                  </div>
+                  <h4 className="text-sm font-bold text-[#31362F] dark:text-[#E0DCD3]">
+                    Richiesta di Consiglio Inviata!
+                  </h4>
+                  <p className="text-xs text-[#7A756D] dark:text-[#9A9488]">
+                    I tuoi amici e lettori vedranno la tua richiesta.
                   </p>
-
-                  {/* Footer Azioni */}
-                  <div className="flex items-center justify-between pt-1">
-                    <button
-                      onClick={() => toggleSaveSpunto(spunto.id)}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-[#7A756D] dark:text-[#9A9488] hover:text-[#31362F] dark:hover:text-[#E0DCD3] transition-colors cursor-pointer"
-                    >
-                      {isSaved ? (
-                        <>
-                          <BookmarkCheck size={15} className="text-emerald-600 dark:text-emerald-400" />
-                          <span className="text-emerald-700 dark:text-emerald-400 font-bold">Salvato</span>
-                        </>
-                      ) : (
-                        <>
-                          <BookmarkPlus size={15} />
-                          <span>Salva negli appunti</span>
-                        </>
-                      )}
-                    </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSendAdviceRequest} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#7A756D] dark:text-[#A09A90] mb-1">
+                      Genere o Argomento desiderato
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={adviceGenre}
+                      onChange={(e) => setAdviceGenre(e.target.value)}
+                      placeholder="es. Sci-Fi, Saggistica, Gialli storici..."
+                      className="w-full px-3.5 py-2.5 rounded-2xl text-xs bg-[#F4F1EA] dark:bg-[#201E1C] text-[#4A4743] dark:text-[#E0DCD3] border border-[#DCD5C6] dark:border-[#4A4743]/60 focus:outline-none"
+                    />
                   </div>
-                </article>
-              );
-            })}
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#7A756D] dark:text-[#A09A90] mb-1">
+                      Cosa stai cercando esattamente?
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={adviceNote}
+                      onChange={(e) => setAdviceNote(e.target.value)}
+                      placeholder="es. Cerco un libro scorrevole da leggere durante le vacanze, simile agli ultimi romanzi di Ken Follett..."
+                      className="w-full p-3.5 rounded-2xl text-xs bg-[#F4F1EA] dark:bg-[#201E1C] text-[#4A4743] dark:text-[#E0DCD3] border border-[#DCD5C6] dark:border-[#4A4743]/60 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                  >
+                    <Send size={16} />
+                    <span>Invia Richiesta</span>
+                  </button>
+                </form>
+              )}
+            </motion.div>
           </div>
         )}
-      </section>
+      </AnimatePresence>
 
       {/* MODALE PER "CONDIVIDI UNO SPUNTO" */}
       <AnimatePresence>
@@ -439,7 +907,6 @@ export const SocialPage: React.FC = () => {
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="relative z-10 w-full max-w-lg bg-[#FCFBF8] dark:bg-[#2A2826] rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-[90vh] overflow-y-auto space-y-4"
             >
-              {/* Header Modale */}
               <div className="flex items-center justify-between pb-3 border-b border-[#EBE5D9] dark:border-[#4A4743]/50">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] flex items-center justify-center">
@@ -469,7 +936,6 @@ export const SocialPage: React.FC = () => {
               )}
 
               <form onSubmit={handlePublishSpunto} className="space-y-4">
-                {/* Selezione da Libreria o Inserimento Manuale */}
                 {myBooks.length > 0 && (
                   <div>
                     <label className="block text-xs font-bold text-[#7A756D] dark:text-[#A09A90] mb-1">
@@ -496,7 +962,6 @@ export const SocialPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Titolo Libro */}
                 <div>
                   <label className="block text-xs font-bold text-[#7A756D] dark:text-[#A09A90] mb-1">
                     Titolo Libro *
@@ -511,7 +976,6 @@ export const SocialPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Autore Libro */}
                 <div>
                   <label className="block text-xs font-bold text-[#7A756D] dark:text-[#A09A90] mb-1">
                     Autore (opzionale)
@@ -525,7 +989,6 @@ export const SocialPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Tipo Spunto */}
                 <div>
                   <label className="block text-xs font-bold text-[#7A756D] dark:text-[#A09A90] mb-1">
                     Tipo di Spunto
@@ -548,7 +1011,6 @@ export const SocialPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Testo Spunto */}
                 <div>
                   <label className="block text-xs font-bold text-[#7A756D] dark:text-[#A09A90] mb-1">
                     Testo dello Spunto / Riflessione *
@@ -563,7 +1025,6 @@ export const SocialPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Tasto Invia */}
                 <button
                   type="submit"
                   disabled={isPublishing || !newBookTitle.trim() || !newTestoSpunto.trim()}
