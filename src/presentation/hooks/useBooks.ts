@@ -27,25 +27,24 @@ function mapDbRecordToBook(rec: any): Book {
 
 const MOCK_BOOK_IDS = ['1', '2', '3'];
 
-export function useBooks() {
-  const [books, setBooks] = useState<Book[]>(() => {
+function getLatestLocalBooks(): Book[] {
+  try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Purga i vecchi libri mock se presenti nelle vecchie sessioni del browser
-          const cleaned = parsed.filter((b: any) => b && !MOCK_BOOK_IDS.includes(String(b.id)));
-          if (cleaned.length !== parsed.length) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
-          }
-          return cleaned;
-        }
-      } catch (e) {
-        console.error('Failed to parse saved books', e);
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((b: any) => b && typeof b === 'object' && b.id && !MOCK_BOOK_IDS.includes(String(b.id)));
       }
     }
-    return [];
+  } catch (e) {
+    console.error('Failed to parse saved books from localStorage', e);
+  }
+  return [];
+}
+
+export function useBooks() {
+  const [books, setBooks] = useState<Book[]>(() => {
+    return getLatestLocalBooks();
   });
 
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('Tutti');
@@ -79,24 +78,24 @@ export function useBooks() {
 
           // Merge a prova di bomba: unisci i libri remoti da Supabase con la cache locale
           // Mantiene SEMPRE intatti i libri locali aggiunti dall'utente
-          const saved = localStorage.getItem(STORAGE_KEY);
-          let localBooks: Book[] = [];
-          if (saved) {
-            try {
-              const parsed = JSON.parse(saved);
-              if (Array.isArray(parsed)) localBooks = parsed;
-            } catch (e) {}
-          }
-
+          const localBooks = getLatestLocalBooks();
           const mergedMap = new Map<string, Book>();
 
           // 1. Inserisci prima i libri remoti da Supabase
           remoteBooks.forEach(b => mergedMap.set(b.id, b));
 
-          // 2. Preserva tutti i libri locali non ancora presenti in Supabase
-          localBooks.forEach(b => {
-            if (!mergedMap.has(b.id)) {
-              mergedMap.set(b.id, b);
+          // 2. Preserva tutti i libri locali non ancora presenti in Supabase (per ID o per titolo + autore)
+          localBooks.forEach(localB => {
+            if (mergedMap.has(localB.id)) return;
+
+            const existsByTitleAuthor = remoteBooks.some(
+              remoteB =>
+                remoteB.title.trim().toLowerCase() === localB.title.trim().toLowerCase() &&
+                remoteB.author.trim().toLowerCase() === localB.author.trim().toLowerCase()
+            );
+
+            if (!existsByTitleAuthor) {
+              mergedMap.set(localB.id, localB);
             }
           });
 
@@ -115,12 +114,7 @@ export function useBooks() {
 
     // Event listener per sincronizzazione istantanea tra hook diversi nell'app
     const handleBooksUpdated = () => {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try {
-          setBooks(JSON.parse(saved));
-        } catch (e) {}
-      }
+      setBooks(getLatestLocalBooks());
     };
 
     window.addEventListener(UPDATE_EVENT, handleBooksUpdated);
@@ -139,8 +133,7 @@ export function useBooks() {
 
   /**
    * addBookToLibrary - Approccio Offline-First Garantito (Fase 3)
-   * Il libro viene SEMPRE salvato con successo in locale.
-   * La sincronizzazione Supabase avviene in background senza mai cancellare il libro se la rete fallisce.
+   * Il libro viene SEMPRE salvato con successo in locale ed è totalmente protetto dai refresh.
    */
   const addBookToLibrary = async (bookData: Omit<Book, 'id'>): Promise<{ success: boolean; book?: Book; error?: string }> => {
     const tempId = `book-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -150,8 +143,22 @@ export function useBooks() {
       coverUrl: bookData.coverUrl ? bookData.coverUrl.trim() : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400'
     };
 
-    // 1. Salvataggio locale immediato e garantito (Offline-first)
-    const updatedBooks = [newBook, ...books];
+    // 1. Leggi SEMPRE i libri più recenti da localStorage per evitare sovrascritture da closure stale
+    const currentLocalBooks = getLatestLocalBooks();
+
+    // Evita duplicati identici se già premuto più volte
+    const isDuplicate = currentLocalBooks.some(
+      b => b.title.trim().toLowerCase() === newBook.title.trim().toLowerCase() &&
+           b.author.trim().toLowerCase() === newBook.author.trim().toLowerCase() &&
+           b.id !== tempId
+    );
+
+    if (isDuplicate) {
+      const existing = currentLocalBooks.find(b => b.title.trim().toLowerCase() === newBook.title.trim().toLowerCase());
+      return { success: true, book: existing };
+    }
+
+    const updatedBooks = [newBook, ...currentLocalBooks];
     saveBooksLocally(updatedBooks);
 
     try {
@@ -159,30 +166,43 @@ export function useBooks() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        const { data, error } = await supabase
+        let insertPayload: any = {
+          user_id: session.user.id,
+          title: newBook.title,
+          author: newBook.author,
+          cover_url: newBook.coverUrl,
+          status: newBook.status || 'Da leggere',
+          start_date: newBook.startDate || null,
+          end_date: newBook.endDate || null,
+          total_pages: newBook.totalPages || null,
+          pages_read: newBook.pagesRead || 0,
+          genre: newBook.genre || 'Narrativa',
+          subgenre: newBook.subgenre || null,
+          rating: newBook.rating || null,
+          isbn: newBook.isbn || null
+        };
+
+        let { data, error } = await supabase
           .from('libreria_personale')
-          .insert([{
-            user_id: session.user.id,
-            title: newBook.title,
-            author: newBook.author,
-            cover_url: newBook.coverUrl,
-            status: newBook.status || 'Da leggere',
-            start_date: newBook.startDate || null,
-            end_date: newBook.endDate || null,
-            total_pages: newBook.totalPages || null,
-            pages_read: newBook.pagesRead || 0,
-            genre: newBook.genre || 'Narrativa',
-            subgenre: newBook.subgenre || null,
-            rating: newBook.rating || null,
-            isbn: newBook.isbn || null
-          }])
+          .insert([insertPayload])
           .select();
+
+        if (error && error.message?.includes('subgenre')) {
+          delete insertPayload.subgenre;
+          const retry = await supabase
+            .from('libreria_personale')
+            .insert([insertPayload])
+            .select();
+          data = retry.data;
+          error = retry.error;
+        }
 
         if (error) {
           console.warn('Avviso sincronizzazione Supabase (libro mantenuto in locale):', error.message);
         } else if (data && data[0] && data[0].id) {
           const realId = data[0].id.toString();
-          const finalBooks = updatedBooks.map(b => b.id === tempId ? { ...b, id: realId } : b);
+          const latest = getLatestLocalBooks();
+          const finalBooks = latest.map(b => b.id === tempId ? { ...b, id: realId } : b);
           saveBooksLocally(finalBooks);
           return { success: true, book: { ...newBook, id: realId } };
         }
@@ -191,7 +211,6 @@ export function useBooks() {
       return { success: true, book: newBook };
     } catch (err: any) {
       console.warn('Sincronizzazione cloud non riuscita. Libro conservato in locale:', err);
-      // Il libro resta salvato nella libreria locale dell'utente!
       return { success: true, book: newBook };
     }
   };
@@ -202,7 +221,8 @@ export function useBooks() {
   };
 
   const deleteBook = async (id: string) => {
-    const updated = books.filter(b => b.id !== id);
+    const current = getLatestLocalBooks();
+    const updated = current.filter(b => b.id !== id);
     saveBooksLocally(updated);
 
     try {
@@ -217,8 +237,9 @@ export function useBooks() {
   const updateBookStatus = async (id: string, status: BookStatus) => {
     const today = new Date().toISOString().split('T')[0];
     let updatedBookRef: Book | null = null;
+    const current = getLatestLocalBooks();
 
-    const updated = books.map(book => {
+    const updated = current.map(book => {
       if (book.id === id) {
         let startDate = book.startDate;
         let endDate = book.endDate;
@@ -255,28 +276,39 @@ export function useBooks() {
   };
 
   const updateBook = async (updatedBook: Book) => {
-    const updated = books.map(book => (book.id === updatedBook.id ? updatedBook : book));
+    const current = getLatestLocalBooks();
+    const updated = current.map(book => (book.id === updatedBook.id ? updatedBook : book));
     saveBooksLocally(updated);
 
     if (!updatedBook.id.startsWith('temp-') && !updatedBook.id.startsWith('book-')) {
       try {
-        await supabase
+        let payload: any = {
+          title: updatedBook.title,
+          author: updatedBook.author,
+          cover_url: updatedBook.coverUrl,
+          status: updatedBook.status,
+          start_date: updatedBook.startDate || null,
+          end_date: updatedBook.endDate || null,
+          total_pages: updatedBook.totalPages || null,
+          pages_read: updatedBook.pagesRead || 0,
+          genre: updatedBook.genre || null,
+          subgenre: updatedBook.subgenre || null,
+          rating: updatedBook.rating || null,
+          isbn: updatedBook.isbn || null
+        };
+
+        let { error } = await supabase
           .from('libreria_personale')
-          .update({
-            title: updatedBook.title,
-            author: updatedBook.author,
-            cover_url: updatedBook.coverUrl,
-            status: updatedBook.status,
-            start_date: updatedBook.startDate || null,
-            end_date: updatedBook.endDate || null,
-            total_pages: updatedBook.totalPages || null,
-            pages_read: updatedBook.pagesRead || 0,
-            genre: updatedBook.genre || null,
-            subgenre: updatedBook.subgenre || null,
-            rating: updatedBook.rating || null,
-            isbn: updatedBook.isbn || null
-          })
+          .update(payload)
           .eq('id', updatedBook.id);
+
+        if (error && error.message?.includes('subgenre')) {
+          delete payload.subgenre;
+          await supabase
+            .from('libreria_personale')
+            .update(payload)
+            .eq('id', updatedBook.id);
+        }
       } catch (e) {
         console.warn('Errore aggiornamento libro Supabase:', e);
       }
@@ -289,7 +321,8 @@ export function useBooks() {
   });
 
   const updateBookPages = (id: string, pagesRead: number) => {
-    const updated = books.map(book => {
+    const current = getLatestLocalBooks();
+    const updated = current.map(book => {
       if (book.id === id) {
         return { ...book, pagesRead };
       }
