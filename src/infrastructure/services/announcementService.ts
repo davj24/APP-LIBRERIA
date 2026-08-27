@@ -4,34 +4,50 @@ export interface AppAnnouncement {
   id: string;
   title: string;
   content: string;
-  date: string;
+  createdAt: number; // Unix timestamp in millisecondi
   author: string;
   tag?: 'Nuovo' | 'Aggiornamento' | 'Avviso' | 'Manutenzione';
   pinned?: boolean;
 }
 
-const STORAGE_KEY = 'bibliodesk_announcements_v1';
+const STORAGE_KEY = 'bibliodesk_announcements_v2';
 const READ_KEY = 'bibliodesk_announcements_read_ids';
 
 const INITIAL_ANNOUNCEMENTS: AppAnnouncement[] = [
   {
-    id: 'ann-1',
-    title: '🎉 Benvenuto nella nuova versione di BiblioDesk!',
-    content: 'Siamo felici di darti il benvenuto! In questa release trovi il nuovo benvenuto personalizzato, BiblioSocial integrato, la ricerca federata su oltre 25M di libri ed il nuovo menù profilo rapido.',
-    date: 'Oggi',
-    author: 'Team Sviluppo',
+    id: 'ann-welcome-1',
+    title: '🎉 Benvenuto su BiblioDesk!',
+    content: 'Siamo felici di darti il benvenuto! In questa sezione troverai tutte le comunicazioni ufficiali, le novità, gli aggiornamenti e gli avvisi dal team di sviluppo.',
+    createdAt: Date.now() - 1000 * 60 * 5, // 5 minuti fa
+    author: 'Team BiblioDesk',
     tag: 'Nuovo',
     pinned: true
-  },
-  {
-    id: 'ann-2',
-    title: '👥 BiblioSocial: Connetti i tuoi amici di lettura',
-    content: 'Puoi cercare lettori reali, inviare richieste di amicizia e condividere spunti di lettura. La scheda globale è sempre a tua disposizione per scoprire nuove idee di lettura.',
-    date: 'Ieri',
-    author: 'BiblioDesk Dev',
-    tag: 'Aggiornamento'
   }
 ];
+
+export function getRelativeTime(timestamp: number | string): string {
+  const time = typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime();
+  if (isNaN(time) || time <= 0) return 'Recente';
+
+  const diffMs = Math.max(0, Date.now() - time);
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+
+  if (diffSec < 60) {
+    return 'Adesso';
+  } else if (diffMin < 60) {
+    return `${diffMin} min fa`;
+  } else if (diffHours < 24) {
+    return `${diffHours} ${diffHours === 1 ? 'ora' : 'ore'} fa`;
+  } else if (diffDays < 14) {
+    return `${diffDays} ${diffDays === 1 ? 'giorno' : 'giorni'} fa`;
+  } else {
+    return `${diffWeeks} ${diffWeeks === 1 ? 'settimana' : 'settimane'} fa`;
+  }
+}
 
 export const announcementService = {
   getAnnouncements(): AppAnnouncement[] {
@@ -46,7 +62,6 @@ export const announcementService = {
         console.error('Failed to parse announcements', e);
       }
     }
-    // Salva le notifiche iniziali se non presenti
     localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ANNOUNCEMENTS));
     return INITIAL_ANNOUNCEMENTS;
   },
@@ -63,7 +78,7 @@ export const announcementService = {
           id: item.id || String(Math.random()),
           title: item.titolo || item.title || 'Comunicazione',
           content: item.contenuto || item.content || '',
-          date: item.created_at ? new Date(item.created_at).toLocaleDateString('it-IT') : 'Recente',
+          createdAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
           author: item.autore || 'Sviluppatore',
           tag: item.tag || 'Nuovo',
           pinned: Boolean(item.pinned)
@@ -77,14 +92,14 @@ export const announcementService = {
     return this.getAnnouncements();
   },
 
-  async addAnnouncement(newAnn: Omit<AppAnnouncement, 'id' | 'date'>): Promise<AppAnnouncement> {
+  async addAnnouncement(newAnn: Omit<AppAnnouncement, 'id' | 'createdAt'>): Promise<AppAnnouncement> {
+    const now = Date.now();
     const created: AppAnnouncement = {
       ...newAnn,
-      id: `ann-${Date.now()}`,
-      date: new Date().toLocaleDateString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      id: `ann-${now}`,
+      createdAt: now
     };
 
-    // Tenta il salvataggio remoto su Supabase se la tabella esiste
     try {
       await supabase.from('comunicazioni_app').insert({
         titolo: created.title,
@@ -110,16 +125,6 @@ export const announcementService = {
     return updated;
   },
 
-  getUnreadCount(announcements: AppAnnouncement[]): number {
-    const readIds = this.getReadIds();
-    return announcements.filter(a => !readIds.includes(a.id)).length;
-  },
-
-  markAllAsRead(announcements: AppAnnouncement[]): void {
-    const allIds = announcements.map(a => a.id);
-    localStorage.setItem(READ_KEY, JSON.stringify(allIds));
-  },
-
   getReadIds(): string[] {
     const saved = localStorage.getItem(READ_KEY);
     if (saved) {
@@ -130,5 +135,26 @@ export const announcementService = {
       }
     }
     return [];
+  },
+
+  getUnreadCount(announcements: AppAnnouncement[]): number {
+    const readIds = this.getReadIds();
+    return announcements.filter(a => !readIds.includes(a.id)).length;
+  },
+
+  markAllAsRead(announcements: AppAnnouncement[]): string[] {
+    const allIds = announcements.map(a => a.id);
+    localStorage.setItem(READ_KEY, JSON.stringify(allIds));
+    return allIds;
+  },
+
+  markAsRead(id: string): string[] {
+    const current = this.getReadIds();
+    if (!current.includes(id)) {
+      const updated = [...current, id];
+      localStorage.setItem(READ_KEY, JSON.stringify(updated));
+      return updated;
+    }
+    return current;
   }
 };
