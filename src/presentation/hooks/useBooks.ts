@@ -110,7 +110,25 @@ export function useBooks() {
       }
     }
 
+    // 1. Sincronizzazione iniziale all'avvio
     syncFromSupabase();
+
+    // 2. Sincronizzazione automatica al ripristino o cambio sessione Auth
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        syncFromSupabase();
+      }
+    });
+
+    // 3. Sincronizzazione al rientro nell'App sulla Schermata Home (PWA focus / visibility)
+    const handleFocusOrVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncFromSupabase();
+      }
+    };
+
+    window.addEventListener('focus', handleFocusOrVisibility);
+    document.addEventListener('visibilitychange', handleFocusOrVisibility);
 
     // Event listener per sincronizzazione istantanea tra hook diversi nell'app
     const handleBooksUpdated = () => {
@@ -120,6 +138,9 @@ export function useBooks() {
     window.addEventListener(UPDATE_EVENT, handleBooksUpdated);
     return () => {
       isMounted = false;
+      authListener?.subscription.unsubscribe();
+      window.removeEventListener('focus', handleFocusOrVisibility);
+      document.removeEventListener('visibilitychange', handleFocusOrVisibility);
       window.removeEventListener(UPDATE_EVENT, handleBooksUpdated);
     };
   }, []);
