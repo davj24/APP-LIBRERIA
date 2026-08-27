@@ -15,8 +15,7 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
   onUpdateStatus,
   onUpdatePages
 }) => {
-  const readingBooks = books.filter(b => b.status === 'In lettura');
-  const activeList = readingBooks.length > 0 ? readingBooks : (books[0] ? [books[0]] : []);
+  const activeList = books.filter(b => b.status === 'In lettura');
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPageModalOpen, setIsPageModalOpen] = useState(false);
@@ -32,7 +31,7 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
 
   const currentBook = activeList[currentIndex] || activeList[0];
 
-  const pagesRead = currentBook?.pagesRead || (currentBook ? Math.round((currentBook.totalPages || 300) * 0.45) : 0);
+  const pagesRead = currentBook?.pagesRead || 0;
   const totalPages = currentBook?.totalPages || 300;
 
   const [pageInput, setPageInput] = useState<string>(pagesRead.toString());
@@ -61,7 +60,7 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
 
   const progress = currentBook.totalPages && currentBook.pagesRead
     ? Math.min(100, Math.round((currentBook.pagesRead / currentBook.totalPages) * 100))
-    : 45;
+    : 0;
 
   const handleNextBook = () => {
     if (activeList.length <= 1) return;
