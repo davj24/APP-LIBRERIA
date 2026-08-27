@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import type { TabType } from './BottomNav';
-import { ProfileModal } from '../profile/ProfileModal';
+import { CompactProfileSheet } from '../profile/CompactProfileSheet';
 import { SettingsModal } from '../profile/SettingsModal';
 import { CameraScannerModal } from '../books/CameraScannerModal';
 import { AddBookModal } from '../books/AddBookModal';
@@ -20,7 +20,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   activeTab,
   setActiveTab
 }) => {
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isCompactProfileOpen, setIsCompactProfileOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Modal states per l'icona dello scanner / aggiunta libro
@@ -28,7 +28,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
   const { isModalOpen } = useModal();
-  useRegisterModal(isProfileOpen);
+  useRegisterModal(isCompactProfileOpen);
   useRegisterModal(isSettingsOpen);
   useRegisterModal(isScannerOpen || isManualModalOpen);
 
@@ -38,7 +38,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#2A2826] text-[#4A4743] dark:text-[#E0DCD3] flex flex-col antialiased transition-colors duration-200 selection:bg-[#B0BEA9]/30 selection:text-[#31362F] overflow-x-hidden">
       <Header
         activeTab={activeTab}
-        onOpenProfile={() => setActiveTab(3)}
+        onOpenProfile={() => setIsCompactProfileOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
@@ -54,9 +54,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         onOpenScanner={() => setIsScannerOpen(true)}
       />
 
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
+      {/* Scheda Piè di Pagina Compatta del Profilo */}
+      <CompactProfileSheet
+        isOpen={isCompactProfileOpen}
+        onClose={() => setIsCompactProfileOpen(false)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenFullProfile={() => setActiveTab(3)}
       />
 
       <SettingsModal

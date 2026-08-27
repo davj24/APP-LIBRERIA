@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, Settings } from 'lucide-react';
 import type { TabType } from './BottomNav';
+import { useUserProfile } from '../../hooks/useUserProfile';
 
 interface HeaderProps {
   activeTab: TabType;
@@ -13,6 +14,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfile,
   onOpenSettings
 }) => {
+  const { profile } = useUserProfile();
+
   const getPageTitle = (tab: TabType): string => {
     switch (tab) {
       case 0:
@@ -40,16 +43,20 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-2.5">
           <button
             onClick={onOpenProfile}
-            title="Profilo Utente"
-            className="w-10 h-10 rounded-full bg-[#EBE5D9]/50 dark:bg-[#383532]/50 backdrop-blur-md border border-[#DCD5C6]/60 dark:border-[#4A4743]/50 flex items-center justify-center text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] active:scale-95 transition-all shadow-xs"
+            title="Scheda Profilo"
+            className="w-10 h-10 rounded-full bg-[#EBE5D9]/50 dark:bg-[#383532]/50 backdrop-blur-md border border-[#DCD5C6]/60 dark:border-[#4A4743]/50 flex items-center justify-center text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] active:scale-95 transition-all shadow-xs overflow-hidden cursor-pointer"
           >
-            <User className="w-5 h-5" />
+            {profile.avatarUrl ? (
+              <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+            ) : (
+              <User className="w-5 h-5" />
+            )}
           </button>
 
           <button
             onClick={onOpenSettings}
             title="Impostazioni"
-            className="w-10 h-10 rounded-full bg-[#EBE5D9]/50 dark:bg-[#383532]/50 backdrop-blur-md border border-[#DCD5C6]/60 dark:border-[#4A4743]/50 flex items-center justify-center text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] active:scale-95 transition-all shadow-xs"
+            className="w-10 h-10 rounded-full bg-[#EBE5D9]/50 dark:bg-[#383532]/50 backdrop-blur-md border border-[#DCD5C6]/60 dark:border-[#4A4743]/50 flex items-center justify-center text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] active:scale-95 transition-all shadow-xs cursor-pointer"
           >
             <Settings className="w-5 h-5" />
           </button>
