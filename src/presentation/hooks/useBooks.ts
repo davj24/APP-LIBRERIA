@@ -76,8 +76,33 @@ export function useBooks() {
 
         if (data && Array.isArray(data) && isMounted) {
           const remoteBooks = data.map(mapDbRecordToBook);
-          setBooks(remoteBooks);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteBooks));
+
+          // Merge a prova di bomba: unisci i libri remoti da Supabase con la cache locale
+          // Mantiene SEMPRE intatti i libri locali aggiunti dall'utente
+          const saved = localStorage.getItem(STORAGE_KEY);
+          let localBooks: Book[] = [];
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed)) localBooks = parsed;
+            } catch (e) {}
+          }
+
+          const mergedMap = new Map<string, Book>();
+
+          // 1. Inserisci prima i libri remoti da Supabase
+          remoteBooks.forEach(b => mergedMap.set(b.id, b));
+
+          // 2. Preserva tutti i libri locali non ancora presenti in Supabase
+          localBooks.forEach(b => {
+            if (!mergedMap.has(b.id)) {
+              mergedMap.set(b.id, b);
+            }
+          });
+
+          const mergedBooks = Array.from(mergedMap.values());
+          setBooks(mergedBooks);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedBooks));
         }
       } catch (err) {
         console.warn('Sincronizzazione Supabase offline-first fallback a cache locale:', err);
