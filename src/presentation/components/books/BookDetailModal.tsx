@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Book, BookStatus } from '../../../domain/models/Book';
 import { GENRES_MAP } from '../../../domain/constants/genres';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import {
   X,
   Star,
@@ -14,7 +14,8 @@ import {
   Save,
   FileText,
   Tag,
-  ImageIcon
+  ImageIcon,
+  AlertTriangle
 } from 'lucide-react';
 
 import { useRegisterModal } from '../../context/ModalContext';
@@ -37,6 +38,8 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   useRegisterModal(isOpen);
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [isScrollAtTop, setIsScrollAtTop] = useState(true);
   const [formData, setFormData] = useState<Partial<Book>>({});
 
   useEffect(() => {
@@ -57,8 +60,40 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
       });
       setIsEditing(false);
       setShowDeleteConfirm(false);
+      setShowDiscardConfirm(false);
+      setIsScrollAtTop(true);
     }
   }, [book, isOpen]);
+
+  const checkIsDirty = (): boolean => {
+    if (!isEditing || !book) return false;
+    return (
+      (formData.title !== undefined && formData.title.trim() !== book.title) ||
+      (formData.author !== undefined && formData.author.trim() !== book.author) ||
+      (formData.coverUrl !== undefined && formData.coverUrl.trim() !== book.coverUrl) ||
+      (formData.status !== undefined && formData.status !== book.status) ||
+      (formData.genre !== undefined && formData.genre !== book.genre) ||
+      (formData.subgenre !== undefined && (formData.subgenre || '') !== (book.subgenre || '')) ||
+      (formData.notes !== undefined && (formData.notes || '') !== (book.notes || '')) ||
+      (formData.rating !== undefined && (formData.rating || 0) !== (book.rating || 0)) ||
+      (formData.totalPages !== undefined && Number(formData.totalPages) !== (book.totalPages || 300)) ||
+      (formData.pagesRead !== undefined && Number(formData.pagesRead) !== (book.pagesRead || 0))
+    );
+  };
+
+  const handleAttemptClose = () => {
+    if (checkIsDirty()) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    if (info.offset.y > 120 || info.velocity.y > 350) {
+      handleAttemptClose();
+    }
+  };
 
   const handleRatingChange = (newRating: number) => {
     if (isEditing) {
@@ -151,34 +186,51 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onClick={handleAttemptClose}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs p-0 sm:p-4"
         >
           <motion.div
             initial={{ y: "100%", opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: "100%", opacity: 0, scale: 0.95 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-[92vh] overflow-y-auto flex flex-col transition-colors"
+            transition={{ type: "spring", damping: 28, stiffness: 320 }}
+            drag="y"
+            dragConstraints={{ top: 0 }}
+            dragElastic={{ top: 0, bottom: 0.5 }}
+            dragListener={isScrollAtTop}
+            onDragEnd={handleDragEnd}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-[2.25rem] sm:rounded-3xl shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-[92vh] flex flex-col transition-colors overflow-hidden relative select-none"
           >
-            {/* Header Hero Cover Banner */}
-            <div className="relative bg-[#31362F] dark:bg-[#252924] text-white min-h-[160px] p-5 flex items-end justify-between overflow-hidden">
-              <img
-                src={isEditing ? formData.coverUrl : book.coverUrl}
-                alt={book.title}
-                className="absolute inset-0 w-full h-full object-cover opacity-25 blur-md scale-110"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400';
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#252924] via-[#31362F]/60 to-transparent" />
+            {/* Drag Handle Bar Visiva per iOS/Android Bottom Sheet */}
+            <div className="w-full pt-2.5 pb-1 flex justify-center bg-[#31362F] dark:bg-[#252924] cursor-grab active:cursor-grabbing shrink-0">
+              <div className="w-12 h-1.5 bg-white/40 rounded-full" />
+            </div>
 
-              {/* Close Button */}
-              <button
-                onClick={onClose}
-                className="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-[#31362F]/60 text-white hover:bg-[#31362F] flex items-center justify-center backdrop-blur-xs transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+            {/* Scrollable Container per il Contenuto con separazione dallo Swipe */}
+            <div
+              onScroll={(e) => setIsScrollAtTop(e.currentTarget.scrollTop <= 5)}
+              className="flex-1 overflow-y-auto"
+            >
+              {/* Header Hero Cover Banner */}
+              <div className="relative bg-[#31362F] dark:bg-[#252924] text-white min-h-[160px] p-5 flex items-end justify-between overflow-hidden">
+                <img
+                  src={isEditing ? formData.coverUrl : book.coverUrl}
+                  alt={book.title}
+                  className="absolute inset-0 w-full h-full object-cover opacity-25 blur-md scale-110"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#252924] via-[#31362F]/60 to-transparent" />
+
+                {/* Close Button */}
+                <button
+                  onClick={handleAttemptClose}
+                  className="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-[#31362F]/60 text-white hover:bg-[#31362F] flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
 
               <div className="relative z-10 flex items-end gap-4 w-full">
                 <img
@@ -555,8 +607,41 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                   </div>
                 </form>
               )}
-
             </div>
+          </div>
+
+            {/* Dialog di Conferma Scarto Modifiche (Dirty Check) */}
+            <AnimatePresence>
+              {showDiscardConfirm && (
+                <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-6 text-center animate-in fade-in duration-150">
+                  <div className="bg-[#FCFBF8] dark:bg-[#2A2826] p-5 sm:p-6 rounded-3xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4 max-w-xs shadow-2xl">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+                      <AlertTriangle size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-[#31362F] dark:text-[#E0DCD3]">Vuoi scartare le modifiche?</h3>
+                      <p className="text-xs text-[#7A756D] dark:text-[#9A9488] mt-1 leading-relaxed">
+                        Hai delle modifiche non salvate nei dettagli del libro. Se esci ora, le modifiche andranno perse.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2 pt-1">
+                      <button
+                        onClick={onClose}
+                        className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+                      >
+                        Scarta Modifiche
+                      </button>
+                      <button
+                        onClick={() => setShowDiscardConfirm(false)}
+                        className="w-full py-2.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Continua Modifica
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </motion.div>
       )}

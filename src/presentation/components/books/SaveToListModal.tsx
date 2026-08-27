@@ -104,10 +104,25 @@ export const SaveToListModal: React.FC<SaveToListModalProps> = ({
             initial={{ y: '100%', opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: '100%', opacity: 0, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative z-[201] bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4 transition-colors max-h-[85vh] flex flex-col"
+            transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+            drag="y"
+            dragConstraints={{ top: 0 }}
+            dragElastic={{ top: 0, bottom: 0.5 }}
+            onDragEnd={(_: any, info: any) => {
+              if (info.offset.y > 100 || info.velocity.y > 350) {
+                onClose();
+              }
+            }}
+            className="relative z-[201] bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-[2.25rem] sm:rounded-3xl shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 transition-colors max-h-[85vh] flex flex-col overflow-hidden select-none"
           >
-            {/* Header */}
+            {/* Drag Handle Bar */}
+            <div className="w-full pt-2.5 pb-1 flex justify-center cursor-grab active:cursor-grabbing shrink-0">
+              <div className="w-12 h-1.5 bg-[#DCD5C6] dark:bg-[#4A4743] rounded-full" />
+            </div>
+
+            {/* Content Container */}
+            <div className="p-5 pt-1 space-y-4 overflow-y-auto flex-1">
+              {/* Header */}
             <div className="flex items-center justify-between border-b border-[#EBE5D9] dark:border-[#4A4743]/50 pb-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {coverUrl ? (
@@ -182,6 +197,7 @@ export const SaveToListModal: React.FC<SaveToListModalProps> = ({
                   </button>
                 );
               })}
+            </div>
             </div>
           </motion.div>
         </div>
