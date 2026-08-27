@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Book, BookStatus } from '../../../domain/models/Book';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { BookOpen, Clock, CheckCircle2, Edit3, X, Save, Sparkles } from 'lucide-react';
@@ -20,6 +20,8 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPageModalOpen, setIsPageModalOpen] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   useRegisterModal(isPageModalOpen);
 
   useEffect(() => {
@@ -85,6 +87,8 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
 
   const handleSavePageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    inputRef.current?.blur(); // Chiudi automaticamente la tastiera a schermo
+
     const val = parseInt(pageInput, 10);
     if (!isNaN(val) && onUpdatePages) {
       const clampedVal = Math.max(0, Math.min(totalPages, val));
@@ -186,7 +190,7 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
               setPageInput(pagesRead.toString());
               setIsPageModalOpen(true);
             }}
-            className="px-3.5 py-1.5 rounded-xl bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 border border-[#DCD5C6] dark:border-[#4A4743]/60"
+            className="px-3.5 py-1.5 rounded-xl bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 border border-[#DCD5C6] dark:border-[#4A4743]/60 cursor-pointer"
           >
             <Edit3 className="w-3.5 h-3.5 text-[#4A4743] dark:text-[#E0DCD3]" />
             <span>Aggiorna Pagine ({pagesRead}/{totalPages})</span>
@@ -194,7 +198,7 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
 
           <button
             onClick={() => onUpdateStatus(currentBook.id, 'Letto')}
-            className="px-3.5 py-1.5 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] dark:hover:bg-[#4D5A46] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold transition-colors flex items-center gap-1.5 border border-[#A0AF99] dark:border-[#4D5A46]"
+            className="px-3.5 py-1.5 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] dark:hover:bg-[#4D5A46] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold transition-colors flex items-center gap-1.5 border border-[#A0AF99] dark:border-[#4D5A46] cursor-pointer"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Segna Letto</span>
@@ -202,21 +206,30 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
         </div>
       </div>
 
-      {/* Page Update Menu Modal */}
+      {/* Page Update Menu Modal (Fix Tastiera Mobile) */}
       <AnimatePresence>
         {isPageModalOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs p-0 sm:p-4"
+            onClick={() => {
+              inputRef.current?.blur();
+              setIsPageModalOpen(false);
+            }}
+            className={`fixed inset-0 z-50 flex justify-center bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs p-3 sm:p-4 transition-all duration-200 ${
+              isInputFocused
+                ? 'items-start pt-8 sm:pt-0 sm:items-center'
+                : 'items-end sm:items-center'
+            }`}
           >
             <motion.div
               initial={{ y: "100%", opacity: 0, scale: 0.95 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: "100%", opacity: 0, scale: 0.95 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4"
+              transition={{ type: "spring", damping: 28, stiffness: 320 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-3xl p-5 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4 select-none"
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-[#EBE5D9] dark:border-[#4A4743]/50 pb-3">
@@ -232,8 +245,12 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
                   </div>
                 </div>
                 <button
-                  onClick={() => setIsPageModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] flex items-center justify-center transition-colors"
+                  type="button"
+                  onClick={() => {
+                    inputRef.current?.blur();
+                    setIsPageModalOpen(false);
+                  }}
+                  className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -247,14 +264,24 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
                   </label>
                   <div className="relative flex items-center">
                     <input
+                      ref={inputRef}
                       type="number"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       min="0"
                       max={totalPages}
                       value={pageInput}
                       onChange={(e) => setPageInput(e.target.value)}
+                      onFocus={() => setIsInputFocused(true)}
+                      onBlur={() => setIsInputFocused(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          inputRef.current?.blur();
+                        }
+                      }}
                       autoFocus
                       required
-                      className="w-full px-4 py-3 rounded-2xl border-2 border-[#B0BEA9] dark:border-[#5C6B55] bg-[#F4F1EA] dark:bg-[#2A2826] text-lg font-black text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#9EAF97] shadow-sm"
+                      className="w-full px-4 py-3 rounded-2xl border-2 border-[#B0BEA9] dark:border-[#5C6B55] bg-[#F4F1EA] dark:bg-[#2A2826] text-lg font-black text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] shadow-sm"
                       placeholder="es. 145"
                     />
                     <span className="absolute right-4 text-xs font-bold text-[#7A756D] dark:text-[#A09A90]">
@@ -272,28 +299,28 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
                     <button
                       type="button"
                       onClick={() => handleQuickSetPage(Math.min(totalPages, pagesRead + 5))}
-                      className="py-2 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors"
+                      className="py-2 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors cursor-pointer"
                     >
                       +5 Pag.
                     </button>
                     <button
                       type="button"
                       onClick={() => handleQuickSetPage(Math.min(totalPages, pagesRead + 10))}
-                      className="py-2 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors"
+                      className="py-2 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors cursor-pointer"
                     >
                       +10 Pag.
                     </button>
                     <button
                       type="button"
                       onClick={() => handleQuickSetPage(Math.min(totalPages, pagesRead + 25))}
-                      className="py-2 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors"
+                      className="py-2 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors cursor-pointer"
                     >
                       +25 Pag.
                     </button>
                     <button
                       type="button"
                       onClick={() => handleQuickSetPage(totalPages)}
-                      className="py-2 bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                      className="py-2 bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Sparkles className="w-3 h-3" /> Fine
                     </button>
@@ -304,14 +331,17 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
                 <div className="flex gap-2.5 pt-2">
                   <button
                     type="button"
-                    onClick={() => setIsPageModalOpen(false)}
-                    className="flex-1 py-3 rounded-xl border border-[#DCD5C6] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] font-semibold text-xs hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-colors"
+                    onClick={() => {
+                      inputRef.current?.blur();
+                      setIsPageModalOpen(false);
+                    }}
+                    className="flex-1 py-3 rounded-xl border border-[#DCD5C6] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] font-semibold text-xs hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-colors cursor-pointer"
                   >
                     Annulla
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] font-bold text-xs hover:bg-[#A0AF99] shadow-md shadow-[#B0BEA9]/30 transition-all flex items-center justify-center gap-1.5 border border-[#A0AF99] dark:border-[#4D5A46]"
+                    className="flex-1 py-3 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] font-bold text-xs hover:bg-[#A0AF99] shadow-md shadow-[#B0BEA9]/30 transition-all flex items-center justify-center gap-1.5 border border-[#A0AF99] dark:border-[#4D5A46] cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Salva Pagina</span>

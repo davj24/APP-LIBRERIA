@@ -257,6 +257,9 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min="1"
                     placeholder="es. 350"
                     value={totalPages}
                     onChange={(e) => setTotalPages(e.target.value)}
@@ -270,6 +273,9 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min="0"
                     placeholder="es. 120"
                     value={pagesRead}
                     onChange={(e) => setPagesRead(e.target.value)}

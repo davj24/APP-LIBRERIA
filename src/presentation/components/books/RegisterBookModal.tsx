@@ -169,6 +169,8 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     min="0"
                     placeholder="es. 120"
                     value={pagesRead}
@@ -182,6 +184,8 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     min="1"
                     placeholder="es. 350"
                     value={totalPages}

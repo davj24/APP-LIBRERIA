@@ -440,6 +440,8 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                       <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">Pagine Lette</label>
                       <input
                         type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         min="0"
                         value={formData.pagesRead ?? 0}
                         onChange={e => setFormData({ ...formData, pagesRead: Number(e.target.value) })}
@@ -451,6 +453,8 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                       <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">Pagine Totali</label>
                       <input
                         type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         min="1"
                         value={formData.totalPages ?? 300}
                         onChange={e => setFormData({ ...formData, totalPages: Number(e.target.value) })}
