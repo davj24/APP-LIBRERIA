@@ -1,18 +1,22 @@
 import React from 'react';
-import { User, Settings } from 'lucide-react';
+import { User, Settings, Megaphone } from 'lucide-react';
 import type { TabType } from './BottomNav';
 import { useUserProfile } from '../../hooks/useUserProfile';
 
 interface HeaderProps {
   activeTab: TabType;
   onOpenProfile?: () => void;
+  onOpenAnnouncements?: () => void;
   onOpenSettings?: () => void;
+  hasUnreadAnnouncements?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onOpenProfile,
-  onOpenSettings
+  onOpenAnnouncements,
+  onOpenSettings,
+  hasUnreadAnnouncements = false
 }) => {
   const { profile } = useUserProfile();
 
@@ -39,8 +43,21 @@ export const Header: React.FC<HeaderProps> = ({
           {getPageTitle(activeTab)}
         </h1>
 
-        {/* Right Icon Button Group: User & Settings */}
-        <div className="flex items-center gap-2.5">
+        {/* Right Icon Button Group: Announcements, User & Settings */}
+        <div className="flex items-center gap-2">
+          {/* Comunicazioni dall'App */}
+          <button
+            onClick={onOpenAnnouncements}
+            title="Comunicazioni dall'App"
+            className="relative w-10 h-10 rounded-full bg-[#EBE5D9]/50 dark:bg-[#383532]/50 backdrop-blur-md border border-[#DCD5C6]/60 dark:border-[#4A4743]/50 flex items-center justify-center text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] active:scale-95 transition-all shadow-xs cursor-pointer"
+          >
+            <Megaphone className="w-4 h-4 text-[#5C6B55] dark:text-[#A8BB9C]" />
+            {hasUnreadAnnouncements && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-[#F4F1EA] dark:ring-[#2A2826] animate-pulse" />
+            )}
+          </button>
+
+          {/* Scheda Profilo */}
           <button
             onClick={onOpenProfile}
             title="Scheda Profilo"
@@ -53,6 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
+          {/* Impostazioni */}
           <button
             onClick={onOpenSettings}
             title="Impostazioni"

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Settings, Database, Smartphone, ShieldCheck, RefreshCw, Sun, Moon, 
   LogOut, Trash2, ShieldAlert, Loader2, Code2, Lock, KeyRound, ChevronDown, 
-  ChevronUp, Terminal, CheckCircle2, AlertCircle, Wrench
+  ChevronUp, Terminal, CheckCircle2, AlertCircle, Wrench, Megaphone
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useRegisterModal } from '../../context/ModalContext';
@@ -12,45 +12,33 @@ import { supabase } from '../../../infrastructure/supabase/client';
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenAnnouncements?: () => void;
 }
 
 // Password predefinita per sbloccare l'area sviluppatore
 const DEV_PASSWORD = 'dev2026';
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onOpenAnnouncements }) => {
   useRegisterModal(isOpen);
   const { isDarkMode, toggleTheme } = useTheme();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Stato per l'Area Sviluppatore
+  // Stato per l'Area Sviluppatore (sessionStorage per resettare a ogni riapertura dell'app)
   const [isDevOpen, setIsDevOpen] = useState(false);
   const [isDevUnlocked, setIsDevUnlocked] = useState(false);
   const [devPasswordInput, setDevPasswordInput] = useState('');
   const [devErrorMsg, setDevErrorMsg] = useState<string | null>(null);
-  const [userDevKey, setUserDevKey] = useState<string | null>(null);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-  // Recupera l'ID dell'utente autenticato per verificare lo sblocco personale
+  // Verifica sblocco sviluppatore in sessionStorage (si resetta quando la scheda/app si chiude)
   React.useEffect(() => {
     if (isOpen) {
-      supabase.auth.getUser().then(({ data }) => {
-        if (data?.user) {
-          const storageKey = `bibliodesk_dev_unlocked_${data.user.id}`;
-          setUserDevKey(storageKey);
-          setIsDevUnlocked(localStorage.getItem(storageKey) === 'true');
-        } else {
-          setUserDevKey(null);
-          setIsDevUnlocked(false);
-        }
-      }).catch(() => {
-        setUserDevKey(null);
-        setIsDevUnlocked(false);
-      });
+      setIsDevUnlocked(sessionStorage.getItem('bibliodesk_dev_session') === 'true');
     }
   }, [isOpen]);
 
@@ -60,9 +48,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     if (devPasswordInput === DEV_PASSWORD) {
       setIsDevUnlocked(true);
-      if (userDevKey) {
-        localStorage.setItem(userDevKey, 'true');
-      }
+      sessionStorage.setItem('bibliodesk_dev_session', 'true');
       setDevPasswordInput('');
     } else {
       setDevErrorMsg('Password errata. Riprova.');
@@ -71,9 +57,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const handleLockDev = () => {
     setIsDevUnlocked(false);
-    if (userDevKey) {
-      localStorage.removeItem(userDevKey);
-    }
+    sessionStorage.removeItem('bibliodesk_dev_session');
     setDevPasswordInput('');
     setDevErrorMsg(null);
   };
@@ -302,6 +286,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             Blocca Area
                           </button>
                         </div>
+
+                        {/* Pulsante rapido Scrivi Comunicazione dall'App */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            if (onOpenAnnouncements) onOpenAnnouncements();
+                          }}
+                          className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Megaphone className="w-4 h-4" />
+                          <span>✍️ Scrivi Comunicazione dall'App</span>
+                        </button>
 
                         {/* Supabase Status & Keys */}
                         <div className="bg-[#FCFBF8] dark:bg-[#33302D] rounded-xl p-3 border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-2 text-xs">

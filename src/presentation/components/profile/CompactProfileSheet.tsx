@@ -9,7 +9,10 @@ import {
   Target,
   Sparkles,
   ChevronRight,
-  BookCheck
+  BookCheck,
+  Tag,
+  PieChart,
+  Bookmark
 } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useBooks } from '../../hooks/useBooks';
@@ -37,6 +40,77 @@ export const CompactProfileSheet: React.FC<CompactProfileSheetProps> = ({
   const currentProgressPercent = currentReadingBook && currentReadingBook.totalPages
     ? Math.min(100, Math.round(((currentReadingBook.pagesRead || 0) / currentReadingBook.totalPages) * 100))
     : 0;
+
+  // Estrai i generi unici presenti nella libreria dell'utente o fallback eleganti
+  const userGenres = Array.from(
+    new Set(books.map(b => b.genre).filter(Boolean))
+  ) as string[];
+
+  const genrePills = userGenres.length > 0
+    ? userGenres.slice(0, 4)
+    : ['Saggistica', 'Narrativa', 'Fantascienza'];
+
+  // Definizione dinamica dei widget selezionati dall'utente (2 principali)
+  const selectedWidgetKeys = (profile.selectedWidgets && profile.selectedWidgets.length >= 2)
+    ? profile.selectedWidgets.slice(0, 2)
+    : ['read_count', 'reading_count'];
+
+  const getWidgetInfo = (key: string) => {
+    switch (key) {
+      case 'read_count':
+        return {
+          title: 'Libri Letti',
+          value: `${readCount}`,
+          icon: BookCheck,
+          color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+        };
+      case 'reading_count':
+        return {
+          title: 'In Lettura',
+          value: `${readingBooks.length}`,
+          icon: BookOpen,
+          color: 'bg-[#5C6B55]/15 text-[#5C6B55] dark:text-[#A8BB9C]'
+        };
+      case 'annual_goal':
+        return {
+          title: 'Obiettivo 2026',
+          value: `${readCount}/${profile.readingGoal || 24}`,
+          icon: Target,
+          color: 'bg-rose-500/15 text-rose-700 dark:text-rose-400'
+        };
+      case 'reading_streak':
+        return {
+          title: 'Streak',
+          value: '0 gg',
+          icon: Flame,
+          color: 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+        };
+      case 'current_progress':
+        return {
+          title: 'Avanzamento',
+          value: `${currentProgressPercent}%`,
+          icon: PieChart,
+          color: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+        };
+      case 'total_pages':
+        return {
+          title: 'Pagine',
+          value: '0',
+          icon: Bookmark,
+          color: 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
+        };
+      default:
+        return {
+          title: 'Libri Letti',
+          value: `${readCount}`,
+          icon: BookCheck,
+          color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+        };
+    }
+  };
+
+  const widget1 = getWidgetInfo(selectedWidgetKeys[0]);
+  const widget2 = getWidgetInfo(selectedWidgetKeys[1]);
 
   const handleDragEnd = (_: any, info: PanInfo) => {
     if (info.offset.y > 100 || info.velocity.y > 400) {
@@ -67,7 +141,7 @@ export const CompactProfileSheet: React.FC<CompactProfileSheetProps> = ({
             dragConstraints={{ top: 0 }}
             dragElastic={0.2}
             onDragEnd={handleDragEnd}
-            className="relative z-10 w-full max-w-md bg-[#FCFBF8] dark:bg-[#2A2826] rounded-t-[2.5rem] p-6 shadow-2xl border-t border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-5 select-none"
+            className="relative z-10 w-full max-w-md bg-[#FCFBF8] dark:bg-[#2A2826] rounded-t-[2.5rem] p-6 shadow-2xl border-t border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4 select-none"
           >
             {/* Handle di Trascinamento */}
             <div className="w-12 h-1.5 bg-[#DCD5C6] dark:bg-[#4A4743] rounded-full mx-auto mb-1 opacity-80" />
@@ -106,30 +180,47 @@ export const CompactProfileSheet: React.FC<CompactProfileSheetProps> = ({
               </button>
             </div>
 
-            {/* Mini-Grid Statistiche Sintetiche */}
-            <div className="grid grid-cols-3 gap-2.5 pt-1">
-              <div className="bg-[#F7F4EE] dark:bg-[#201E1C] p-3 rounded-2xl border border-[#E8E3D8] dark:border-[#312E2A] text-center shadow-xs">
-                <div className="w-7 h-7 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 flex items-center justify-center mx-auto mb-1">
-                  <BookCheck size={15} />
-                </div>
-                <div className="text-base font-black text-[#31362F] dark:text-[#E0DCD3]">{readCount}</div>
-                <div className="text-[10px] font-bold text-[#7A756D] dark:text-[#9A9488]">Letti</div>
-              </div>
+            {/* I 2 Widget Selezionati dall'Utente */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              {[widget1, widget2].map((w, idx) => {
+                const IconComp = w.icon;
+                return (
+                  <div
+                    key={idx}
+                    className="bg-[#F7F4EE] dark:bg-[#201E1C] p-3.5 rounded-2xl border border-[#E8E3D8] dark:border-[#312E2A] flex items-center gap-3 shadow-xs"
+                  >
+                    <div className={`w-9 h-9 rounded-xl ${w.color} flex items-center justify-center shrink-0`}>
+                      <IconComp size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-base font-black text-[#31362F] dark:text-[#E0DCD3] leading-tight truncate">
+                        {w.value}
+                      </div>
+                      <div className="text-[10px] font-bold text-[#7A756D] dark:text-[#9A9488] truncate">
+                        {w.title}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-              <div className="bg-[#F7F4EE] dark:bg-[#201E1C] p-3 rounded-2xl border border-[#E8E3D8] dark:border-[#312E2A] text-center shadow-xs">
-                <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-1">
-                  <Flame size={15} className="fill-amber-500" />
-                </div>
-                <div className="text-base font-black text-[#31362F] dark:text-[#E0DCD3]">0 gg</div>
-                <div className="text-[10px] font-bold text-[#7A756D] dark:text-[#9A9488]">Streak</div>
+            {/* Generi di Lettura in Stile Pillola */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#7A756D] dark:text-[#9A9488]">
+                <span className="flex items-center gap-1">
+                  <Tag size={13} className="text-[#5C6B55] dark:text-[#A8BB9C]" /> Generi Preferiti
+                </span>
               </div>
-
-              <div className="bg-[#F7F4EE] dark:bg-[#201E1C] p-3 rounded-2xl border border-[#E8E3D8] dark:border-[#312E2A] text-center shadow-xs">
-                <div className="w-7 h-7 rounded-xl bg-[#5C6B55]/15 text-[#5C6B55] dark:text-[#A8BB9C] flex items-center justify-center mx-auto mb-1">
-                  <BookOpen size={15} />
-                </div>
-                <div className="text-base font-black text-[#31362F] dark:text-[#E0DCD3]">{readingBooks.length}</div>
-                <div className="text-[10px] font-bold text-[#7A756D] dark:text-[#9A9488]">In lettura</div>
+              <div className="flex flex-wrap gap-1.5">
+                {genrePills.map((g, idx) => (
+                  <span
+                    key={idx}
+                    className="px-3 py-1 rounded-full bg-[#EBE5D9] dark:bg-[#383532] border border-[#DCD5C6] dark:border-[#4A4743]/60 text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] shadow-xs"
+                  >
+                    📚 {g}
+                  </span>
+                ))}
               </div>
             </div>
 
