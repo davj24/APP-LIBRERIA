@@ -7,7 +7,6 @@ import {
   BookOpen,
   Flame,
   Target,
-  Sparkles,
   ChevronRight,
   BookCheck,
   Tag,
@@ -160,7 +159,6 @@ export const CompactProfileSheet: React.FC<CompactProfileSheetProps> = ({
                 <div className="min-w-0">
                   <h3 className="text-base sm:text-lg font-black text-[#31362F] dark:text-[#E0DCD3] truncate leading-tight flex items-center gap-1.5">
                     <span>{profile.name}</span>
-                    <Sparkles size={14} className="text-amber-500 fill-amber-500 shrink-0" />
                   </h3>
                   <p className="text-xs text-[#7A756D] dark:text-[#9A9488] truncate mt-0.5 font-medium">
                     {profile.bio || 'Appassionato lettore su BiblioDesk'}

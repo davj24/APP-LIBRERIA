@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface UserProfile {
   name: string;
@@ -10,6 +10,7 @@ export interface UserProfile {
   bannerUrl?: string;
   selectedWidgets?: string[];
   favoriteGenres?: string[];
+  favoriteSubgenres?: Record<string, string[]>;
   isCompleted?: boolean;
 }
 
@@ -19,53 +20,78 @@ const DEFAULT_PROFILE: UserProfile = {
   readingGoal: 24,
   avatarColor: 'from-indigo-600 to-violet-500',
   selectedWidgets: ['read_count', 'reading_count'],
-  favoriteGenres: ['🐉 Fantasy', '📚 Narrativa'],
+  favoriteGenres: ['Fantasy & Magia', 'Narrativa & Classici'],
+  favoriteSubgenres: {},
   isCompleted: false
 };
 
 const STORAGE_KEY = 'bibliodesk_user_profile';
+const UPDATE_EVENT = 'bibliodesk_profile_updated';
+
+function getLatestLocalProfile(): UserProfile {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        ...DEFAULT_PROFILE,
+        ...parsed,
+        selectedWidgets: Array.isArray(parsed.selectedWidgets)
+          ? parsed.selectedWidgets
+          : DEFAULT_PROFILE.selectedWidgets,
+        favoriteGenres: Array.isArray(parsed.favoriteGenres)
+          ? parsed.favoriteGenres
+          : DEFAULT_PROFILE.favoriteGenres,
+        favoriteSubgenres: (parsed.favoriteSubgenres && typeof parsed.favoriteSubgenres === 'object')
+          ? parsed.favoriteSubgenres
+          : {}
+      };
+    }
+  } catch (err) {
+    console.warn('Failed to parse user profile from localStorage:', err);
+  }
+  return DEFAULT_PROFILE;
+}
 
 export function useUserProfile() {
-  const [profile, setProfile] = useState<UserProfile>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_PROFILE,
-          ...parsed,
-          selectedWidgets: (parsed.selectedWidgets && Array.isArray(parsed.selectedWidgets) && parsed.selectedWidgets.length > 0)
-            ? parsed.selectedWidgets
-            : DEFAULT_PROFILE.selectedWidgets,
-          favoriteGenres: (parsed.favoriteGenres && Array.isArray(parsed.favoriteGenres))
-            ? parsed.favoriteGenres
-            : DEFAULT_PROFILE.favoriteGenres
-        };
-      }
-      return DEFAULT_PROFILE;
-    } catch {
-      return DEFAULT_PROFILE;
-    }
-  });
+  const [profile, setProfile] = useState<UserProfile>(getLatestLocalProfile);
+
+  const reloadProfileFromStorage = useCallback(() => {
+    setProfile(getLatestLocalProfile());
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-    } catch (err) {
-      console.warn('Failed to save user profile:', err);
-    }
-  }, [profile]);
+    const handleSync = () => {
+      reloadProfileFromStorage();
+    };
+
+    window.addEventListener(UPDATE_EVENT, handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      window.removeEventListener(UPDATE_EVENT, handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, [reloadProfileFromStorage]);
 
   const updateProfile = (newProfile: Partial<UserProfile>) => {
-    setProfile(prev => ({ ...prev, ...newProfile }));
+    setProfile(prev => {
+      const updated = { ...prev, ...newProfile };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent(UPDATE_EVENT));
+      } catch (err) {
+        console.warn('Failed to save user profile:', err);
+      }
+      return updated;
+    });
   };
 
   const completeOnboarding = (onboardingData: Partial<UserProfile>) => {
-    setProfile(prev => ({
-      ...prev,
+    updateProfile({
       ...onboardingData,
       isCompleted: true
-    }));
+    });
   };
 
   const getInitials = () => {
@@ -80,3 +106,4 @@ export function useUserProfile() {
     initials: getInitials()
   };
 }
+

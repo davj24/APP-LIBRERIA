@@ -89,7 +89,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                 <div className="flex-1 min-w-0">
                   <h3 className="text-xl font-extrabold tracking-tight truncate flex items-center gap-1.5 text-white">
                     <span>{isEditing ? formData.name || 'Nome' : profile.name}</span>
-                    <Sparkles className="w-4 h-4 text-amber-400 fill-amber-400" />
                   </h3>
                   <p className="text-xs text-[#EBE5D9] font-medium truncate mt-0.5">
                     {isEditing ? formData.bio || 'Bio' : profile.bio}
