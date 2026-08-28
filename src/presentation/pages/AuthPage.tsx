@@ -128,13 +128,13 @@ export const AuthPage: React.FC = () => {
   const activeSlideData = ONBOARDING_SLIDES[currentSlide];
 
   return (
-    <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#2A2826] text-[#4A4743] dark:text-[#E0DCD3] flex flex-col justify-between p-4 sm:p-6 relative overflow-hidden select-none">
+    <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#2A2826] text-[#4A4743] dark:text-[#E0DCD3] flex flex-col justify-between items-center p-4 sm:p-6 relative overflow-hidden select-none">
       
-      {/* Dynamic Background Blur Glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#5C6B55]/15 rounded-full blur-3xl pointer-events-none" />
+      {/* Ambient Decorative Glow Orbs */}
+      <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#5C6B55]/15 dark:bg-[#A8BB9C]/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Brand Top */}
-      <header className="pt-2 sm:pt-4 flex items-center justify-between z-10">
+      <header className="pt-2 sm:pt-4 flex items-center justify-between z-10 w-full max-w-md">
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-2xl bg-[#5C6B55] text-white flex items-center justify-center shadow-md">
             <BookOpen size={20} />
@@ -150,91 +150,106 @@ export const AuthPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Area Centrale: Carosello Presentazione con Gestures Laterali */}
-      <main className="flex-1 flex flex-col justify-center items-center my-6 z-10 max-w-lg mx-auto w-full">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentSlide}
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -40 }}
-            transition={{ duration: 0.35, ease: 'easeInOut' }}
-            className="w-full text-center space-y-6 flex flex-col items-center px-2"
-          >
-            {/* Slide Badge */}
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-[#EBE5D9] dark:bg-[#383532] text-[#5C6B55] dark:text-[#A8BB9C] border border-[#DCD5C6] dark:border-[#4A4743]/60 shadow-xs">
-              <Sparkles size={13} />
-              {activeSlideData.badge}
-            </span>
+      {/* L'ISOLA CENTRALE (Central Floating Elevated Card) */}
+      <main className="my-auto z-10 max-w-md w-full">
+        <div className="bg-[#FCFBF8] dark:bg-[#201E1C] rounded-[32px] p-6 sm:p-8 border border-[#E2DDD2] dark:border-[#383430] shadow-2xl space-y-6 relative overflow-hidden">
+          
+          {/* Ambient Glow Inside Island */}
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#5C6B55]/15 rounded-full blur-xl pointer-events-none" />
 
-            {/* Slide Icon Frame */}
-            <div className="relative">
-              <div className={`w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-gradient-to-b ${activeSlideData.accentGradient} bg-[#FCFBF8] dark:bg-[#33302D] border-2 border-[#EBE5D9] dark:border-[#4A4743] shadow-xl flex items-center justify-center relative overflow-hidden`}>
-                {activeSlideData.icon}
+          {/* Slide Content inside the Island */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentSlide}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="text-center space-y-4 flex flex-col items-center"
+            >
+              {/* Badge */}
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-[#EFECE6] dark:bg-[#272422] text-[#5C6B55] dark:text-[#A8BB9C] border border-[#DCD5C6] dark:border-[#4A4743]/60 shadow-xs">
+                <Sparkles size={13} />
+                {activeSlideData.badge}
+              </span>
+
+              {/* Icon Box */}
+              <div className="relative my-1">
+                <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-b ${activeSlideData.accentGradient} bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743] shadow-md flex items-center justify-center`}>
+                  {activeSlideData.icon}
+                </div>
               </div>
-            </div>
 
-            {/* Slide Title & Subtitle */}
-            <div className="space-y-2.5 max-w-sm">
-              <h2 className="text-2xl sm:text-3xl font-black text-[#31362F] dark:text-[#ECE7DE] leading-tight tracking-tight">
-                {activeSlideData.title}
-              </h2>
-              <p className="text-xs sm:text-sm text-[#7A756D] dark:text-[#9A9488] leading-relaxed font-medium">
-                {activeSlideData.subtitle}
-              </p>
-            </div>
-          </motion.div>
-        </AnimatePresence>
+              {/* Title & Description */}
+              <div className="space-y-2">
+                <h2 className="text-xl sm:text-2xl font-black text-[#31362F] dark:text-[#ECE7DE] leading-tight tracking-tight">
+                  {activeSlideData.title}
+                </h2>
+                <p className="text-xs sm:text-sm text-[#7A756D] dark:text-[#9A9488] leading-relaxed font-medium px-2">
+                  {activeSlideData.subtitle}
+                </p>
+              </div>
+            </motion.div>
+          </AnimatePresence>
 
-        {/* Punti Indicatori a Scorrimento (Pagination Dots) */}
-        <div className="flex items-center gap-2 mt-8">
-          {ONBOARDING_SLIDES.map((slide) => (
+          {/* Pagination Dots inside the Island */}
+          <div className="flex items-center justify-center gap-2 pt-1">
+            {ONBOARDING_SLIDES.map((slide) => (
+              <button
+                key={slide.id}
+                type="button"
+                onClick={() => setCurrentSlide(slide.id)}
+                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                  currentSlide === slide.id
+                    ? 'w-7 bg-[#5C6B55] dark:bg-[#A8BB9C]'
+                    : 'w-2 bg-[#DCD5C6] dark:bg-[#4A4743] hover:bg-[#B0BEA9]'
+                }`}
+                aria-label={`Slide ${slide.id + 1}`}
+              />
+            ))}
+          </div>
+
+          {/* Action Buttons Integrated Inside the Island */}
+          <div className="border-t border-[#EBE5D9] dark:border-[#383430] pt-4 space-y-3">
+            {/* Tasto Principale Registrati */}
             <button
-              key={slide.id}
               type="button"
-              onClick={() => setCurrentSlide(slide.id)}
-              className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                currentSlide === slide.id
-                  ? 'w-7 bg-[#5C6B55] dark:bg-[#A8BB9C]'
-                  : 'w-2 bg-[#DCD5C6] dark:bg-[#4A4743] hover:bg-[#B0BEA9]'
-              }`}
-              aria-label={`Slide ${slide.id + 1}`}
-            />
-          ))}
+              onClick={() => handleOpenAuth('signup')}
+              className="w-full py-3.5 px-5 rounded-2xl bg-[#5C6B55] hover:bg-[#475441] active:scale-98 text-white text-sm font-black shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer border border-[#788C71]"
+            >
+              <Sparkles size={18} />
+              <span>Crea un Account Gratuito</span>
+              <ChevronRight size={18} className="ml-auto opacity-70" />
+            </button>
+
+            {/* Tasti Secondari: Accedi & Google Login */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleOpenAuth('signin')}
+                className="py-2.5 px-3 rounded-2xl bg-[#EFECE6] dark:bg-[#272422] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold border border-[#E2DDD2] dark:border-[#36322E] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <span>Ho già un account</span>
+              </button>
+
+              <GoogleAuthButton
+                label="Accedi con Google"
+                onError={(err) => {
+                  setErrorMsg(err);
+                  setIsAuthModalOpen(true);
+                }}
+              />
+            </div>
+          </div>
+
         </div>
       </main>
 
-      {/* Bottom Sticky Action Bar (I tasti per registrarsi o fare login fissi in basso) */}
-      <footer className="w-full max-w-md mx-auto space-y-3 z-10 pb-2">
-        <button
-          type="button"
-          onClick={() => handleOpenAuth('signup')}
-          className="w-full py-4 px-6 rounded-2xl bg-[#5C6B55] hover:bg-[#4A5744] active:scale-98 text-white text-sm font-black shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer border border-[#788C71]"
-        >
-          <Sparkles size={18} />
-          <span>Crea un Account Gratuito</span>
-          <ChevronRight size={18} className="ml-auto opacity-70" />
-        </button>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => handleOpenAuth('signin')}
-            className="py-3 px-4 rounded-2xl bg-[#FCFBF8] dark:bg-[#33302D] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold border border-[#EBE5D9] dark:border-[#4A4743]/60 shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <span>Ho già un account</span>
-          </button>
-
-          <div className="w-full">
-            <GoogleAuthButton
-              label="Google Login"
-              onError={(err) => {
-                setErrorMsg(err);
-                setIsAuthModalOpen(true);
-              }}
-            />
-          </div>
-        </div>
+      {/* Footer Legal */}
+      <footer className="z-10 text-center py-2">
+        <p className="text-[11px] text-[#8C867B] dark:text-[#888277] font-medium">
+          BiblioDesk © 2026 • Tutti i diritti riservati
+        </p>
       </footer>
 
       {/* Modale Bottom Sheet per Login / Registrazione */}
