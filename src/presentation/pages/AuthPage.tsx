@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Mail, Lock, Eye, EyeOff, Sparkles, AlertCircle, 
-  CheckCircle2, ArrowRight, Loader2, Users, Flame, ChevronRight, X 
+  CheckCircle2, ArrowRight, Loader2, Users, Flame, X 
 } from 'lucide-react';
 import { supabase } from '../../infrastructure/supabase/client';
 import { GoogleAuthButton } from '../components/auth/GoogleAuthButton';
@@ -211,34 +211,35 @@ export const AuthPage: React.FC = () => {
 
           {/* Action Buttons Integrated Inside the Island */}
           <div className="border-t border-[#EBE5D9] dark:border-[#383430] pt-4 space-y-3">
-            {/* Tasto Principale Registrati */}
-            <button
-              type="button"
-              onClick={() => handleOpenAuth('signup')}
-              className="w-full py-3.5 px-5 rounded-2xl bg-[#5C6B55] hover:bg-[#475441] active:scale-98 text-white text-sm font-black shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer border border-[#788C71]"
-            >
-              <Sparkles size={18} />
-              <span>Crea un Account Gratuito</span>
-              <ChevronRight size={18} className="ml-auto opacity-70" />
-            </button>
-
-            {/* Tasti Secondari: Accedi & Google Login */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleOpenAuth('signin')}
-                className="py-2.5 px-3 rounded-2xl bg-[#EFECE6] dark:bg-[#272422] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold border border-[#E2DDD2] dark:border-[#36322E] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <span>Ho già un account</span>
-              </button>
-
+            {/* Tasto Principale: Google OAuth */}
+            <div className="w-full">
               <GoogleAuthButton
-                label="Accedi con Google"
+                label="Continua con Google"
+                className="py-3.5"
                 onError={(err) => {
                   setErrorMsg(err);
                   setIsAuthModalOpen(true);
                 }}
               />
+            </div>
+
+            {/* Tasti Secondari per Email: Non ho un account & Ho già un account */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleOpenAuth('signup')}
+                className="py-2.5 px-3 rounded-2xl bg-[#EFECE6] dark:bg-[#272422] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold border border-[#E2DDD2] dark:border-[#36322E] flex items-center justify-center gap-1 transition-colors cursor-pointer"
+              >
+                <span>Non ho un account</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleOpenAuth('signin')}
+                className="py-2.5 px-3 rounded-2xl bg-[#EFECE6] dark:bg-[#272422] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold border border-[#E2DDD2] dark:border-[#36322E] flex items-center justify-center gap-1 transition-colors cursor-pointer"
+              >
+                <span>Ho già un account</span>
+              </button>
             </div>
           </div>
 
