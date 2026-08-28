@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useRegisterModal } from '../../context/ModalContext';
-import { useBooks } from '../../hooks/useBooks';
 import { supabase } from '../../../infrastructure/supabase/client';
 
 interface SettingsModalProps {
@@ -22,8 +21,6 @@ const DEV_PASSWORD = 'dev2026';
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onOpenAnnouncements }) => {
   useRegisterModal(isOpen);
   const { isDarkMode, toggleTheme } = useTheme();
-  const { syncFromSupabase, isLoadingSync } = useBooks();
-  const [syncSuccessMsg, setSyncSuccessMsg] = useState<string | null>(null);
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -168,42 +165,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               </div>
             </div>
 
-            {/* Sincronizzazione Cloud Section */}
-            <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl p-4 border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#5C6B55]/15 dark:bg-[#A8BB9C]/20 text-[#5C6B55] dark:text-[#A8BB9C] flex items-center justify-center">
-                    <RefreshCw className={`w-5 h-5 ${isLoadingSync ? 'animate-spin' : ''}`} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-[#4A4743] dark:text-[#E0DCD3]">Sincronizzazione Cloud</h4>
-                    <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">
-                      Sincronizza libri tra Safari, App Home e altri dispositivi
-                    </p>
-                  </div>
-                </div>
 
-                <button
-                  type="button"
-                  disabled={isLoadingSync}
-                  onClick={async () => {
-                    setSyncSuccessMsg(null);
-                    await syncFromSupabase();
-                    setSyncSuccessMsg('Sincronizzazione completata! I tuoi libri sono sincronizzati con il Cloud.');
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-[#5C6B55] hover:bg-[#4D5A46] active:scale-95 text-white font-bold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSync ? 'animate-spin' : ''}`} />
-                  <span>{isLoadingSync ? 'Sincronizzo...' : 'Sincronizza Ora'}</span>
-                </button>
-              </div>
-              {syncSuccessMsg && (
-                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                  <span>{syncSuccessMsg}</span>
-                </div>
-              )}
-            </div>
 
             {/* Account & Logout Section */}
             <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl p-4 border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-3">
