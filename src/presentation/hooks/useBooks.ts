@@ -50,7 +50,7 @@ export function useBooks() {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('Tutti');
   const [isLoadingSync, setIsLoadingSync] = useState(false);
 
-  // Sincronizzazione atomica e resiliente da Supabase (Supporta schema relazionale + tabella flat)
+  // Sincronizzazione atomica e bidirezionale (Cloud <-> Cache Locale <-> Auto-Upload)
   const syncFromSupabase = useCallback(async () => {
     try {
       setIsLoadingSync(true);
@@ -150,27 +150,75 @@ export function useBooks() {
         }
       }
 
-      // MERGE INTELLIGENTE CON CACHE LOCALE (No data loss)
+      // MERGE INTELLIGENTE CON CACHE LOCALE (No data loss + Auto Upload a Cloud)
       const localBooks = getLatestLocalBooks();
       const mergedMap = new Map<string, Book>();
 
       // 1. Inserisci prima i libri remoti scaricati dal Cloud
       fetchedRemoteBooks.forEach(b => mergedMap.set(b.id, b));
 
-      // 2. Preserva tutti i libri locali non ancora presenti sul Cloud
-      localBooks.forEach(localB => {
-        if (mergedMap.has(localB.id)) return;
-
+      // 2. Preserva i libri locali e carica su Supabase quelli non ancora presenti nel Cloud
+      const unuploadedLocalBooks = localBooks.filter(localB => {
+        if (mergedMap.has(localB.id)) return false;
         const existsInRemote = fetchedRemoteBooks.some(
           remoteB =>
             remoteB.title.trim().toLowerCase() === localB.title.trim().toLowerCase() &&
             remoteB.author.trim().toLowerCase() === localB.author.trim().toLowerCase()
         );
-
-        if (!existsInRemote) {
-          mergedMap.set(localB.id, localB);
-        }
+        return !existsInRemote;
       });
+
+      if (unuploadedLocalBooks.length > 0 && session?.user) {
+        for (const localB of unuploadedLocalBooks) {
+          try {
+            // Tenta inserimento relazionale
+            const { data: bookInsertData } = await supabase
+              .from('books')
+              .insert([{
+                title: localB.title,
+                author: localB.author,
+                cover_url: localB.coverUrl,
+                isbn: localB.isbn || null
+              }])
+              .select();
+
+            if (bookInsertData && bookInsertData[0]?.id) {
+              const createdId = bookInsertData[0].id.toString();
+              await supabase.from('user_books').insert([{
+                user_id: session.user.id,
+                book_id: bookInsertData[0].id,
+                status: localB.status || 'Da leggere'
+              }]);
+              await supabase.from('libreria_personale').insert([{
+                user_id: session.user.id,
+                book_id: bookInsertData[0].id
+              }]);
+              mergedMap.set(createdId, { ...localB, id: createdId });
+            } else {
+              // Tenta inserimento flat
+              const { data: flatData } = await supabase
+                .from('libreria_personale')
+                .insert([{
+                  user_id: session.user.id,
+                  title: localB.title,
+                  author: localB.author,
+                  cover_url: localB.coverUrl,
+                  status: localB.status || 'Da leggere'
+                }])
+                .select();
+              if (flatData && flatData[0]?.id) {
+                const createdId = flatData[0].id.toString();
+                mergedMap.set(createdId, { ...localB, id: createdId });
+              } else {
+                mergedMap.set(localB.id, localB);
+              }
+            }
+          } catch (upErr) {
+            console.warn('Auto-upload libro locale a Supabase fallito:', upErr);
+            mergedMap.set(localB.id, localB);
+          }
+        }
+      }
 
       const mergedBooks = Array.from(mergedMap.values());
       setBooks(mergedBooks);
@@ -376,8 +424,7 @@ export function useBooks() {
         return updatedBookRef;
       }
       return book;
-    }
-    );
+    });
 
     saveBooksLocally(updated);
 
