@@ -42,6 +42,25 @@ function getLatestLocalBooks(): Book[] {
   return [];
 }
 
+function getUserEmail(): string | null {
+  try {
+    const savedProfile = localStorage.getItem('bibliodesk_user_profile');
+    if (savedProfile) {
+      const parsed = JSON.parse(savedProfile);
+      if (parsed.email && typeof parsed.email === 'string' && parsed.email.trim()) {
+        return parsed.email.trim().toLowerCase();
+      }
+    }
+    const directEmail = localStorage.getItem('bibliodesk_user_email');
+    if (directEmail && directEmail.trim()) {
+      return directEmail.trim().toLowerCase();
+    }
+  } catch (e) {
+    console.warn('Errore lettura email account:', e);
+  }
+  return null;
+}
+
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>(() => {
     return getLatestLocalBooks();
@@ -50,35 +69,60 @@ export function useBooks() {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('Tutti');
   const [isLoadingSync, setIsLoadingSync] = useState(false);
 
-  // Sincronizzazione atomica e bidirezionale (Cloud <-> Cache Locale <-> Auto-Upload)
+  // Sincronizzazione basata su Email Account + Session User ID (Dispositivi Multipli / Safari / PWA)
   const syncFromSupabase = useCallback(async () => {
     try {
       setIsLoadingSync(true);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
+      const sessionEmail = session?.user?.email?.trim().toLowerCase();
+      const localEmail = getUserEmail();
+      const activeEmail = sessionEmail || localEmail;
+
+      if (sessionEmail && sessionEmail !== localEmail) {
+        localStorage.setItem('bibliodesk_user_email', sessionEmail);
+      }
+
+      const userId = session?.user?.id;
+
+      // Se non abbiamo né una sessione attiva né una email salvata, skippiamo il sync dal cloud
+      if (!userId && !activeEmail) {
         setIsLoadingSync(false);
         return;
       }
 
-      const userId = session.user.id;
       let fetchedRemoteBooks: Book[] = [];
 
-      // APPROCCIO A: Query Schema Relazionale (user_books + books)
+      // APPROCCIO A: Query Schema Relazionale (user_books + books) per Email o User ID
       try {
-        const { data: userBooksData } = await supabase
-          .from('user_books')
-          .select('*')
-          .eq('user_id', userId);
+        let userBooksQuery = supabase.from('user_books').select('*');
+        let libPersQuery = supabase.from('libreria_personale').select('*');
 
-        const { data: libPersRelData } = await supabase
-          .from('libreria_personale')
-          .select('*')
-          .eq('user_id', userId);
+        if (userId && activeEmail) {
+          userBooksQuery = userBooksQuery.or(`user_id.eq.${userId},user_email.eq.${activeEmail}`);
+          libPersQuery = libPersQuery.or(`user_id.eq.${userId},user_email.eq.${activeEmail}`);
+        } else if (userId) {
+          userBooksQuery = userBooksQuery.eq('user_id', userId);
+          libPersQuery = libPersQuery.eq('user_id', userId);
+        } else if (activeEmail) {
+          userBooksQuery = userBooksQuery.eq('user_email', activeEmail);
+          libPersQuery = libPersQuery.eq('user_email', activeEmail);
+        }
+
+        const { data: userBooksData, error: ubErr } = await userBooksQuery;
+        const { data: libPersRelData } = await libPersQuery;
+
+        let finalUserBooks = userBooksData;
+        if (ubErr || !finalUserBooks) {
+          const fallbackUB = await supabase.from('user_books').select('*');
+          finalUserBooks = fallbackUB.data;
+        }
+
+        let finalLibPers = libPersRelData;
 
         const bookIdMap = new Map<string, { status?: string; pagesRead?: number; startDate?: string; endDate?: string }>();
 
-        if (userBooksData && Array.isArray(userBooksData)) {
-          userBooksData.forEach(ub => {
+        if (finalUserBooks && Array.isArray(finalUserBooks)) {
+          finalUserBooks.forEach(ub => {
             if (ub.book_id) {
               bookIdMap.set(ub.book_id.toString(), {
                 status: ub.status || 'Da leggere',
@@ -90,8 +134,8 @@ export function useBooks() {
           });
         }
 
-        if (libPersRelData && Array.isArray(libPersRelData)) {
-          libPersRelData.forEach(lp => {
+        if (finalLibPers && Array.isArray(finalLibPers)) {
+          finalLibPers.forEach(lp => {
             if (lp.book_id && !bookIdMap.has(lp.book_id.toString())) {
               bookIdMap.set(lp.book_id.toString(), { status: 'Da leggere' });
             }
@@ -128,13 +172,19 @@ export function useBooks() {
         console.warn('Query relazionale (user_books + books) non disponibile, provo fallback flat:', relErr);
       }
 
-      // APPROCCIO B: Fallback Query Tabella Flat (libreria_personale con colonne dirette)
+      // APPROCCIO B: Fallback Query Tabella Flat per Email o User ID
       if (fetchedRemoteBooks.length === 0) {
         try {
-          let { data, error } = await supabase
-            .from('libreria_personale')
-            .select('*')
-            .order('created_at', { ascending: false });
+          let flatQuery = supabase.from('libreria_personale').select('*');
+          if (userId && activeEmail) {
+            flatQuery = flatQuery.or(`user_id.eq.${userId},user_email.eq.${activeEmail}`);
+          } else if (userId) {
+            flatQuery = flatQuery.eq('user_id', userId);
+          } else if (activeEmail) {
+            flatQuery = flatQuery.eq('user_email', activeEmail);
+          }
+
+          let { data, error } = await flatQuery.order('created_at', { ascending: false });
 
           if (error || !data) {
             const fallback1 = await supabase.from('libreria_personale').select('*');
@@ -150,14 +200,14 @@ export function useBooks() {
         }
       }
 
-      // MERGE INTELLIGENTE CON CACHE LOCALE (No data loss + Auto Upload a Cloud)
+      // MERGE INTELLIGENTE CON CACHE LOCALE (No data loss + Auto Upload a Cloud basato su Email)
       const localBooks = getLatestLocalBooks();
       const mergedMap = new Map<string, Book>();
 
-      // 1. Inserisci prima i libri remoti scaricati dal Cloud
+      // 1. Inserisci i libri remoti dal Cloud
       fetchedRemoteBooks.forEach(b => mergedMap.set(b.id, b));
 
-      // 2. Preserva i libri locali e carica su Supabase quelli non ancora presenti nel Cloud
+      // 2. Preserva i libri locali e carica su Supabase quelli non ancora presenti sul Cloud col riferimento all'Email
       const unuploadedLocalBooks = localBooks.filter(localB => {
         if (mergedMap.has(localB.id)) return false;
         const existsInRemote = fetchedRemoteBooks.some(
@@ -168,7 +218,7 @@ export function useBooks() {
         return !existsInRemote;
       });
 
-      if (unuploadedLocalBooks.length > 0 && session?.user) {
+      if (unuploadedLocalBooks.length > 0) {
         for (const localB of unuploadedLocalBooks) {
           try {
             // Tenta inserimento relazionale
@@ -178,19 +228,22 @@ export function useBooks() {
                 title: localB.title,
                 author: localB.author,
                 cover_url: localB.coverUrl,
-                isbn: localB.isbn || null
+                isbn: localB.isbn || null,
+                user_email: activeEmail || null
               }])
               .select();
 
             if (bookInsertData && bookInsertData[0]?.id) {
               const createdId = bookInsertData[0].id.toString();
               await supabase.from('user_books').insert([{
-                user_id: session.user.id,
+                user_id: userId || 'email-user',
+                user_email: activeEmail || null,
                 book_id: bookInsertData[0].id,
                 status: localB.status || 'Da leggere'
               }]);
               await supabase.from('libreria_personale').insert([{
-                user_id: session.user.id,
+                user_id: userId || 'email-user',
+                user_email: activeEmail || null,
                 book_id: bookInsertData[0].id
               }]);
               mergedMap.set(createdId, { ...localB, id: createdId });
@@ -199,7 +252,8 @@ export function useBooks() {
               const { data: flatData } = await supabase
                 .from('libreria_personale')
                 .insert([{
-                  user_id: session.user.id,
+                  user_id: userId || 'email-user',
+                  user_email: activeEmail || null,
                   title: localB.title,
                   author: localB.author,
                   cover_url: localB.coverUrl,
@@ -276,8 +330,7 @@ export function useBooks() {
   };
 
   /**
-   * addBookToLibrary - Approccio Dual-Storage Garantito (Relazionale + Flat Fallback)
-   * Il libro viene SEMPRE salvato in locale e sincronizzato col Cloud in qualsiasi struttura DB.
+   * addBookToLibrary - Salva il libro associandolo all'Email dell'Account
    */
   const addBookToLibrary = async (bookData: Omit<Book, 'id'>): Promise<{ success: boolean; book?: Book; error?: string }> => {
     const tempId = `book-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -305,70 +358,74 @@ export function useBooks() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        let createdBookId: string | null = null;
+      const activeEmail = session?.user?.email || getUserEmail();
+      const userId = session?.user?.id || 'email-user';
 
-        // 1. TENTATIVO SCHEMA RELAZIONALE: Inserimento in `books`
+      let createdBookId: string | null = null;
+
+      // 1. TENTATIVO SCHEMA RELAZIONALE: Inserimento in `books`
+      try {
+        const { data: bookInsertData } = await supabase
+          .from('books')
+          .insert([{
+            title: newBook.title,
+            author: newBook.author,
+            cover_url: newBook.coverUrl,
+            isbn: newBook.isbn || null,
+            user_email: activeEmail || null
+          }])
+          .select();
+
+        if (bookInsertData && bookInsertData[0]?.id) {
+          createdBookId = bookInsertData[0].id.toString();
+
+          // Inserisci in user_books con user_email
+          await supabase.from('user_books').insert([{
+            user_id: userId,
+            user_email: activeEmail || null,
+            book_id: bookInsertData[0].id,
+            status: newBook.status || 'Da leggere'
+          }]);
+
+          // Inserisci in libreria_personale con user_email
+          await supabase.from('libreria_personale').insert([{
+            user_id: userId,
+            user_email: activeEmail || null,
+            book_id: bookInsertData[0].id
+          }]);
+        }
+      } catch (relErr) {
+        console.warn('Inserimento relazionale books/user_books non riuscito:', relErr);
+      }
+
+      // 2. TENTATIVO SCHEMA FLAT: Fallback inserimento diretto in `libreria_personale`
+      if (!createdBookId) {
         try {
-          const { data: bookInsertData } = await supabase
-            .from('books')
+          const { data: flatInsertData } = await supabase
+            .from('libreria_personale')
             .insert([{
+              user_id: userId,
+              user_email: activeEmail || null,
               title: newBook.title,
               author: newBook.author,
               cover_url: newBook.coverUrl,
-              isbn: newBook.isbn || null
+              status: newBook.status || 'Da leggere'
             }])
             .select();
 
-          if (bookInsertData && bookInsertData[0]?.id) {
-            createdBookId = bookInsertData[0].id.toString();
-
-            // Inserisci in user_books
-            await supabase.from('user_books').insert([{
-              user_id: session.user.id,
-              book_id: bookInsertData[0].id,
-              status: newBook.status || 'Da leggere'
-            }]);
-
-            // Inserisci in libreria_personale
-            await supabase.from('libreria_personale').insert([{
-              user_id: session.user.id,
-              book_id: bookInsertData[0].id
-            }]);
+          if (flatInsertData && flatInsertData[0]?.id) {
+            createdBookId = flatInsertData[0].id.toString();
           }
-        } catch (relErr) {
-          console.warn('Inserimento relazionale books/user_books non riuscito:', relErr);
+        } catch (flatErr) {
+          console.warn('Inserimento flat libreria_personale non riuscito:', flatErr);
         }
+      }
 
-        // 2. TENTATIVO SCHEMA FLAT: Fallback inserimento diretto in `libreria_personale`
-        if (!createdBookId) {
-          try {
-            const { data: flatInsertData } = await supabase
-              .from('libreria_personale')
-              .insert([{
-                user_id: session.user.id,
-                title: newBook.title,
-                author: newBook.author,
-                cover_url: newBook.coverUrl,
-                status: newBook.status || 'Da leggere'
-              }])
-              .select();
-
-            if (flatInsertData && flatInsertData[0]?.id) {
-              createdBookId = flatInsertData[0].id.toString();
-            }
-          } catch (flatErr) {
-            console.warn('Inserimento flat libreria_personale non riuscito:', flatErr);
-          }
-        }
-
-        if (createdBookId) {
-          const latest = getLatestLocalBooks();
-          const finalBooks = latest.map(b => b.id === tempId ? { ...b, id: createdBookId! } : b);
-          saveBooksLocally(finalBooks);
-          return { success: true, book: { ...newBook, id: createdBookId } };
-        }
+      if (createdBookId) {
+        const latest = getLatestLocalBooks();
+        const finalBooks = latest.map(b => b.id === tempId ? { ...b, id: createdBookId! } : b);
+        saveBooksLocally(finalBooks);
+        return { success: true, book: { ...newBook, id: createdBookId } };
       }
 
       return { success: true, book: newBook };

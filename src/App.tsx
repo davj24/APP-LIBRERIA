@@ -25,6 +25,9 @@ function AppContent() {
     // 1. Recupera la sessione iniziale di Supabase al montaggio dell'app
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.user?.email) {
+        localStorage.setItem('bibliodesk_user_email', session.user.email.trim().toLowerCase());
+      }
       setLoading(false);
     }).catch((err) => {
       console.error("Errore nel recupero della sessione Supabase:", err);
@@ -38,6 +41,9 @@ function AppContent() {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session?.user?.email) {
+        localStorage.setItem('bibliodesk_user_email', session.user.email.trim().toLowerCase());
+      }
       setLoading(false);
 
       // Pulisce l'URL dall'hash token se l'utente è stato autenticato da OAuth

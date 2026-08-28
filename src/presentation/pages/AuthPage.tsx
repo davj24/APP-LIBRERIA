@@ -31,9 +31,12 @@ export const AuthPage: React.FC = () => {
     setIsLoading(true);
 
     try {
+      const cleanEmail = email.trim().toLowerCase();
+      localStorage.setItem('bibliodesk_user_email', cleanEmail);
+
       if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
+          email: cleanEmail,
           password: password
         });
 
@@ -46,7 +49,7 @@ export const AuthPage: React.FC = () => {
         }
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: cleanEmail,
           password: password
         });
 
