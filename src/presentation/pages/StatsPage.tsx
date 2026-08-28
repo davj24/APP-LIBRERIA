@@ -1,16 +1,91 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBooks } from '../hooks/useBooks';
-import { TrendingUp, Flame, Award, PieChart, Sparkles } from 'lucide-react';
+import { TrendingUp, Flame, Award, PieChart, Sparkles, Lock, BarChart3, Clock, ShieldCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export const StatsPage: React.FC = () => {
   const { books } = useBooks();
 
+  // Verifica se la modalità sviluppatore è sbloccata in sessionStorage
+  const [isDevUnlocked, setIsDevUnlocked] = useState<boolean>(() => {
+    return sessionStorage.getItem('bibliodesk_dev_session') === 'true';
+  });
+
+  useEffect(() => {
+    const checkDevStatus = () => {
+      setIsDevUnlocked(sessionStorage.getItem('bibliodesk_dev_session') === 'true');
+    };
+
+    checkDevStatus();
+    window.addEventListener('storage', checkDevStatus);
+    return () => window.removeEventListener('storage', checkDevStatus);
+  }, []);
+
+  // Se l'utente NON ha sbloccato la modalità sviluppatore, mostra la schermata Coming Soon
+  if (!isDevUnlocked) {
+    return (
+      <div className="space-y-4 animate-in fade-in duration-200">
+        {/* Intestazione */}
+        <div>
+          <h2 className="text-xl font-bold text-[#4A4743] dark:text-[#E0DCD3] tracking-tight flex items-center gap-2">
+            <span>Statistiche & Analytics</span>
+            <Sparkles className="w-4 h-4 text-amber-600 fill-amber-600" />
+          </h2>
+          <p className="text-xs text-[#7A756D] dark:text-[#A09A90] font-medium">
+            Panoramica delle tue abitudini di lettura
+          </p>
+        </div>
+
+        {/* Card Coming Soon per Utenti Non Sviluppatori */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#FCFBF8] dark:bg-[#33302D] rounded-3xl p-8 border border-[#EBE5D9] dark:border-[#4A4743]/60 shadow-lg text-center space-y-5 relative overflow-hidden my-4"
+        >
+          {/* Ambient Glow */}
+          <div className="absolute -top-12 -right-12 w-40 h-40 bg-[#5C6B55]/15 dark:bg-[#A8BB9C]/10 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Badge In Arrivo */}
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-black bg-[#EFECE6] dark:bg-[#272422] text-[#5C6B55] dark:text-[#A8BB9C] border border-[#DCD5C6] dark:border-[#4A4743]/60 shadow-xs">
+            <Clock size={13} />
+            <span>IN ARRIVO • COMING SOON</span>
+          </div>
+
+          {/* Icona Principale con Lucchetto */}
+          <div className="w-24 h-24 mx-auto rounded-3xl bg-[#F4F1EA] dark:bg-[#2A2826] border-2 border-[#EBE5D9] dark:border-[#4A4743] text-[#5C6B55] dark:text-[#A8BB9C] flex items-center justify-center shadow-md relative">
+            <BarChart3 className="w-12 h-12" />
+            <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-sm">
+              <Lock size={14} />
+            </div>
+          </div>
+
+          {/* Titolo e Descrizione */}
+          <div className="max-w-sm mx-auto space-y-2">
+            <h3 className="text-xl font-black text-[#31362F] dark:text-[#ECE7DE] tracking-tight">
+              Statistiche Avanzate in Arrivo
+            </h3>
+            <p className="text-xs text-[#7A756D] dark:text-[#9A9488] leading-relaxed font-medium">
+              Stiamo perfezionando i nuovi grafici interattivi, l’analisi dettagliata dei generi letterari e la tracciatura avanzata della streak di lettura per i prossimi aggiornamenti.
+            </p>
+          </div>
+
+          {/* Nota Modalità Sviluppatore */}
+          <div className="pt-3 border-t border-[#EBE5D9] dark:border-[#4A4743]/40 max-w-xs mx-auto">
+            <p className="text-[11px] text-[#8C867B] dark:text-[#888277] flex items-center justify-center gap-1.5 font-medium">
+              <ShieldCheck size={14} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
+              <span>Sblocco Modalità Sviluppatore per l'anteprima</span>
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Se la Modalità Sviluppatore è SBLOCCATA, mostra l'intera dashboard delle statistiche
   const booksRead = books.filter(b => b.status === 'Letto');
   const booksReading = books.filter(b => b.status === 'In lettura');
-
   const totalPagesRead = books.reduce((acc, b) => acc + (b.pagesRead || (b.status === 'Letto' ? b.totalPages || 0 : 0)), 0);
 
-  // Genre breakdown computation
   const genresMap: Record<string, number> = {};
   books.forEach(b => {
     const genre = b.genre || 'Altri';
@@ -22,11 +97,11 @@ export const StatsPage: React.FC = () => {
       {/* Title */}
       <div>
         <h2 className="text-xl font-bold text-[#4A4743] dark:text-[#E0DCD3] tracking-tight flex items-center gap-2">
-          <span>Statistiche & Analytics</span>
+          <span>Statistiche & Analytics (Dev Preview)</span>
           <Sparkles className="w-4 h-4 text-amber-600 fill-amber-600" />
         </h2>
         <p className="text-xs text-[#7A756D] dark:text-[#A09A90] font-medium">
-          Panoramica delle tue abitudini di lettura
+          Panoramica completa sviluppatore
         </p>
       </div>
 
