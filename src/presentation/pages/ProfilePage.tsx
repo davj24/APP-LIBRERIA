@@ -322,6 +322,15 @@ export const ProfilePage: React.FC = () => {
   const isAnyOverlayOpen = isEditing || showWidgetLibraryModal || showCreateCollectionModal || isAllCollectionsModalOpen || openedCollection !== null || editingCollection !== null || imagePickerType !== null;
   useRegisterModal(isAnyOverlayOpen);
 
+  const [openSubgenreMap, setOpenSubgenreMap] = useState<Record<string, boolean>>({});
+
+  const toggleSubgenreDropdown = (genreName: string) => {
+    setOpenSubgenreMap(prev => ({
+      ...prev,
+      [genreName]: !prev[genreName]
+    }));
+  };
+
   const [expandedGenre, setExpandedGenre] = useState<string | null>(null);
 
   const [profile, setProfile] = useState({
@@ -878,11 +887,48 @@ export const ProfilePage: React.FC = () => {
                        </span>
                      </div>
 
+                     {/* Generi Già Selezionati (Panoramica per visualizzarli e rimuoverli rapidamente) */}
+                     {draftProfile.favoriteGenres && draftProfile.favoriteGenres.length > 0 && (
+                       <div className="p-3 rounded-2xl bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border border-[#5C6B55]/30 space-y-1.5">
+                         <span className="text-[10px] font-extrabold text-[#5C6B55] dark:text-[#A0AF99] uppercase tracking-wider block">
+                           Generi Attualmente Selezionati:
+                         </span>
+                         <div className="flex flex-wrap gap-1.5">
+                           {draftProfile.favoriteGenres.map((gName) => {
+                             const subs = draftProfile.favoriteSubgenres?.[gName] || [];
+                             return (
+                               <div
+                                 key={gName}
+                                 className="px-2.5 py-1 rounded-full text-xs font-bold bg-white dark:bg-neutral-800 text-[#31362F] dark:text-[#E0DCD3] border border-[#5C6B55]/30 flex items-center gap-1.5 shadow-2xs"
+                               >
+                                 <span>{gName}</span>
+                                 {subs.length > 0 && (
+                                   <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#5C6B55] text-white">
+                                     {subs.length}
+                                   </span>
+                                 )}
+                                 <button
+                                   type="button"
+                                   onClick={() => handleToggleGenre(gName)}
+                                   className="w-4 h-4 rounded-full bg-neutral-200 dark:bg-neutral-700 hover:bg-rose-500 hover:text-white text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition-colors cursor-pointer"
+                                   title={`Rimuovi ${gName}`}
+                                 >
+                                   <X size={10} strokeWidth={3} />
+                                 </button>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       </div>
+                     )}
+
+                     {/* Lista Completa dei Generi con Pallino + Freccia Tendina Sottogeneri */}
                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                        {Object.keys(GENRES_MAP).map((genreName) => {
                          const isSelected = draftProfile.favoriteGenres?.includes(genreName);
                          const subgenresAvailable = GENRES_MAP[genreName] || [];
                          const selectedSubgenres = draftProfile.favoriteSubgenres?.[genreName] || [];
+                         const isDropdownOpen = !!openSubgenreMap[genreName];
 
                          return (
                            <div
@@ -893,23 +939,63 @@ export const ProfilePage: React.FC = () => {
                                  : 'bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700/60'
                              }`}
                            >
-                             <div className="flex items-center justify-between cursor-pointer" onClick={() => handleToggleGenre(genreName)}>
+                             <div className="flex items-center justify-between">
                                <span className={`text-xs font-bold ${isSelected ? 'text-[#5C6B55] dark:text-[#A0AF99]' : 'text-neutral-700 dark:text-neutral-300'}`}>
                                  {genreName}
                                </span>
-                               <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-colors ${
-                                 isSelected ? 'bg-[#5C6B55] border-[#5C6B55] text-white' : 'border-neutral-300 dark:border-neutral-600'
-                               }`}>
-                                 {isSelected && <Check size={12} strokeWidth={3} />}
+
+                               <div className="flex items-center gap-2">
+                                 {/* Tasto Freccia Tendina Sottogeneri */}
+                                 {subgenresAvailable.length > 0 && (
+                                   <button
+                                     type="button"
+                                     onClick={() => toggleSubgenreDropdown(genreName)}
+                                     className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                                       isDropdownOpen
+                                         ? 'bg-[#5C6B55] text-white border-[#5C6B55]'
+                                         : 'bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600 hover:bg-neutral-200'
+                                     }`}
+                                     title="Apri/chiudi sottogeneri"
+                                   >
+                                     <span className="text-[10px]">Sottogeneri</span>
+                                     {selectedSubgenres.length > 0 && (
+                                       <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-white/20 text-current">
+                                         {selectedSubgenres.length}
+                                       </span>
+                                     )}
+                                     {isDropdownOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                   </button>
+                                 )}
+
+                                 {/* Pallino di Selezione Genere (Solo selezione genere senza aprire la tendina) */}
+                                 <button
+                                   type="button"
+                                   onClick={() => handleToggleGenre(genreName)}
+                                   className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all cursor-pointer ${
+                                     isSelected
+                                       ? 'bg-[#5C6B55] border-[#5C6B55] text-white shadow-xs'
+                                       : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 bg-white dark:bg-neutral-800'
+                                   }`}
+                                   title={isSelected ? `Deseleziona ${genreName}` : `Seleziona ${genreName}`}
+                                 >
+                                   {isSelected && <Check size={14} strokeWidth={3} />}
+                                 </button>
                                </div>
                              </div>
 
-                             {/* Sottogeneri Opzionali se il Genere è selezionato */}
-                             {isSelected && subgenresAvailable.length > 0 && (
+                             {/* Sottogeneri Opzionali in Tendina (Si aprono SOLO al click sulla freccia tendina) */}
+                             {isDropdownOpen && subgenresAvailable.length > 0 && (
                                <div className="mt-2.5 pt-2 border-t border-[#5C6B55]/20 space-y-1.5">
-                                 <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-wider block">
-                                   Sottogeneri Preferiti (Opzionali):
-                                 </span>
+                                 <div className="flex items-center justify-between">
+                                   <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-wider block">
+                                     Seleziona Sottogeneri Preferiti (Opzionali):
+                                   </span>
+                                   {!isSelected && (
+                                     <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                       (Seleziona anche il genere per salvarli)
+                                     </span>
+                                   )}
+                                 </div>
                                  <div className="flex flex-wrap gap-1">
                                    {subgenresAvailable.map((subName) => {
                                      const isSubSelected = selectedSubgenres.includes(subName);
@@ -917,8 +1003,10 @@ export const ProfilePage: React.FC = () => {
                                        <button
                                          key={subName}
                                          type="button"
-                                         onClick={(e) => {
-                                           e.stopPropagation();
+                                         onClick={() => {
+                                           if (!isSelected) {
+                                             handleToggleGenre(genreName);
+                                           }
                                            handleToggleSubgenre(genreName, subName);
                                          }}
                                          className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
