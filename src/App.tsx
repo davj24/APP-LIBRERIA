@@ -22,11 +22,34 @@ function AppContent() {
   const { profile, updateProfile } = useUserProfile();
 
   useEffect(() => {
+    const checkExistingProfile = async (user: any) => {
+      if (!user?.id) return;
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, avatar_url, bio')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (data && (data.full_name || data.username)) {
+          updateProfile({
+            name: data.full_name || data.username,
+            bio: data.bio || '',
+            avatarUrl: data.avatar_url || undefined,
+            isCompleted: true
+          });
+        }
+      } catch (e) {
+        console.warn('Errore verifica profilo esistente:', e);
+      }
+    };
+
     // 1. Recupera la sessione iniziale di Supabase al montaggio dell'app
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user?.email) {
         localStorage.setItem('bibliodesk_user_email', session.user.email.trim().toLowerCase());
+        checkExistingProfile(session.user);
       }
       setLoading(false);
     }).catch((err) => {
@@ -43,6 +66,7 @@ function AppContent() {
       setSession(session);
       if (session?.user?.email) {
         localStorage.setItem('bibliodesk_user_email', session.user.email.trim().toLowerCase());
+        checkExistingProfile(session.user);
       }
       setLoading(false);
 
