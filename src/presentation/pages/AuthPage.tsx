@@ -143,7 +143,7 @@ export const AuthPage: React.FC = () => {
               BiblioDesk
             </h1>
             <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488]">
-              Book Club & Reading Tracker
+              Digital Library & Reading Tracker
             </p>
           </div>
         </div>
