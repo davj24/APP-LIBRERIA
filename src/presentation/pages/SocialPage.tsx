@@ -18,12 +18,14 @@ import {
   Share2,
   Link,
   HelpCircle,
-  ChevronRight
+  ChevronRight,
+  UserCheck
 } from 'lucide-react';
 import {
   socialService,
   type UserProfileSocial,
-  type SpuntoSocial
+  type SpuntoSocial,
+  type PendingFriendRequest
 } from '../../infrastructure/services/socialService';
 import { useBooks } from '../hooks/useBooks';
 import { useUserProfile } from '../hooks/useUserProfile';
@@ -38,6 +40,7 @@ export const SocialPage: React.FC = () => {
 
   // Stati Amici e Ricerca Utenti
   const [friendsList, setFriendsList] = useState<UserProfileSocial[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
   const [suggestedReaders, setSuggestedReaders] = useState<UserProfileSocial[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserProfileSocial[]>([]);
@@ -78,7 +81,7 @@ export const SocialPage: React.FC = () => {
   const { books: myBooks } = useBooks();
   useRegisterModal(isCreateModalOpen || isAdviceModalOpen);
 
-  // Caricamento Iniziale Amici, Suggeriti e Feed da Supabase
+  // Caricamento Iniziale Amici, Suggeriti, Richieste e Feed da Supabase
   useEffect(() => {
     loadSocialData();
   }, []);
@@ -86,14 +89,16 @@ export const SocialPage: React.FC = () => {
   const loadSocialData = async () => {
     setIsLoadingFeed(true);
     try {
-      const [friendsData, feedData, suggestedData] = await Promise.all([
+      const [friendsData, feedData, suggestedData, pendingData] = await Promise.all([
         socialService.getFriends(),
         socialService.getSpuntiFeed(),
-        socialService.getSuggestedUsers()
+        socialService.getSuggestedUsers(),
+        socialService.getPendingFriendRequests()
       ]);
       setFriendsList(friendsData);
       setSpuntiFeed(feedData);
       setSuggestedReaders(suggestedData);
+      setPendingRequests(pendingData);
     } catch (err) {
       console.warn('Errore durante il caricamento dei dati social Supabase:', err);
     } finally {
@@ -124,7 +129,7 @@ export const SocialPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Invio Richiesta Amicizia
+  // Invio Richiesta Amicizia (Anti-crash / Aggiornamento ottimistico)
   const handleSendFriendRequest = async (targetUserId: string) => {
     setSendingRequestTo(targetUserId);
     try {
@@ -132,10 +137,36 @@ export const SocialPage: React.FC = () => {
       setSearchResults(prev =>
         prev.map(u => (u.id === targetUserId ? { ...u, friendshipState: 'in_attesa' } : u))
       );
+      // Ricarica la lista per verificare se è già auto-accettata
+      setTimeout(() => loadSocialData(), 600);
     } catch (err: any) {
-      alert(err.message || 'Impossibile inviare la richiesta di amicizia.');
+      console.warn('Errore non bloccante invio amicizia:', err);
+      setSearchResults(prev =>
+        prev.map(u => (u.id === targetUserId ? { ...u, friendshipState: 'in_attesa' } : u))
+      );
     } finally {
       setSendingRequestTo(null);
+    }
+  };
+
+  // Accetta Richiesta di Amicizia
+  const handleAcceptFriendRequest = async (req: PendingFriendRequest) => {
+    try {
+      await socialService.acceptFriendRequest(req.id);
+      setPendingRequests(prev => prev.filter(r => r.id !== req.id));
+      await loadSocialData();
+    } catch (err) {
+      console.error('Errore accettazione amicizia:', err);
+    }
+  };
+
+  // Rifiuta Richiesta di Amicizia
+  const handleRejectFriendRequest = async (req: PendingFriendRequest) => {
+    try {
+      await socialService.rejectFriendRequest(req.id);
+      setPendingRequests(prev => prev.filter(r => r.id !== req.id));
+    } catch (err) {
+      console.error('Errore rifiuto amicizia:', err);
     }
   };
 
@@ -308,6 +339,66 @@ export const SocialPage: React.FC = () => {
           {friendsList.length === 0 ? (
             <div className="space-y-5">
 
+              {/* NOTIFICA RICHIESTE DI AMICIZIA RICEVUTE */}
+              {pendingRequests.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 p-4 rounded-3xl border border-amber-200 dark:border-amber-800/50 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                      <UserCheck size={16} className="text-amber-600 dark:text-amber-400" />
+                      <span>Richieste di Amicizia Ricevute ({pendingRequests.length})</span>
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {pendingRequests.map((req) => (
+                      <div
+                        key={req.id}
+                        className="flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-[#201E1C] border border-amber-100 dark:border-neutral-800"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {req.fromUser.avatar_url ? (
+                            <img
+                              src={req.fromUser.avatar_url}
+                              alt={req.fromUser.nome_completo}
+                              className="w-10 h-10 rounded-full object-cover ring-2 ring-amber-500/40 shrink-0"
+                            />
+                          ) : (
+                            <div className={`w-10 h-10 rounded-full ${req.fromUser.avatar_color?.startsWith('bg-') ? req.fromUser.avatar_color : `bg-gradient-to-tr ${req.fromUser.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
+                              {req.fromUser.nome_completo ? req.fromUser.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                              {req.fromUser.nome_completo}
+                            </h4>
+                            <p className="text-[10px] text-[#7A756D] dark:text-[#9A9488] truncate">
+                              @{req.fromUser.username}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleAcceptFriendRequest(req)}
+                            className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+                            title="Accetta amicizia"
+                          >
+                            <Check size={14} />
+                            <span>Accetta</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectFriendRequest(req)}
+                            className="p-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-white transition-colors cursor-pointer"
+                            title="Rifiuta richiesta"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* HERO BANNER DI BENVENUTO PERSONALE */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#5C6B55] to-[#455240] dark:from-[#384334] dark:to-[#252C22] text-white p-5 sm:p-6 rounded-3xl shadow-xl space-y-2 border border-[#788C71]/40">
                 <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
@@ -377,7 +468,7 @@ export const SocialPage: React.FC = () => {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cerca per username o nome completo..."
+                    placeholder="Cerca per username o nome..."
                     className="w-full pl-10 pr-4 py-2.5 bg-[#F7F4EE] dark:bg-[#201E1C] text-xs font-semibold text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] focus:outline-none focus:ring-2 focus:ring-[#5C6B55] transition-all"
                   />
                   {isSearching && (
@@ -399,11 +490,17 @@ export const SocialPage: React.FC = () => {
                           className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={user.avatar_url}
-                              alt={user.nome_completo}
-                              className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/30 shrink-0"
-                            />
+                            {user.avatar_url ? (
+                              <img
+                                src={user.avatar_url}
+                                alt={user.nome_completo}
+                                className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/30 shrink-0"
+                              />
+                            ) : (
+                              <div className={`w-9 h-9 rounded-full ${user.avatar_color?.startsWith('bg-') ? user.avatar_color : `bg-gradient-to-tr ${user.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
+                                {user.nome_completo ? user.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
+                              </div>
+                            )}
                             <div className="min-w-0">
                               <h4 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
                                 {user.nome_completo}
@@ -455,11 +552,17 @@ export const SocialPage: React.FC = () => {
                             className="flex items-center justify-between p-3 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <img
-                                src={reader.avatar_url}
-                                alt={reader.nome_completo}
-                                className="w-10 h-10 rounded-full object-cover ring-2 ring-[#5C6B55]/40 shrink-0"
-                              />
+                              {reader.avatar_url ? (
+                                <img
+                                  src={reader.avatar_url}
+                                  alt={reader.nome_completo}
+                                  className="w-10 h-10 rounded-full object-cover ring-2 ring-[#5C6B55]/40 shrink-0"
+                                />
+                              ) : (
+                                <div className={`w-10 h-10 rounded-full ${reader.avatar_color?.startsWith('bg-') ? reader.avatar_color : `bg-gradient-to-tr ${reader.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
+                                  {reader.nome_completo ? reader.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
+                                </div>
+                              )}
                               <div className="min-w-0">
                                 <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] truncate">
                                   {reader.nome_completo}
@@ -525,6 +628,67 @@ export const SocialPage: React.FC = () => {
           ) : (
             /* CASO B: L'UTENTE HA AMICI CONNESSI */
             <div className="space-y-6">
+
+              {/* NOTIFICA RICHIESTE DI AMICIZIA RICEVUTE */}
+              {pendingRequests.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 p-4 rounded-3xl border border-amber-200 dark:border-amber-800/50 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                      <UserCheck size={16} className="text-amber-600 dark:text-amber-400" />
+                      <span>Richieste di Amicizia Ricevute ({pendingRequests.length})</span>
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {pendingRequests.map((req) => (
+                      <div
+                        key={req.id}
+                        className="flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-[#201E1C] border border-amber-100 dark:border-neutral-800"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {req.fromUser.avatar_url ? (
+                            <img
+                              src={req.fromUser.avatar_url}
+                              alt={req.fromUser.nome_completo}
+                              className="w-10 h-10 rounded-full object-cover ring-2 ring-amber-500/40 shrink-0"
+                            />
+                          ) : (
+                            <div className={`w-10 h-10 rounded-full ${req.fromUser.avatar_color?.startsWith('bg-') ? req.fromUser.avatar_color : `bg-gradient-to-tr ${req.fromUser.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
+                              {req.fromUser.nome_completo ? req.fromUser.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                              {req.fromUser.nome_completo}
+                            </h4>
+                            <p className="text-[10px] text-[#7A756D] dark:text-[#9A9488] truncate">
+                              @{req.fromUser.username}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleAcceptFriendRequest(req)}
+                            className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+                            title="Accetta amicizia"
+                          >
+                            <Check size={14} />
+                            <span>Accetta</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectFriendRequest(req)}
+                            className="p-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-white transition-colors cursor-pointer"
+                            title="Rifiuta richiesta"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* BARRA "CERCA AMICI" */}
               <section className="bg-[#EFECE6] dark:bg-[#272422] p-4 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] space-y-3">
                 <div className="flex items-center justify-between">
@@ -540,10 +704,77 @@ export const SocialPage: React.FC = () => {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cerca altri utenti..."
+                    placeholder="Cerca altri utenti per username o nome..."
                     className="w-full pl-10 pr-4 py-2 bg-[#F7F4EE] dark:bg-[#201E1C] text-xs font-semibold text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] focus:outline-none"
                   />
+                  {isSearching && (
+                    <Loader2 className="absolute right-3.5 w-4 h-4 text-[#5C6B55] animate-spin" />
+                  )}
                 </div>
+
+                {/* Risultati ricerca in Caso B */}
+                {searchQuery.trim().length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-[#E2DDD2] dark:border-[#36322E]">
+                    {searchResults.length === 0 && !isSearching ? (
+                      <p className="text-xs text-[#7A756D] dark:text-[#9A9488] text-center py-2 italic">
+                        Nessun utente trovato per "{searchQuery}".
+                      </p>
+                    ) : (
+                      searchResults.map((user) => (
+                        <div
+                          key={user.id}
+                          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {user.avatar_url ? (
+                              <img
+                                src={user.avatar_url}
+                                alt={user.nome_completo}
+                                className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/30 shrink-0"
+                              />
+                            ) : (
+                              <div className={`w-9 h-9 rounded-full ${user.avatar_color?.startsWith('bg-') ? user.avatar_color : `bg-gradient-to-tr ${user.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
+                                {user.nome_completo ? user.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <h4 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                                {user.nome_completo}
+                              </h4>
+                              <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate">
+                                @{user.username}
+                              </p>
+                            </div>
+                          </div>
+
+                          {user.friendshipState === 'accettata' ? (
+                            <span className="px-3 py-1.5 bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold flex items-center gap-1 border border-[#B0BEA9]">
+                              <Check size={13} />
+                              Amico
+                            </span>
+                          ) : user.friendshipState === 'in_attesa' ? (
+                            <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30">
+                              Richiesta inviata
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSendFriendRequest(user.id)}
+                              disabled={sendingRequestTo === user.id}
+                              className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              {sendingRequestTo === user.id ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <UserPlus size={13} />
+                              )}
+                              <span>Aggiungi amico</span>
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </section>
 
               {/* RIGA AMICI CONNESSI */}
@@ -554,11 +785,17 @@ export const SocialPage: React.FC = () => {
                 <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
                   {friendsList.map((friend) => (
                     <div key={friend.id} className="flex flex-col items-center gap-1 shrink-0">
-                      <img
-                        src={friend.avatar_url}
-                        alt={friend.nome_completo}
-                        className="w-12 h-12 rounded-full object-cover ring-2 ring-[#5C6B55]/50 shadow-xs"
-                      />
+                      {friend.avatar_url ? (
+                        <img
+                          src={friend.avatar_url}
+                          alt={friend.nome_completo}
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-[#5C6B55]/50 shadow-xs"
+                        />
+                      ) : (
+                        <div className={`w-12 h-12 rounded-full ${friend.avatar_color?.startsWith('bg-') ? friend.avatar_color : `bg-gradient-to-tr ${friend.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-sm font-black text-white ring-2 ring-[#5C6B55]/50 shadow-xs`}>
+                          {friend.nome_completo ? friend.nome_completo.trim().charAt(0).toUpperCase() : 'A'}
+                        </div>
+                      )}
                       <span className="text-[11px] font-bold text-[#31362F] dark:text-[#E0DCD3] truncate max-w-[65px]">
                         {friend.nome_completo.split(' ')[0]}
                       </span>

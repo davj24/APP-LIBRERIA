@@ -827,7 +827,7 @@ export const ProfilePage: React.FC = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={cardSpring}
-              className="relative z-10 flex h-[80vh] w-full max-w-md flex-col rounded-[2rem] bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden ring-1 ring-neutral-200 dark:ring-neutral-800"
+              className="relative z-10 flex h-[88vh] max-h-[88vh] w-full max-w-md flex-col rounded-[2rem] bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden ring-1 ring-neutral-200 dark:ring-neutral-800"
             >
                <div className="flex-1 overflow-y-auto">
                  <div className="relative group shrink-0">
@@ -847,7 +847,7 @@ export const ProfilePage: React.FC = () => {
                    </div>
                  </div>
                  
-                 <div className="px-6 flex flex-col pb-6">
+                 <div className="px-6 flex flex-col pb-36">
                    <div className="-mt-14 mb-4 flex items-end justify-between">
                      <div className="relative inline-block self-start">
                        <div className={`h-28 w-28 rounded-full border-4 border-white dark:border-neutral-900 ${draftProfile.avatarUrl ? 'bg-neutral-300 dark:bg-neutral-700' : (draftProfile.avatarColor?.startsWith('bg-') ? draftProfile.avatarColor : `bg-gradient-to-tr ${draftProfile.avatarColor || 'from-indigo-600 to-violet-500'}`)} flex items-center justify-center font-black text-3xl text-white shadow-sm overflow-hidden`}>
@@ -879,20 +879,27 @@ export const ProfilePage: React.FC = () => {
                    </div>
 
                    {/* Palette Colori Avatar iOS */}
-                   <div className="mb-5 p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60 space-y-2">
+                   <div className="mb-5 p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60 space-y-2.5">
                      <div className="flex items-center justify-between">
-                       <span className="text-xs font-bold text-neutral-600 dark:text-neutral-400">
-                         Colore Avatar:
+                       <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
+                         <Palette size={14} />
+                         <span>Colore Icona Profilo:</span>
                        </span>
-                       {draftProfile.avatarUrl && (
-                         <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                           (Foto attiva - tocca un colore per reimpostarlo)
+                       {draftProfile.avatarUrl ? (
+                         <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                           Foto attiva (clicca un colore per toglierla)
+                         </span>
+                       ) : (
+                         <span className="text-[10px] text-[#5C6B55] dark:text-[#A8BB9C] font-semibold">
+                           {IOS_AVATAR_PRESETS.find(p => p.color.includes(draftProfile.avatarColor?.replace('bg-gradient-to-tr ', '') || ''))?.name || 'Selezionato'}
                          </span>
                        )}
                      </div>
-                     <div className="flex flex-wrap gap-2">
+                     <div className="flex flex-wrap gap-2.5 pt-1">
                        {IOS_AVATAR_PRESETS.map((preset) => {
-                         const isSelected = draftProfile.avatarColor === preset.color && !draftProfile.avatarUrl;
+                         const normDraft = (draftProfile.avatarColor || '').replace('bg-gradient-to-tr ', '').trim();
+                         const normPreset = preset.color.replace('bg-gradient-to-tr ', '').trim();
+                         const isSelected = normDraft === normPreset && !draftProfile.avatarUrl;
                          return (
                            <button
                              key={preset.name}
@@ -905,12 +912,14 @@ export const ProfilePage: React.FC = () => {
                                }));
                              }}
                              title={preset.name}
-                             className={`w-7 h-7 rounded-full ${preset.color} transition-all transform cursor-pointer ${
+                             className={`w-8 h-8 rounded-full ${preset.color} flex items-center justify-center transition-all transform cursor-pointer ${
                                isSelected
-                                 ? 'ring-2 ring-offset-2 ring-[#31362F] dark:ring-white scale-110 shadow-sm'
-                                 : 'opacity-80 hover:opacity-100 hover:scale-105'
+                                 ? 'ring-3 ring-offset-2 ring-[#31362F] dark:ring-white scale-110 shadow-md'
+                                 : 'opacity-85 hover:opacity-100 hover:scale-105'
                              }`}
-                           />
+                           >
+                             {isSelected && <Check size={14} strokeWidth={3} className="text-white drop-shadow-sm" />}
+                           </button>
                          );
                        })}
                      </div>
@@ -985,7 +994,7 @@ export const ProfilePage: React.FC = () => {
                      )}
 
                      {/* Lista Completa dei Generi con Pallino + Freccia Tendina Sottogeneri */}
-                     <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                     <div className="space-y-2.5">
                        {Object.keys(GENRES_MAP).map((genreName) => {
                          const isSelected = draftProfile.favoriteGenres?.includes(genreName);
                          const subgenresAvailable = GENRES_MAP[genreName] || [];

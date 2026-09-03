@@ -58,18 +58,34 @@ function AppContent() {
           currentLocal.name === 'Lettore' ||
           (googleFullName && currentLocal.name.trim().toLowerCase() === googleFullName.trim().toLowerCase());
 
+        // 3. Se l'avatar locale era stato contaminato da Google, ripuliscilo subito
         if (!isDefaultOrGoogleName) {
           updateProfile({
             ...currentLocal,
             avatarUrl: sanitizeAvatarUrl(currentLocal.avatarUrl),
             isCompleted: true
           });
-          return;
+        } else {
+          updateProfile({
+            avatarUrl: undefined
+          });
         }
 
-        // 3. Se l'avatar locale era stato contaminato da Google, ripuliscilo subito
-        updateProfile({
-          avatarUrl: undefined
+        // 4. Assicura sempre l'esistenza del record in Supabase 'profiles' per la ricerca sociale
+        const finalProfile = getLatestLocalProfile();
+        const effectiveName = finalProfile.name && !isDefaultOrGoogleName 
+          ? finalProfile.name 
+          : (user.email?.split('@')[0] || 'Lettore');
+
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          username: effectiveName,
+          full_name: effectiveName,
+          avatar_url: sanitizeAvatarUrl(finalProfile.avatarUrl),
+          badge: finalProfile.avatarColor || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
+          bio: finalProfile.bio || '',
+          reading_goal: finalProfile.readingGoal || 24,
+          updated_at: new Date().toISOString()
         });
       } catch (e) {
         console.warn('Errore verifica profilo esistente:', e);
