@@ -1,5 +1,6 @@
 import type { BookSearchPort } from '../../domain/ports/BookSearchPort';
 import type { BookSnippet, BookDetail } from '../../domain/models/Book';
+import { classifyBookGenre } from '../../domain/services/genreClassifier';
 
 /**
  * Adapter per l'integrazione dell'API pubblica di Google Books
@@ -65,6 +66,17 @@ export class GoogleBooksAdapter implements BookSearchPort {
           ? info.publishedDate.substring(0, 4)
           : null;
 
+        const rawCategories = Array.isArray(info.categories)
+          ? info.categories
+          : (typeof info.categories === 'string' ? [info.categories] : null);
+
+        const classified = classifyBookGenre({
+          categories: rawCategories,
+          title: info.title,
+          description: info.description,
+          publishedYear,
+        });
+
         return {
           id: item.id,
           isbn: this.extractIsbn(info.industryIdentifiers),
@@ -76,6 +88,9 @@ export class GoogleBooksAdapter implements BookSearchPort {
           pageCount: info.pageCount || null,
           publisher: info.publisher || null,
           publishedYear,
+          categories: rawCategories,
+          genre: classified.genre,
+          subgenre: classified.subgenre,
         };
       });
     } catch (error) {
@@ -152,6 +167,17 @@ export class GoogleBooksAdapter implements BookSearchPort {
       ? info.publishedDate.substring(0, 4)
       : null;
 
+    const rawCategories = Array.isArray(info.categories)
+      ? info.categories
+      : (typeof info.categories === 'string' ? [info.categories] : null);
+
+    const classified = classifyBookGenre({
+      categories: rawCategories,
+      title: info.title,
+      description: info.description,
+      publishedYear,
+    });
+
     return {
       id: item.id,
       isbn: this.extractIsbn(info.industryIdentifiers),
@@ -163,6 +189,9 @@ export class GoogleBooksAdapter implements BookSearchPort {
       pageCount: info.pageCount || null,
       publisher: info.publisher || null,
       publishedYear,
+      categories: rawCategories,
+      genre: classified.genre,
+      subgenre: classified.subgenre,
     };
   }
 }

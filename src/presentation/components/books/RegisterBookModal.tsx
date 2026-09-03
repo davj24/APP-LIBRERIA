@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, BookOpen, Clock, CheckCircle2, Calendar, Image as ImageIcon, PenTool } from 'lucide-react';
+import { X, Check, BookOpen, Clock, CheckCircle2, Calendar, Image as ImageIcon, PenTool, Tag } from 'lucide-react';
 import type { Book, BookStatus } from '../../../domain/models/Book';
+import { GENRES_MAP } from '../../../domain/constants/genres';
 import { useRegisterModal } from '../../context/ModalContext';
 
 interface RegisterBookModalProps {
@@ -25,6 +26,8 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [coverUrl, setCoverUrl] = useState<string>('');
+  const [genre, setGenre] = useState<string>('Narrativa & Classici');
+  const [subgenre, setSubgenre] = useState<string>('');
 
   useEffect(() => {
     if (initialBook && isOpen) {
@@ -34,6 +37,8 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
       setStartDate(initialBook.startDate || '');
       setEndDate(initialBook.endDate || '');
       setCoverUrl(initialBook.coverUrl || '');
+      setGenre(initialBook.genre || 'Narrativa & Classici');
+      setSubgenre(initialBook.subgenre || '');
     }
   }, [initialBook, isOpen]);
 
@@ -55,6 +60,12 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
     }
   };
 
+  const handleGenreSelect = (selectedGenre: string) => {
+    setGenre(selectedGenre);
+    const availableSubgenres = GENRES_MAP[selectedGenre] || [];
+    setSubgenre(availableSubgenres.length > 0 ? availableSubgenres[0] : '');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onConfirmSave({
@@ -66,8 +77,8 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
       endDate: endDate || '',
       totalPages: totalPages ? parseInt(totalPages, 10) : undefined,
       pagesRead: pagesRead ? parseInt(pagesRead, 10) : 0,
-      genre: initialBook.genre || 'Narrativa',
-      subgenre: initialBook.subgenre,
+      genre: genre || 'Narrativa & Classici',
+      subgenre: subgenre.trim() || undefined,
       isbn: initialBook.isbn,
       notes: initialBook.notes
     });
@@ -225,6 +236,43 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
                     onChange={(e) => setEndDate(e.target.value)}
                     className="w-full px-3 py-2 bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] outline-none focus:border-[#5C6B55]"
                   />
+                </div>
+              </div>
+
+              {/* Genere e Sottogenere del Libro */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] mb-1 flex items-center gap-1">
+                    <Tag size={12} /> Genere Principale
+                  </label>
+                  <select
+                    value={genre}
+                    onChange={(e) => handleGenreSelect(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] outline-none focus:border-[#5C6B55] cursor-pointer"
+                  >
+                    {Object.keys(GENRES_MAP).map((g) => (
+                      <option key={g} value={g} className="bg-[#FCFBF8] dark:bg-[#2A2826] text-[#4A4743] dark:text-[#E0DCD3]">
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] mb-1 flex items-center gap-1">
+                    <Tag size={12} /> Sottogenere
+                  </label>
+                  <select
+                    value={subgenre}
+                    onChange={(e) => setSubgenre(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] outline-none focus:border-[#5C6B55] cursor-pointer"
+                  >
+                    {(GENRES_MAP[genre] || []).map((sg) => (
+                      <option key={sg} value={sg} className="bg-[#FCFBF8] dark:bg-[#2A2826] text-[#4A4743] dark:text-[#E0DCD3]">
+                        {sg}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

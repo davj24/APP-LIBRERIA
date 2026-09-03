@@ -22,6 +22,7 @@ export interface BookSheetBook {
   isFavorite?: boolean;
   isbn?: string | null;
   genre?: string;
+  subgenre?: string | null;
   source?: string;
   rawItem?: any;
 }
@@ -176,9 +177,14 @@ export const BookSheet: React.FC<BookSheetProps> = ({
                       {book.publisher}
                     </span>
                   )}
-                  {(book.category || book.genre) && (
-                    <span className="rounded-full border border-neutral-200 dark:border-neutral-700 px-3 py-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">
-                      {book.category || book.genre}
+                  {(book.genre || book.category) && (
+                    <span className="rounded-full bg-[#5C6B55]/10 text-[#5C6B55] dark:text-[#A8BB9C] border border-[#5C6B55]/30 px-3 py-1 text-xs font-semibold">
+                      {book.genre || book.category}
+                    </span>
+                  )}
+                  {book.subgenre && (
+                    <span className="rounded-full bg-[#F4F1EA] dark:bg-[#383532] text-[#7A756D] dark:text-[#A09A90] border border-[#DCD5C6] dark:border-[#4A4743]/60 px-3 py-1 text-xs font-medium">
+                      {book.subgenre}
                     </span>
                   )}
                   {book.isbn && (

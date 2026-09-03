@@ -1,5 +1,6 @@
 import { BookSearchAggregator } from './BookSearchAggregator';
 import type { BookDetail } from '../../domain/models/Book';
+import { classifyBookGenre } from '../../domain/services/genreClassifier';
 
 export interface WebBook {
   id: string;
@@ -9,6 +10,7 @@ export interface WebBook {
   description?: string | null;
   totalPages?: number | null;
   genre?: string | null;
+  subgenre?: string | null;
   isbn?: string | null;
   publishedYear?: string | null;
   publisher?: string | null;
@@ -65,6 +67,16 @@ export async function federatedBookSearch(query: string): Promise<WebBook[]> {
     if (snippet.source === 'OpenLibrary') mappedSource = 'openlibrary';
     if (snippet.source === 'SBN') mappedSource = 'sbn';
 
+    const classified = (snippet.genre && snippet.subgenre)
+      ? { genre: snippet.genre, subgenre: snippet.subgenre }
+      : classifyBookGenre({
+          title: snippet.title,
+          description: snippet.description,
+          publishedYear: snippet.publishedYear,
+          categories: snippet.categories,
+          subjects: snippet.subjects,
+        });
+
     return {
       id: snippet.id,
       title: snippet.title,
@@ -76,6 +88,8 @@ export async function federatedBookSearch(query: string): Promise<WebBook[]> {
       publisher: snippet.publisher || null,
       publishedYear: snippet.publishedYear || null,
       source: mappedSource,
+      genre: classified.genre,
+      subgenre: classified.subgenre,
     };
   });
 }

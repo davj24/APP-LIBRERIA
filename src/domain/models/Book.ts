@@ -37,6 +37,10 @@ export interface BookSnippet {
   pageCount?: number | null;
   publisher?: string | null;
   publishedYear?: string | null;
+  genre?: string | null;
+  subgenre?: string | null;
+  categories?: string[] | null;
+  subjects?: string[] | null;
 }
 
 /**
@@ -48,3 +52,4 @@ export interface BookDetail extends BookSnippet {
   publisher?: string | null;
   publishedYear?: string | null;
 }
+
