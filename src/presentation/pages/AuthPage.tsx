@@ -14,7 +14,6 @@ interface OnboardingSlide {
   badge: string;
   icon: React.ReactNode;
   accentGradient: string;
-  glowShadow: string;
 }
 
 const ONBOARDING_SLIDES: OnboardingSlide[] = [
@@ -24,8 +23,7 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     title: 'Organizza e traccia ogni tua lettura',
     subtitle: 'Scansiona il codice a barre o la copertina con la fotocamera. Mantieni in ordine i tuoi libri tra Da Leggere, In Lettura e Letti.',
     icon: <BookOpen className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />,
-    accentGradient: 'from-emerald-500/20 via-teal-500/10 to-transparent',
-    glowShadow: 'shadow-[0_16px_36px_-8px_rgba(16,185,129,0.25)] dark:shadow-[0_16px_36px_-8px_rgba(16,185,129,0.18)]'
+    accentGradient: 'from-emerald-500/20 via-teal-500/10 to-transparent'
   },
   {
     id: 1,
@@ -33,8 +31,7 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     title: 'Condividi spunti e recensioni reali',
     subtitle: 'Scopri cosa stanno leggendo i tuoi amici, pubblica i tuoi takeaway ed entra a far parte di una vera community di lettori appassionati.',
     icon: <Users className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />,
-    accentGradient: 'from-indigo-500/20 via-purple-500/10 to-transparent',
-    glowShadow: 'shadow-[0_16px_36px_-8px_rgba(99,102,241,0.25)] dark:shadow-[0_16px_36px_-8px_rgba(99,102,241,0.18)]'
+    accentGradient: 'from-indigo-500/20 via-purple-500/10 to-transparent'
   },
   {
     id: 2,
@@ -42,8 +39,7 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     title: 'Costruisci l’abitudine di leggere ogni giorno',
     subtitle: 'Imposta i tuoi obiettivi annuali, aggiorna le pagine raggiunte e mantieni attiva la tua streak quotidiana di lettura.',
     icon: <Flame className="w-10 h-10 text-amber-600 dark:text-amber-400" />,
-    accentGradient: 'from-amber-500/20 via-orange-500/10 to-transparent',
-    glowShadow: 'shadow-[0_16px_36px_-8px_rgba(245,158,11,0.25)] dark:shadow-[0_16px_36px_-8px_rgba(245,158,11,0.18)]'
+    accentGradient: 'from-amber-500/20 via-orange-500/10 to-transparent'
   }
 ];
 
@@ -136,9 +132,6 @@ export const AuthPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#2A2826] text-[#4A4743] dark:text-[#E0DCD3] flex flex-col justify-between items-center p-4 sm:p-6 relative overflow-hidden select-none">
       
-      {/* Ambient Decorative Glow Orbs */}
-      <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#5C6B55]/15 dark:bg-[#A8BB9C]/10 rounded-full blur-3xl pointer-events-none" />
-
       {/* Header Brand Top */}
       <header className="pt-2 sm:pt-4 flex items-center justify-between z-10 w-full max-w-md">
         <div className="flex items-center gap-2.5">
@@ -178,7 +171,7 @@ export const AuthPage: React.FC = () => {
 
               {/* Icon Box */}
               <div className="relative my-1">
-                <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-b ${activeSlideData.accentGradient} bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743] ${activeSlideData.glowShadow} shadow-[inset_0_1px_2px_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08)] flex items-center justify-center transition-all duration-500`}>
+                <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-b ${activeSlideData.accentGradient} bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743] shadow-sm flex items-center justify-center transition-all duration-300`}>
                   {activeSlideData.icon}
                 </div>
               </div>
