@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/APP-LIBRERIA/',
+  base: '/APP-LIBRERIA-DEV/',
   server: {
     host: true,
     port: 5173
@@ -19,15 +19,15 @@ export default defineConfig({
       injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'icons.svg'],
       manifest: {
-        name: 'BiblioDesk - Libreria Digitale',
-        short_name: 'BiblioDesk',
-        description: 'La tua libreria digitale personale mobile-first per gestire letture e statistiche.',
-        theme_color: '#4f46e5',
+        name: 'BiblioDesk DEV',
+        short_name: 'BiblioDesk DEV',
+        description: 'BiblioDesk - Ambiente di sviluppo e anteprima mobile.',
+        theme_color: '#f59e0b',
         background_color: '#f8fafc',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/APP-LIBRERIA/',
-        start_url: '/APP-LIBRERIA/',
+        scope: '/APP-LIBRERIA-DEV/',
+        start_url: '/APP-LIBRERIA-DEV/',
         icons: [
           {
             src: 'favicon.svg',

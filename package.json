@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "deploy": "tsc -b && vite build && npx gh-pages -d dist",
+    "deploy": "tsc -b && vite build && npx gh-pages -d dist -r https://github.com/davj24/APP-LIBRERIA-DEV.git",
     "lint": "oxlint",
     "preview": "vite preview"
   },
