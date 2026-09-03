@@ -13,28 +13,12 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { useBooks } from '../hooks/useBooks';
 import { useRegisterModal } from '../context/ModalContext';
 import { GENRES_MAP } from '../../domain/constants/genres';
-
-interface WishlistItem {
-  id: string;
-  title: string;
-  author: string;
-  price?: string;
-  coverUrl: string;
-}
-
-export type CollectionIconName = 
-  | 'Heart' | 'Flame' | 'Trophy' | 'Sparkles' | 'BookMarked' | 'Library'
-  | 'Star' | 'Crown' | 'Compass' | 'GraduationCap' | 'Coffee' | 'Moon'
-  | 'Rocket' | 'Zap' | 'Glasses' | 'Bookmark';
-
-export interface UserCollection {
-  id: string;
-  name: string;
-  description: string;
-  iconName: CollectionIconName;
-  accentColor: string;
-  items: WishlistItem[];
-}
+import { 
+  useCollections, 
+  type WishlistItem, 
+  type CollectionIconName, 
+  type UserCollection 
+} from '../hooks/useCollections';
 
 export const COLLECTION_ICONS: { name: CollectionIconName; label: string }[] = [
   { name: 'Heart', label: 'Cuore' },
@@ -65,32 +49,42 @@ export const COVER_PRESETS = [
   { name: 'Arancio Ardente', class: 'text-orange-500 bg-orange-500/10 border-orange-500/20' }
 ];
 
-const INITIAL_COLLECTIONS: UserCollection[] = [
-  {
-    id: 'c1',
-    name: 'La mia Wishlist',
-    description: 'Libri che desideri acquistare e leggere prossimamente.',
-    iconName: 'Heart',
-    accentColor: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
-    items: []
-  },
-  {
-    id: 'c2',
-    name: 'In Coda sul Comodino',
-    description: 'Titoli già acquistati e in tuo possesso pronti in coda di lettura.',
-    iconName: 'Library',
-    accentColor: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-    items: []
-  },
-  {
-    id: 'c3',
-    name: 'I Miei Preferiti',
-    description: 'I capolavori indimenticabili che hanno lasciato il segno.',
-    iconName: 'Trophy',
-    accentColor: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20',
-    items: []
-  }
-];
+function compressImage(file: File, maxDimension = 600, quality = 0.75): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > height) {
+          if (width > maxDimension) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          }
+        } else {
+          if (height > maxDimension) {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve((e.target?.result as string) || '');
+        }
+      };
+      img.onerror = () => resolve((e.target?.result as string) || '');
+      img.src = (e.target?.result as string) || '';
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+}
 
 
 
@@ -302,8 +296,14 @@ export const ProfilePage: React.FC = () => {
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<WidgetCategory | 'tutti'>('tutti');
   const [imagePickerType, setImagePickerType] = useState<'avatar' | 'banner' | null>(null);
 
-  // GESTIONE RACCOLTE UTENTE
-  const [collections, setCollections] = useState<UserCollection[]>(INITIAL_COLLECTIONS);
+  // GESTIONE RACCOLTE UTENTE PERSISTENTI (LocalStorage + Supabase Cloud)
+  const {
+    collections,
+    addCollection,
+    updateCollection,
+    deleteCollection,
+    removeItemFromCollection
+  } = useCollections();
   const [openedCollection, setOpenedCollection] = useState<UserCollection | null>(null);
   const [editingCollection, setEditingCollection] = useState<UserCollection | null>(null);
 
@@ -498,22 +498,22 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, target: 'avatar' | 'banner') => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>, target: 'avatar' | 'banner') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
+    try {
+      const compressedDataUrl = await compressImage(file, target === 'avatar' ? 400 : 800, 0.75);
+      if (compressedDataUrl) {
         if (target === 'avatar') {
-          setDraftProfile(prev => ({ ...prev, avatarUrl: dataUrl }));
+          setDraftProfile(prev => ({ ...prev, avatarUrl: compressedDataUrl }));
         } else {
-          setDraftProfile(prev => ({ ...prev, bannerUrl: dataUrl, bannerColor: '' }));
+          setDraftProfile(prev => ({ ...prev, bannerUrl: compressedDataUrl, bannerColor: '' }));
         }
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Errore compressione immagine:', err);
+    }
     setImagePickerType(null);
     e.target.value = '';
   };
@@ -534,32 +534,28 @@ export const ProfilePage: React.FC = () => {
 
 
   // CREAZIONE NUOVA RACCOLTA
-  const handleCreateCollection = (e: React.FormEvent) => {
+  const handleCreateCollection = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCollName.trim()) return;
 
-    const newColl: UserCollection = {
-      id: Date.now().toString(),
+    await addCollection({
       name: newCollName.trim(),
       description: newCollDesc.trim() || 'Raccolta personalizzata',
       iconName: newCollIcon,
       accentColor: newCollCover,
-      items: []
-    };
+    });
 
-    setCollections(prev => [...prev, newColl]);
     setNewCollName('');
     setNewCollDesc('');
     setShowCreateCollectionModal(false);
-    setOpenedCollection(newColl);
   };
 
   // SALVA MODIFICHE RACCOLTA ESISTENTE
-  const handleSaveEditedCollection = (e: React.FormEvent) => {
+  const handleSaveEditedCollection = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCollection) return;
 
-    setCollections(prev => prev.map(c => c.id === editingCollection.id ? editingCollection : c));
+    await updateCollection(editingCollection);
     if (openedCollection && openedCollection.id === editingCollection.id) {
       setOpenedCollection(editingCollection);
     }
@@ -567,14 +563,14 @@ export const ProfilePage: React.FC = () => {
   };
 
   // ELIMINA RACCOLTA
-  const handleDeleteCollection = (id: string) => {
-    setCollections(prev => prev.filter(c => c.id !== id));
+  const handleDeleteCollection = async (id: string) => {
+    await deleteCollection(id);
     if (openedCollection?.id === id) setOpenedCollection(null);
     setEditingCollection(null);
   };
 
   // SPOSTA LIBRO DA RACCOLTA A LIBRERIA PRINCIPALE
-  const handleMoveCollectionItemToLibrary = (item: WishlistItem) => {
+  const handleMoveCollectionItemToLibrary = async (item: WishlistItem) => {
     addBook({
       title: item.title,
       author: item.author,
@@ -588,9 +584,8 @@ export const ProfilePage: React.FC = () => {
     });
 
     if (openedCollection) {
-      const updatedItems = openedCollection.items.filter(i => i.id !== item.id);
-      setOpenedCollection(prev => prev ? { ...prev, items: updatedItems } : null);
-      setCollections(prev => prev.map(c => c.id === openedCollection.id ? { ...c, items: updatedItems } : c));
+      await removeItemFromCollection(openedCollection.id, item.id);
+      setOpenedCollection(prev => prev ? { ...prev, items: prev.items.filter(i => i.id !== item.id) } : null);
     }
   };
 

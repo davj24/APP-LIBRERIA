@@ -90,10 +90,9 @@ export const AuthPage: React.FC = () => {
 
     try {
       const cleanEmail = email.trim().toLowerCase();
-      localStorage.setItem('bibliodesk_user_email', cleanEmail);
 
       if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password: password
         });
@@ -104,6 +103,8 @@ export const AuthPage: React.FC = () => {
           } else {
             setErrorMsg(error.message || 'Errore durante l\'accesso.');
           }
+        } else if (data.session) {
+          localStorage.setItem('bibliodesk_user_email', cleanEmail);
         }
       } else {
         const { data, error } = await supabase.auth.signUp({
@@ -114,6 +115,7 @@ export const AuthPage: React.FC = () => {
         if (error) {
           setErrorMsg(error.message || 'Errore durante la registrazione.');
         } else if (data.user) {
+          localStorage.setItem('bibliodesk_user_email', cleanEmail);
           setSuccessMsg('Registrazione completata! Se richiesta, controlla la tua email per confermare l\'account.');
         }
       }

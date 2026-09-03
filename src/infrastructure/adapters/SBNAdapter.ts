@@ -51,7 +51,7 @@ export class SBNAdapter implements BookSearchPort {
         };
       });
     } catch (error) {
-      console.error('[SBNAdapter] Errore durante la ricerca SBN:', error);
+      console.warn('[SBNAdapter] Catalogo OPAC SBN non accessibile direttamente da browser (CORS), procedo con Google Books e Open Library.');
       return [];
     }
   }

@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 interface ModalContextType {
   isModalOpen: boolean;
   setIsModalOpen: (open: boolean) => void;
-  registerModalOpen: (isOpen: boolean) => () => void;
+  registerModalOpen: (isOpen: boolean, id?: string) => () => void;
 }
 
 const ModalContext = createContext<ModalContextType>({
@@ -13,27 +13,55 @@ const ModalContext = createContext<ModalContextType>({
 });
 
 export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [modalCount, setModalCount] = useState(0);
+  const [activeModalIds, setActiveModalIds] = useState<Set<string>>(() => new Set());
+  const fallbackCounterRef = useRef(0);
 
-  const setIsModalOpen = (open: boolean) => {
-    setModalCount(prev => (open ? prev + 1 : Math.max(0, prev - 1)));
-  };
-
-  const registerModalOpen = (isOpen: boolean) => {
-    if (isOpen) {
-      setModalCount(prev => prev + 1);
-    }
-    return () => {
-      if (isOpen) {
-        setModalCount(prev => Math.max(0, prev - 1));
+  const setIsModalOpen = useCallback((open: boolean) => {
+    setActiveModalIds(prev => {
+      const next = new Set(prev);
+      const fallbackId = '__manual_modal__';
+      if (open) {
+        next.add(fallbackId);
+      } else {
+        next.delete(fallbackId);
       }
+      return next;
+    });
+  }, []);
+
+  const registerModalOpen = useCallback((isOpen: boolean, customId?: string) => {
+    const id = customId || `modal-${++fallbackCounterRef.current}`;
+    if (isOpen) {
+      setActiveModalIds(prev => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    } else {
+      setActiveModalIds(prev => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+
+    return () => {
+      setActiveModalIds(prev => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     };
-  };
+  }, []);
+
+  const isModalOpen = activeModalIds.size > 0;
 
   // Blocco dello scorrimento del background a livello globale quando una scheda/modale è aperta
   useEffect(() => {
-    const isAnyModalOpen = modalCount > 0;
-    if (isAnyModalOpen) {
+    if (isModalOpen) {
       const originalBodyOverflow = document.body.style.overflow;
       const originalBodyTouchAction = document.body.style.touchAction;
       const originalDocOverflow = document.documentElement.style.overflow;
@@ -48,12 +76,12 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         document.documentElement.style.overflow = originalDocOverflow;
       };
     }
-  }, [modalCount > 0]);
+  }, [isModalOpen]);
 
   return (
     <ModalContext.Provider
       value={{
-        isModalOpen: modalCount > 0,
+        isModalOpen,
         setIsModalOpen,
         registerModalOpen
       }}
@@ -70,8 +98,13 @@ export const useModal = () => useContext(ModalContext);
  */
 export const useRegisterModal = (isOpen: boolean) => {
   const { registerModalOpen } = useModal();
+  const idRef = useRef<string | null>(null);
+
+  if (!idRef.current) {
+    idRef.current = `modal-hook-${Math.random().toString(36).substring(2, 9)}`;
+  }
 
   useEffect(() => {
-    return registerModalOpen(isOpen);
-  }, [isOpen]);
+    return registerModalOpen(isOpen, idRef.current || undefined);
+  }, [isOpen, registerModalOpen]);
 };

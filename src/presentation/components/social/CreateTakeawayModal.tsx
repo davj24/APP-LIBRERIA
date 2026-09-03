@@ -30,8 +30,6 @@ export const CreateTakeawayModal: React.FC<CreateTakeawayModalProps> = ({
   const [content, setContent] = useState('');
   const [privacy, setPrivacy] = useState<PrivacyLevel>('public');
 
-  if (!isOpen) return null;
-
   const selectedBook = userBooks.find(b => b.id === selectedBookId) || userBooks[0];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -52,14 +50,15 @@ export const CreateTakeawayModal: React.FC<CreateTakeawayModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-black/60 backdrop-blur-xs"
-        />
+      {isOpen && (
+        <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+          />
 
         <motion.div
           initial={{ y: '100%', opacity: 0 }}
@@ -191,7 +190,8 @@ export const CreateTakeawayModal: React.FC<CreateTakeawayModalProps> = ({
             </button>
           </form>
         </motion.div>
-      </div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };

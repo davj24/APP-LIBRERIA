@@ -494,11 +494,11 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
           if (searchResults && searchResults.length > 0) {
             const book = searchResults[0];
-            const coverPreview = URL.createObjectURL(file);
+            const fallbackCover = 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400';
             setScannedBook({
               title: book.title,
               author: book.author,
-              coverUrl: book.coverUrl || coverPreview,
+              coverUrl: book.coverUrl || fallbackCover,
               startDate: '',
               endDate: '',
               status: 'Da leggere',

@@ -7,24 +7,6 @@ const UPDATE_EVENT = 'bibliodesk_books_updated';
 
 export type FilterType = 'Tutti' | BookStatus;
 
-function mapDbRecordToBook(rec: any): Book {
-  return {
-    id: rec.id?.toString() || Date.now().toString(),
-    title: rec.title || 'Senza titolo',
-    author: rec.author || 'Autore sconosciuto',
-    coverUrl: rec.cover_url || rec.coverUrl || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400',
-    status: rec.status || 'Da leggere',
-    startDate: rec.start_date || rec.startDate || '',
-    endDate: rec.end_date || rec.endDate || '',
-    totalPages: rec.total_pages || rec.totalPages || undefined,
-    pagesRead: rec.pages_read || rec.pagesRead || undefined,
-    genre: rec.genre || 'Narrativa',
-    subgenre: rec.subgenre || undefined,
-    rating: rec.rating || undefined,
-    isbn: rec.isbn || undefined
-  };
-}
-
 const MOCK_BOOK_IDS = ['1', '2', '3'];
 
 function getLatestLocalBooks(): Book[] {
@@ -42,25 +24,6 @@ function getLatestLocalBooks(): Book[] {
   return [];
 }
 
-function getUserEmail(): string | null {
-  try {
-    const savedProfile = localStorage.getItem('bibliodesk_user_profile');
-    if (savedProfile) {
-      const parsed = JSON.parse(savedProfile);
-      if (parsed.email && typeof parsed.email === 'string' && parsed.email.trim()) {
-        return parsed.email.trim().toLowerCase();
-      }
-    }
-    const directEmail = localStorage.getItem('bibliodesk_user_email');
-    if (directEmail && directEmail.trim()) {
-      return directEmail.trim().toLowerCase();
-    }
-  } catch (e) {
-    console.warn('Errore lettura email account:', e);
-  }
-  return null;
-}
-
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>(() => {
     return getLatestLocalBooks();
@@ -69,145 +32,77 @@ export function useBooks() {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('Tutti');
   const [isLoadingSync, setIsLoadingSync] = useState(false);
 
-  // Sincronizzazione basata su Email Account + Session User ID (Dispositivi Multipli / Safari / PWA)
+  // Sincronizzazione basata su Session User ID (Cloud First + Offline Fallback)
   const syncFromSupabase = useCallback(async () => {
     try {
       setIsLoadingSync(true);
       const { data: { session } } = await supabase.auth.getSession();
-      const sessionEmail = session?.user?.email?.trim().toLowerCase();
-      const localEmail = getUserEmail();
-      const activeEmail = sessionEmail || localEmail;
-
-      if (sessionEmail && sessionEmail !== localEmail) {
-        localStorage.setItem('bibliodesk_user_email', sessionEmail);
-      }
-
       const userId = session?.user?.id;
 
-      // Se non abbiamo né una sessione attiva né una email salvata, skippiamo il sync dal cloud
-      if (!userId && !activeEmail) {
+      if (!userId) {
         setIsLoadingSync(false);
         return;
       }
 
       let fetchedRemoteBooks: Book[] = [];
 
-      // APPROCCIO A: Query Schema Relazionale (user_books + books) per Email o User ID
+      // Query Schema Relazionale con JOIN tra user_books e books isolata per user_id
       try {
-        let userBooksQuery = supabase.from('user_books').select('*');
-        let libPersQuery = supabase.from('libreria_personale').select('*');
+        const { data: userBooksData, error: ubErr } = await supabase
+          .from('user_books')
+          .select(`
+            id,
+            book_id,
+            status,
+            pages_read,
+            start_date,
+            end_date,
+            rating,
+            books (
+              id,
+              title,
+              author,
+              cover_url,
+              isbn,
+              total_pages,
+              genre
+            )
+          `)
+          .eq('user_id', userId);
 
-        if (userId && activeEmail) {
-          userBooksQuery = userBooksQuery.or(`user_id.eq.${userId},user_email.eq.${activeEmail}`);
-          libPersQuery = libPersQuery.or(`user_id.eq.${userId},user_email.eq.${activeEmail}`);
-        } else if (userId) {
-          userBooksQuery = userBooksQuery.eq('user_id', userId);
-          libPersQuery = libPersQuery.eq('user_id', userId);
-        } else if (activeEmail) {
-          userBooksQuery = userBooksQuery.eq('user_email', activeEmail);
-          libPersQuery = libPersQuery.eq('user_email', activeEmail);
-        }
-
-        const { data: userBooksData, error: ubErr } = await userBooksQuery;
-        const { data: libPersRelData } = await libPersQuery;
-
-        let finalUserBooks = userBooksData;
-        if (ubErr || !finalUserBooks) {
-          const fallbackUB = await supabase.from('user_books').select('*');
-          finalUserBooks = fallbackUB.data;
-        }
-
-        let finalLibPers = libPersRelData;
-
-        const bookIdMap = new Map<string, { status?: string; pagesRead?: number; startDate?: string; endDate?: string }>();
-
-        if (finalUserBooks && Array.isArray(finalUserBooks)) {
-          finalUserBooks.forEach(ub => {
-            if (ub.book_id) {
-              bookIdMap.set(ub.book_id.toString(), {
-                status: ub.status || 'Da leggere',
-                pagesRead: ub.pages_read || 0,
-                startDate: ub.start_date || '',
-                endDate: ub.end_date || ''
-              });
-            }
-          });
-        }
-
-        if (finalLibPers && Array.isArray(finalLibPers)) {
-          finalLibPers.forEach(lp => {
-            if (lp.book_id && !bookIdMap.has(lp.book_id.toString())) {
-              bookIdMap.set(lp.book_id.toString(), { status: 'Da leggere' });
-            }
-          });
-        }
-
-        if (bookIdMap.size > 0) {
-          const idsToFetch = Array.from(bookIdMap.keys());
-          const { data: booksMetadata } = await supabase
-            .from('books')
-            .select('*')
-            .in('id', idsToFetch);
-
-          if (booksMetadata && Array.isArray(booksMetadata)) {
-            booksMetadata.forEach(b => {
-              const relInfo = bookIdMap.get(b.id.toString()) || {};
+        if (!ubErr && userBooksData && Array.isArray(userBooksData)) {
+          userBooksData.forEach((ub: any) => {
+            const b = ub.books;
+            if (b) {
               fetchedRemoteBooks.push({
-                id: b.id.toString(),
+                id: b.id?.toString() || ub.book_id?.toString(),
                 title: b.title || 'Senza titolo',
                 author: b.author || 'Autore sconosciuto',
-                coverUrl: b.cover_url || b.coverUrl || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400',
-                status: (relInfo.status as BookStatus) || 'Da leggere',
-                startDate: relInfo.startDate || '',
-                endDate: relInfo.endDate || '',
+                coverUrl: b.cover_url || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400',
+                status: (ub.status as BookStatus) || 'Da leggere',
+                startDate: ub.start_date || '',
+                endDate: ub.end_date || '',
                 totalPages: b.total_pages || undefined,
-                pagesRead: relInfo.pagesRead || 0,
+                pagesRead: ub.pages_read || 0,
                 genre: b.genre || 'Narrativa',
+                rating: ub.rating || undefined,
                 isbn: b.isbn || undefined
               });
-            });
-          }
+            }
+          });
         }
       } catch (relErr) {
-        console.warn('Query relazionale (user_books + books) non disponibile, provo fallback flat:', relErr);
+        console.warn('Query relazionale user_books:', relErr);
       }
 
-      // APPROCCIO B: Fallback Query Tabella Flat per Email o User ID
-      if (fetchedRemoteBooks.length === 0) {
-        try {
-          let flatQuery = supabase.from('libreria_personale').select('*');
-          if (userId && activeEmail) {
-            flatQuery = flatQuery.or(`user_id.eq.${userId},user_email.eq.${activeEmail}`);
-          } else if (userId) {
-            flatQuery = flatQuery.eq('user_id', userId);
-          } else if (activeEmail) {
-            flatQuery = flatQuery.eq('user_email', activeEmail);
-          }
-
-          let { data, error } = await flatQuery.order('created_at', { ascending: false });
-
-          if (error || !data) {
-            const fallback1 = await supabase.from('libreria_personale').select('*');
-            data = fallback1.data;
-          }
-
-          if (data && Array.isArray(data)) {
-            const flatBooks = data.filter(d => d.title || d.titolo).map(mapDbRecordToBook);
-            fetchedRemoteBooks.push(...flatBooks);
-          }
-        } catch (flatErr) {
-          console.warn('Query flat libreria_personale fallback fallito:', flatErr);
-        }
-      }
-
-      // MERGE INTELLIGENTE CON CACHE LOCALE (No data loss + Auto Upload a Cloud basato su Email)
+      // Merge intelligente con cache locale
       const localBooks = getLatestLocalBooks();
       const mergedMap = new Map<string, Book>();
 
       // 1. Inserisci i libri remoti dal Cloud
       fetchedRemoteBooks.forEach(b => mergedMap.set(b.id, b));
 
-      // 2. Preserva i libri locali e carica su Supabase quelli non ancora presenti sul Cloud col riferimento all'Email
+      // 2. Se ci sono libri salvati solo in locale, sincronizzali sul cloud
       const unuploadedLocalBooks = localBooks.filter(localB => {
         if (mergedMap.has(localB.id)) return false;
         const existsInRemote = fetchedRemoteBooks.some(
@@ -218,10 +113,9 @@ export function useBooks() {
         return !existsInRemote;
       });
 
-      if (unuploadedLocalBooks.length > 0) {
+      if (unuploadedLocalBooks.length > 0 && userId) {
         for (const localB of unuploadedLocalBooks) {
           try {
-            // Tenta inserimento relazionale
             const { data: bookInsertData } = await supabase
               .from('books')
               .insert([{
@@ -229,43 +123,24 @@ export function useBooks() {
                 author: localB.author,
                 cover_url: localB.coverUrl,
                 isbn: localB.isbn || null,
-                user_email: activeEmail || null
+                total_pages: localB.totalPages || null,
+                genre: localB.genre || 'Narrativa'
               }])
               .select();
 
             if (bookInsertData && bookInsertData[0]?.id) {
               const createdId = bookInsertData[0].id.toString();
               await supabase.from('user_books').insert([{
-                user_id: userId || 'email-user',
-                user_email: activeEmail || null,
+                user_id: userId,
                 book_id: bookInsertData[0].id,
-                status: localB.status || 'Da leggere'
-              }]);
-              await supabase.from('libreria_personale').insert([{
-                user_id: userId || 'email-user',
-                user_email: activeEmail || null,
-                book_id: bookInsertData[0].id
+                status: localB.status || 'Da leggere',
+                pages_read: localB.pagesRead || 0,
+                start_date: localB.startDate || null,
+                end_date: localB.endDate || null
               }]);
               mergedMap.set(createdId, { ...localB, id: createdId });
             } else {
-              // Tenta inserimento flat
-              const { data: flatData } = await supabase
-                .from('libreria_personale')
-                .insert([{
-                  user_id: userId || 'email-user',
-                  user_email: activeEmail || null,
-                  title: localB.title,
-                  author: localB.author,
-                  cover_url: localB.coverUrl,
-                  status: localB.status || 'Da leggere'
-                }])
-                .select();
-              if (flatData && flatData[0]?.id) {
-                const createdId = flatData[0].id.toString();
-                mergedMap.set(createdId, { ...localB, id: createdId });
-              } else {
-                mergedMap.set(localB.id, localB);
-              }
+              mergedMap.set(localB.id, localB);
             }
           } catch (upErr) {
             console.warn('Auto-upload libro locale a Supabase fallito:', upErr);
@@ -330,13 +205,14 @@ export function useBooks() {
   };
 
   /**
-   * addBookToLibrary - Salva il libro associandolo all'Email dell'Account
+   * addBookToLibrary - Salva il libro sia in locale che nel Cloud Supabase
    */
   const addBookToLibrary = async (bookData: Omit<Book, 'id'>): Promise<{ success: boolean; book?: Book; error?: string }> => {
     const tempId = `book-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const newBook: Book = {
       ...bookData,
       id: tempId,
+      pagesRead: bookData.pagesRead || 0,
       coverUrl: bookData.coverUrl ? bookData.coverUrl.trim() : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400'
     };
 
@@ -358,13 +234,10 @@ export function useBooks() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const activeEmail = session?.user?.email || getUserEmail();
-      const userId = session?.user?.id || 'email-user';
+      const userId = session?.user?.id;
 
-      let createdBookId: string | null = null;
-
-      // 1. TENTATIVO SCHEMA RELAZIONALE: Inserimento in `books`
-      try {
+      if (userId) {
+        // 1. Inserisci o collega il libro nella tabella `books`
         const { data: bookInsertData } = await supabase
           .from('books')
           .insert([{
@@ -372,60 +245,29 @@ export function useBooks() {
             author: newBook.author,
             cover_url: newBook.coverUrl,
             isbn: newBook.isbn || null,
-            user_email: activeEmail || null
+            total_pages: newBook.totalPages || null,
+            genre: newBook.genre || 'Narrativa'
           }])
           .select();
 
         if (bookInsertData && bookInsertData[0]?.id) {
-          createdBookId = bookInsertData[0].id.toString();
+          const createdBookId = bookInsertData[0].id.toString();
 
-          // Inserisci in user_books con user_email
+          // 2. Inserisci nella libreria dell'utente `user_books`
           await supabase.from('user_books').insert([{
             user_id: userId,
-            user_email: activeEmail || null,
             book_id: bookInsertData[0].id,
-            status: newBook.status || 'Da leggere'
+            status: newBook.status || 'Da leggere',
+            pages_read: newBook.pagesRead || 0,
+            start_date: newBook.startDate || null,
+            end_date: newBook.endDate || null
           }]);
 
-          // Inserisci in libreria_personale con user_email
-          await supabase.from('libreria_personale').insert([{
-            user_id: userId,
-            user_email: activeEmail || null,
-            book_id: bookInsertData[0].id
-          }]);
+          const latest = getLatestLocalBooks();
+          const finalBooks = latest.map(b => b.id === tempId ? { ...b, id: createdBookId } : b);
+          saveBooksLocally(finalBooks);
+          return { success: true, book: { ...newBook, id: createdBookId } };
         }
-      } catch (relErr) {
-        console.warn('Inserimento relazionale books/user_books non riuscito:', relErr);
-      }
-
-      // 2. TENTATIVO SCHEMA FLAT: Fallback inserimento diretto in `libreria_personale`
-      if (!createdBookId) {
-        try {
-          const { data: flatInsertData } = await supabase
-            .from('libreria_personale')
-            .insert([{
-              user_id: userId,
-              user_email: activeEmail || null,
-              title: newBook.title,
-              author: newBook.author,
-              cover_url: newBook.coverUrl,
-              status: newBook.status || 'Da leggere'
-            }])
-            .select();
-
-          if (flatInsertData && flatInsertData[0]?.id) {
-            createdBookId = flatInsertData[0].id.toString();
-          }
-        } catch (flatErr) {
-          console.warn('Inserimento flat libreria_personale non riuscito:', flatErr);
-        }
-      }
-
-      if (createdBookId) {
-        const latest = getLatestLocalBooks();
-        const finalBooks = latest.map(b => b.id === tempId ? { ...b, id: createdBookId! } : b);
-        saveBooksLocally(finalBooks);
-        return { success: true, book: { ...newBook, id: createdBookId } };
       }
 
       return { success: true, book: newBook };
@@ -445,10 +287,15 @@ export function useBooks() {
     saveBooksLocally(updated);
 
     try {
-      if (!id.startsWith('temp-') && !id.startsWith('book-')) {
-        await supabase.from('user_books').delete().eq('book_id', id);
-        await supabase.from('libreria_personale').delete().eq('book_id', id);
-        await supabase.from('libreria_personale').delete().eq('id', id);
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      if (userId && !id.startsWith('book-') && !id.startsWith('temp-')) {
+        await supabase
+          .from('user_books')
+          .delete()
+          .eq('book_id', id)
+          .eq('user_id', userId);
       }
     } catch (e) {
       console.warn('Errore eliminazione Supabase:', e);
@@ -475,6 +322,7 @@ export function useBooks() {
         } else if (status === 'Letto') {
           if (!startDate) startDate = today;
           endDate = today;
+          if (book.totalPages) pagesRead = book.totalPages;
         }
 
         updatedBookRef = { ...book, status, startDate, endDate, pagesRead };
@@ -487,17 +335,67 @@ export function useBooks() {
 
     if (updatedBookRef && !id.startsWith('temp-') && !id.startsWith('book-')) {
       try {
-        await supabase
-          .from('user_books')
-          .update({ status: (updatedBookRef as Book).status })
-          .eq('book_id', id);
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
 
-        await supabase
-          .from('libreria_personale')
-          .update({ status: (updatedBookRef as Book).status })
-          .eq('id', id);
+        if (userId) {
+          await supabase
+            .from('user_books')
+            .update({
+              status: (updatedBookRef as Book).status,
+              start_date: (updatedBookRef as Book).startDate || null,
+              end_date: (updatedBookRef as Book).endDate || null,
+              pages_read: (updatedBookRef as Book).pagesRead || 0,
+              updated_at: new Date().toISOString()
+            })
+            .eq('book_id', id)
+            .eq('user_id', userId);
+        }
       } catch (e) {
         console.warn('Errore aggiornamento stato Supabase:', e);
+      }
+    }
+  };
+
+  const updateBookPages = async (id: string, pagesRead: number) => {
+    const current = getLatestLocalBooks();
+    let updatedBookRef: Book | null = null;
+
+    const updated = current.map(book => {
+      if (book.id === id) {
+        let status = book.status;
+        if (pagesRead > 0 && status === 'Da leggere') {
+          status = 'In lettura';
+        }
+        if (book.totalPages && pagesRead >= book.totalPages) {
+          status = 'Letto';
+        }
+        updatedBookRef = { ...book, pagesRead, status };
+        return updatedBookRef;
+      }
+      return book;
+    });
+
+    saveBooksLocally(updated);
+
+    if (updatedBookRef && !id.startsWith('temp-') && !id.startsWith('book-')) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+
+        if (userId) {
+          await supabase
+            .from('user_books')
+            .update({
+              pages_read: pagesRead,
+              status: (updatedBookRef as Book).status,
+              updated_at: new Date().toISOString()
+            })
+            .eq('book_id', id)
+            .eq('user_id', userId);
+        }
+      } catch (e) {
+        console.warn('Errore sincronizzazione pagine lette Supabase:', e);
       }
     }
   };
@@ -509,20 +407,34 @@ export function useBooks() {
 
     if (!updatedBook.id.startsWith('temp-') && !updatedBook.id.startsWith('book-')) {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+
         await supabase
           .from('books')
           .update({
             title: updatedBook.title,
             author: updatedBook.author,
             cover_url: updatedBook.coverUrl,
-            isbn: updatedBook.isbn || null
+            isbn: updatedBook.isbn || null,
+            total_pages: updatedBook.totalPages || null,
+            genre: updatedBook.genre || 'Narrativa'
           })
           .eq('id', updatedBook.id);
 
-        await supabase
-          .from('user_books')
-          .update({ status: updatedBook.status })
-          .eq('book_id', updatedBook.id);
+        if (userId) {
+          await supabase
+            .from('user_books')
+            .update({
+              status: updatedBook.status,
+              pages_read: updatedBook.pagesRead || 0,
+              start_date: updatedBook.startDate || null,
+              end_date: updatedBook.endDate || null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('book_id', updatedBook.id)
+            .eq('user_id', userId);
+        }
       } catch (e) {
         console.warn('Errore aggiornamento libro Supabase:', e);
       }
@@ -533,17 +445,6 @@ export function useBooks() {
     if (selectedFilter === 'Tutti') return true;
     return book.status === selectedFilter;
   });
-
-  const updateBookPages = (id: string, pagesRead: number) => {
-    const current = getLatestLocalBooks();
-    const updated = current.map(book => {
-      if (book.id === id) {
-        return { ...book, pagesRead };
-      }
-      return book;
-    });
-    saveBooksLocally(updated);
-  };
 
   return {
     books,

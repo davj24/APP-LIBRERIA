@@ -56,7 +56,14 @@ export const SocialPage: React.FC = () => {
   // Stati Feed Spunti Social
   const [spuntiFeed, setSpuntiFeed] = useState<SpuntoSocial[]>([]);
   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
-  const [savedSpuntiIds, setSavedSpuntiIds] = useState<string[]>([]);
+  const [savedSpuntiIds, setSavedSpuntiIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('bibliodesk_saved_spunti_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Modale "Condividi Spunto"
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -210,9 +217,15 @@ export const SocialPage: React.FC = () => {
   };
 
   const toggleSaveSpunto = (id: string) => {
-    setSavedSpuntiIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+    setSavedSpuntiIds(prev => {
+      const updated = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
+      try {
+        localStorage.setItem('bibliodesk_saved_spunti_v1', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Errore salvataggio bookmark spunti:', e);
+      }
+      return updated;
+    });
   };
 
   const formatTimeAgo = (dateStr: string) => {
