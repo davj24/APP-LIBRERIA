@@ -269,7 +269,7 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
 
                 <div>
                   <label className="block text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] mb-1">
-                    Pagine Lette
+                    A che pagina sei arrivato?
                   </label>
                   <input
                     type="number"

@@ -38,6 +38,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState<Partial<Book>>({});
+  const [pageInputValue, setPageInputValue] = useState<string>('0');
 
   useEffect(() => {
     if (book && isOpen) {
@@ -55,6 +56,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
         endDate: book.endDate || '',
         notes: book.notes || ''
       });
+      setPageInputValue(String(book.pagesRead || 0));
       setIsEditing(false);
       setShowDeleteConfirm(false);
     }
@@ -279,26 +281,104 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                         <span>{book.totalPages} pagine totali</span>
                       </div>
 
-                      {/* Quick increment buttons */}
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          onClick={() => handleQuickPageUpdate((book.pagesRead || 0) + 10)}
-                          className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors"
-                        >
-                          +10 Pag.
-                        </button>
-                        <button
-                          onClick={() => handleQuickPageUpdate((book.pagesRead || 0) + 25)}
-                          className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors"
-                        >
-                          +25 Pag.
-                        </button>
-                        <button
-                          onClick={() => handleQuickPageUpdate(book.totalPages || 300)}
-                          className="flex-1 py-1.5 bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] text-[#31362F] dark:text-[#E0DCD3] border border-[#A0AF99] dark:border-[#4D5A46] rounded-xl text-xs font-bold transition-colors"
-                        >
-                          Completato ✓
-                        </button>
+                      {/* Quick increment / 'A che pagina sei arrivato?' */}
+                      <div className="pt-2 border-t border-[#EBE5D9] dark:border-[#4A4743]/50 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-extrabold text-[#4A4743] dark:text-[#E0DCD3]">
+                            A che pagina sei arrivato?
+                          </label>
+                          <span className="text-[11px] font-semibold text-[#7A756D] dark:text-[#A09A90]">
+                            Max {book.totalPages} pag.
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            min="0"
+                            max={book.totalPages}
+                            value={pageInputValue}
+                            onChange={e => setPageInputValue(e.target.value)}
+                            className="flex-1 px-3 py-2 rounded-xl bg-[#F4F1EA] dark:bg-[#2A2826] border-2 border-[#B0BEA9] dark:border-[#5C6B55] text-sm font-black text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55]"
+                            placeholder="es. 140"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const parsed = parseInt(pageInputValue, 10);
+                              if (!isNaN(parsed)) {
+                                handleQuickPageUpdate(parsed);
+                              }
+                            }}
+                            className="px-4 py-2 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] text-[#31362F] dark:text-[#E0DCD3] font-bold text-xs shadow-xs transition-colors cursor-pointer active:scale-98"
+                          >
+                            Salva
+                          </button>
+                        </div>
+
+                        {/* Live calculation feedback */}
+                        {(() => {
+                          const parsed = parseInt(pageInputValue, 10);
+                          const prev = book.pagesRead || 0;
+                          if (!isNaN(parsed) && parsed !== prev) {
+                            const diff = parsed - prev;
+                            if (diff > 0) {
+                              return (
+                                <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1.5 rounded-lg flex items-center justify-between animate-in fade-in duration-150">
+                                  <span>📖 Lette in questa sessione:</span>
+                                  <span>+{diff} pagine</span>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div className="text-[11px] font-medium text-[#7A756D] dark:text-[#A09A90] bg-neutral-500/10 px-2.5 py-1.5 rounded-lg flex items-center justify-between animate-in fade-in duration-150">
+                                  <span>Torna indietro a pagina {parsed}:</span>
+                                  <span>{diff} pagine</span>
+                                </div>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
+
+                        {/* Quick helper pills */}
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = Math.min(book.totalPages || 300, (book.pagesRead || 0) + 10);
+                              setPageInputValue(String(next));
+                              handleQuickPageUpdate(next);
+                            }}
+                            className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                          >
+                            +10 pag
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = Math.min(book.totalPages || 300, (book.pagesRead || 0) + 25);
+                              setPageInputValue(String(next));
+                              handleQuickPageUpdate(next);
+                            }}
+                            className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                          >
+                            +25 pag
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = book.totalPages || 300;
+                              setPageInputValue(String(next));
+                              handleQuickPageUpdate(next);
+                            }}
+                            className="flex-1 py-1.5 bg-[#B0BEA9]/60 dark:bg-[#5C6B55]/60 hover:bg-[#B0BEA9] dark:hover:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                          >
+                            Fine ({book.totalPages})
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : null}
@@ -448,7 +528,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                   <div className={`grid gap-3 ${formData.status !== 'Da leggere' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     {formData.status !== 'Da leggere' && (
                       <div>
-                        <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">Pagine Lette</label>
+                        <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">A che pagina sei arrivato?</label>
                         <input
                           type="number"
                           inputMode="numeric"

@@ -13,7 +13,7 @@ import { StatsPage } from './presentation/pages/StatsPage';
 import { ProfilePage } from './presentation/pages/ProfilePage';
 import { AuthPage } from './presentation/pages/AuthPage';
 import { OnboardingWizard } from './presentation/components/auth/OnboardingWizard';
-import { useUserProfile } from './presentation/hooks/useUserProfile';
+import { useUserProfile, getLatestLocalProfile } from './presentation/hooks/useUserProfile';
 
 function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
@@ -25,20 +25,49 @@ function AppContent() {
     const checkExistingProfile = async (user: any) => {
       if (!user?.id) return;
       try {
-        const meta = user.user_metadata || {};
-        const userName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Lettore';
-        const userAvatar = meta.avatar_url || meta.picture || undefined;
+        const currentLocal = getLatestLocalProfile();
+        const isDefaultLocalName = !currentLocal.name || 
+          currentLocal.name === 'Lettore BiblioDesk' || 
+          currentLocal.name === 'Nuovo Lettore' || 
+          currentLocal.name === 'Lettore';
 
         const { data } = await supabase
           .from('profiles')
-          .select('id, full_name, username, avatar_url, bio')
+          .select('id, full_name, username, avatar_url, bio, reading_goal, favorite_genres, favorite_subgenres, selected_widgets, banner_url')
           .eq('id', user.id)
           .maybeSingle();
 
+        // 1. Massima priorità: se su Supabase c'è già il profilo configurato
+        if (data && (data.full_name || data.username)) {
+          updateProfile({
+            name: data.full_name || data.username,
+            bio: data.bio || currentLocal.bio,
+            avatarUrl: data.avatar_url || currentLocal.avatarUrl,
+            readingGoal: data.reading_goal || currentLocal.readingGoal,
+            favoriteGenres: Array.isArray(data.favorite_genres) && data.favorite_genres.length > 0 ? data.favorite_genres : currentLocal.favoriteGenres,
+            favoriteSubgenres: data.favorite_subgenres || currentLocal.favoriteSubgenres,
+            selectedWidgets: Array.isArray(data.selected_widgets) && data.selected_widgets.length > 0 ? data.selected_widgets : currentLocal.selectedWidgets,
+            bannerUrl: data.banner_url || currentLocal.bannerUrl,
+            isCompleted: true
+          });
+          return;
+        }
+
+        // 2. Seconda priorità: se l'utente aveva già configurato un nome/avatar personalizzato in locale
+        if (!isDefaultLocalName) {
+          updateProfile({
+            ...currentLocal,
+            isCompleted: true
+          });
+          return;
+        }
+
+        // 3. Fallback per account totalmente vergine: proponi nome da OAuth senza sovrascrivere avatar personalizzato
+        const meta = user.user_metadata || {};
+        const fallbackName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Lettore BiblioDesk';
+
         updateProfile({
-          name: data?.full_name || data?.username || userName,
-          bio: data?.bio || 'Appassionato di lettura su BiblioDesk',
-          avatarUrl: data?.avatar_url || userAvatar,
+          name: fallbackName,
           isCompleted: true
         });
       } catch (e) {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../../infrastructure/supabase/client';
 
 export interface UserProfile {
   name: string;
@@ -28,7 +29,7 @@ const DEFAULT_PROFILE: UserProfile = {
 const STORAGE_KEY = 'bibliodesk_user_profile';
 const UPDATE_EVENT = 'bibliodesk_profile_updated';
 
-function getLatestLocalProfile(): UserProfile {
+export function getLatestLocalProfile(): UserProfile {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -61,7 +62,44 @@ export function useUserProfile() {
     setProfile(getLatestLocalProfile());
   }, []);
 
+  const syncProfileFromSupabase = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!error && data) {
+        const current = getLatestLocalProfile();
+        const merged: UserProfile = {
+          ...current,
+          name: data.full_name || data.username || current.name,
+          bio: data.bio || current.bio,
+          readingGoal: data.reading_goal || current.readingGoal,
+          avatarUrl: data.avatar_url || current.avatarUrl,
+          bannerUrl: data.banner_url || current.bannerUrl,
+          favoriteGenres: Array.isArray(data.favorite_genres) && data.favorite_genres.length > 0 ? data.favorite_genres : current.favoriteGenres,
+          favoriteSubgenres: (data.favorite_subgenres && typeof data.favorite_subgenres === 'object') ? data.favorite_subgenres : current.favoriteSubgenres,
+          selectedWidgets: Array.isArray(data.selected_widgets) && data.selected_widgets.length > 0 ? data.selected_widgets : current.selectedWidgets,
+          isCompleted: true
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        setProfile(merged);
+        window.dispatchEvent(new CustomEvent(UPDATE_EVENT));
+      }
+    } catch (err) {
+      console.warn('Errore syncProfileFromSupabase:', err);
+    }
+  }, []);
+
   useEffect(() => {
+    syncProfileFromSupabase();
+
     const handleSync = () => {
       reloadProfileFromStorage();
     };
@@ -73,7 +111,7 @@ export function useUserProfile() {
       window.removeEventListener(UPDATE_EVENT, handleSync);
       window.removeEventListener('storage', handleSync);
     };
-  }, [reloadProfileFromStorage]);
+  }, [reloadProfileFromStorage, syncProfileFromSupabase]);
 
   const updateProfile = (newProfile: Partial<UserProfile>) => {
     setProfile(prev => {
@@ -81,6 +119,30 @@ export function useUserProfile() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent(UPDATE_EVENT));
+
+        // Sincronizza asincronamente su Supabase profiles se sessione attiva
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          const userId = session?.user?.id;
+          if (userId) {
+            Promise.resolve(
+              supabase.from('profiles').upsert({
+                id: userId,
+                full_name: updated.name,
+                username: updated.name,
+                bio: updated.bio || '',
+                avatar_url: updated.avatarUrl || null,
+                banner_url: updated.bannerUrl || null,
+                reading_goal: updated.readingGoal || 24,
+                favorite_genres: updated.favoriteGenres || [],
+                favorite_subgenres: updated.favoriteSubgenres || {},
+                selected_widgets: updated.selectedWidgets || ['read_count', 'reading_count'],
+                updated_at: new Date().toISOString()
+              })
+            ).then(({ error }: any) => {
+              if (error) console.warn('Sync profile to Supabase warning:', error);
+            }).catch((err: any) => console.warn('Sync profile to Supabase error:', err));
+          }
+        });
       } catch (err) {
         console.warn('Failed to save user profile:', err);
       }
@@ -104,6 +166,7 @@ export function useUserProfile() {
     profile,
     updateProfile,
     completeOnboarding,
+    syncProfileFromSupabase,
     initials: getInitials()
   };
 }

@@ -9,6 +9,43 @@ export type FilterType = 'Tutti' | BookStatus;
 
 const MOCK_BOOK_IDS = ['1', '2', '3'];
 
+function mapDbRecordToBook(rec: any): Book {
+  return {
+    id: rec.id?.toString() || Date.now().toString(),
+    title: rec.title || rec.titolo || 'Senza titolo',
+    author: rec.author || rec.autore || 'Autore sconosciuto',
+    coverUrl: rec.cover_url || rec.coverUrl || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400',
+    status: (rec.status as BookStatus) || 'Da leggere',
+    startDate: rec.start_date || rec.startDate || '',
+    endDate: rec.end_date || rec.endDate || '',
+    totalPages: rec.total_pages || rec.totalPages || undefined,
+    pagesRead: rec.pages_read || rec.pagesRead || 0,
+    genre: rec.genre || 'Narrativa',
+    subgenre: rec.subgenre || undefined,
+    rating: rec.rating || undefined,
+    isbn: rec.isbn || undefined
+  };
+}
+
+function getUserEmail(): string | null {
+  try {
+    const savedProfile = localStorage.getItem('bibliodesk_user_profile');
+    if (savedProfile) {
+      const parsed = JSON.parse(savedProfile);
+      if (parsed.email && typeof parsed.email === 'string' && parsed.email.trim()) {
+        return parsed.email.trim().toLowerCase();
+      }
+    }
+    const directEmail = localStorage.getItem('bibliodesk_user_email');
+    if (directEmail && directEmail.trim()) {
+      return directEmail.trim().toLowerCase();
+    }
+  } catch (e) {
+    console.warn('Errore lettura email account:', e);
+  }
+  return null;
+}
+
 function getLatestLocalBooks(): Book[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -32,23 +69,31 @@ export function useBooks() {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('Tutti');
   const [isLoadingSync, setIsLoadingSync] = useState(false);
 
-  // Sincronizzazione basata su Session User ID (Cloud First + Offline Fallback)
+  // Sincronizzazione ibrida e retrocompatibile (User ID + Email Account + Fallback Schema Flat)
   const syncFromSupabase = useCallback(async () => {
     try {
       setIsLoadingSync(true);
       const { data: { session } } = await supabase.auth.getSession();
+      const sessionEmail = session?.user?.email?.trim().toLowerCase();
+      const localEmail = getUserEmail();
+      const activeEmail = sessionEmail || localEmail;
       const userId = session?.user?.id;
 
-      if (!userId) {
+      if (!userId && !activeEmail) {
         setIsLoadingSync(false);
         return;
       }
 
-      let fetchedRemoteBooks: Book[] = [];
+      if (sessionEmail && sessionEmail !== localEmail) {
+        localStorage.setItem('bibliodesk_user_email', sessionEmail);
+      }
 
-      // Query Schema Relazionale con JOIN tra user_books e books isolata per user_id
+      let fetchedRemoteBooks: Book[] = [];
+      const bookIdMap = new Map<string, { status?: BookStatus; pagesRead?: number; startDate?: string; endDate?: string; rating?: number }>();
+
+      // 1. TENTATIVO SCHEMA RELAZIONALE CON JOIN (user_books + books)
       try {
-        const { data: userBooksData, error: ubErr } = await supabase
+        let userBooksQuery = supabase
           .from('user_books')
           .select(`
             id,
@@ -67,15 +112,25 @@ export function useBooks() {
               total_pages,
               genre
             )
-          `)
-          .eq('user_id', userId);
+          `);
+
+        if (userId && activeEmail) {
+          userBooksQuery = userBooksQuery.or(`user_id.eq.${userId},user_email.eq.${activeEmail}`);
+        } else if (userId) {
+          userBooksQuery = userBooksQuery.eq('user_id', userId);
+        } else if (activeEmail) {
+          userBooksQuery = userBooksQuery.eq('user_email', activeEmail);
+        }
+
+        const { data: userBooksData, error: ubErr } = await userBooksQuery;
 
         if (!ubErr && userBooksData && Array.isArray(userBooksData)) {
           userBooksData.forEach((ub: any) => {
             const b = ub.books;
+            const bId = ub.book_id?.toString();
             if (b) {
               fetchedRemoteBooks.push({
-                id: b.id?.toString() || ub.book_id?.toString(),
+                id: b.id?.toString() || bId,
                 title: b.title || 'Senza titolo',
                 author: b.author || 'Autore sconosciuto',
                 coverUrl: b.cover_url || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400',
@@ -88,21 +143,112 @@ export function useBooks() {
                 rating: ub.rating || undefined,
                 isbn: b.isbn || undefined
               });
+            } else if (bId) {
+              bookIdMap.set(bId, {
+                status: (ub.status as BookStatus) || 'Da leggere',
+                pagesRead: ub.pages_read || 0,
+                startDate: ub.start_date || '',
+                endDate: ub.end_date || '',
+                rating: ub.rating || undefined
+              });
             }
           });
         }
       } catch (relErr) {
-        console.warn('Query relazionale user_books:', relErr);
+        console.warn('Query relazionale user_books join:', relErr);
       }
 
-      // Merge intelligente con cache locale
+      // 2. RECUPERO LIBRI MANCANTI DA TABELLA `books` PER ID
+      if (bookIdMap.size > 0) {
+        try {
+          const idsToFetch = Array.from(bookIdMap.keys());
+          const { data: booksData } = await supabase
+            .from('books')
+            .select('*')
+            .in('id', idsToFetch);
+
+          if (booksData && Array.isArray(booksData)) {
+            booksData.forEach((b: any) => {
+              const rel = bookIdMap.get(b.id.toString()) || {};
+              fetchedRemoteBooks.push({
+                id: b.id.toString(),
+                title: b.title || 'Senza titolo',
+                author: b.author || 'Autore sconosciuto',
+                coverUrl: b.cover_url || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400',
+                status: rel.status || 'Da leggere',
+                startDate: rel.startDate || '',
+                endDate: rel.endDate || '',
+                totalPages: b.total_pages || undefined,
+                pagesRead: rel.pagesRead || 0,
+                genre: b.genre || 'Narrativa',
+                rating: rel.rating || undefined,
+                isbn: b.isbn || undefined
+              });
+            });
+          }
+        } catch (booksErr) {
+          console.warn('Recupero metadati books per ID:', booksErr);
+        }
+      }
+
+      // 3. RECUPERO DA TABELLA `libreria_personale` (usata da MAIN sia relazionale che flat)
+      try {
+        let lpQuery = supabase.from('libreria_personale').select('*');
+        if (userId && activeEmail) {
+          lpQuery = lpQuery.or(`user_id.eq.${userId},user_email.eq.${activeEmail}`);
+        } else if (userId) {
+          lpQuery = lpQuery.eq('user_id', userId);
+        } else if (activeEmail) {
+          lpQuery = lpQuery.eq('user_email', activeEmail);
+        }
+
+        const { data: lpData, error: lpErr } = await lpQuery;
+        if (!lpErr && lpData && Array.isArray(lpData)) {
+          const missingBookIds: string[] = [];
+
+          lpData.forEach((lp: any) => {
+            // Se ha campi diretti titolo/autore (schema flat)
+            if (lp.title || lp.titolo) {
+              const parsed = mapDbRecordToBook(lp);
+              if (!fetchedRemoteBooks.some(b => b.id === parsed.id || (b.title === parsed.title && b.author === parsed.author))) {
+                fetchedRemoteBooks.push(parsed);
+              }
+            } else if (lp.book_id) {
+              const bId = lp.book_id.toString();
+              if (!fetchedRemoteBooks.some(b => b.id === bId)) {
+                missingBookIds.push(bId);
+              }
+            }
+          });
+
+          if (missingBookIds.length > 0) {
+            const { data: missingBooks } = await supabase
+              .from('books')
+              .select('*')
+              .in('id', missingBookIds);
+
+            if (missingBooks && Array.isArray(missingBooks)) {
+              missingBooks.forEach((mb: any) => {
+                const parsed = mapDbRecordToBook(mb);
+                if (!fetchedRemoteBooks.some(b => b.id === parsed.id)) {
+                  fetchedRemoteBooks.push(parsed);
+                }
+              });
+            }
+          }
+        }
+      } catch (lpErr) {
+        console.warn('Recupero libreria_personale legacy fallback:', lpErr);
+      }
+
+      // 4. MERGE INTELLIGENTE CON CACHE LOCALE (Nessuna perdita di dati)
       const localBooks = getLatestLocalBooks();
       const mergedMap = new Map<string, Book>();
 
-      // 1. Inserisci i libri remoti dal Cloud
+      // A. Inserisci i libri remoti dal Cloud
       fetchedRemoteBooks.forEach(b => mergedMap.set(b.id, b));
 
-      // 2. Se ci sono libri salvati solo in locale, sincronizzali sul cloud
+      // B. Preserva e sincronizza libri locali non ancora presenti sul cloud
       const unuploadedLocalBooks = localBooks.filter(localB => {
         if (mergedMap.has(localB.id)) return false;
         const existsInRemote = fetchedRemoteBooks.some(
@@ -132,12 +278,24 @@ export function useBooks() {
               const createdId = bookInsertData[0].id.toString();
               await supabase.from('user_books').insert([{
                 user_id: userId,
+                user_email: activeEmail || null,
                 book_id: bookInsertData[0].id,
                 status: localB.status || 'Da leggere',
                 pages_read: localB.pagesRead || 0,
                 start_date: localB.startDate || null,
                 end_date: localB.endDate || null
               }]);
+              try {
+                await supabase.from('libreria_personale').insert([{
+                  user_id: userId,
+                  user_email: activeEmail || null,
+                  book_id: bookInsertData[0].id,
+                  title: localB.title,
+                  author: localB.author,
+                  cover_url: localB.coverUrl,
+                  status: localB.status || 'Da leggere'
+                }]);
+              } catch (_) {}
               mergedMap.set(createdId, { ...localB, id: createdId });
             } else {
               mergedMap.set(localB.id, localB);
@@ -235,6 +393,9 @@ export function useBooks() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
+      const sessionEmail = session?.user?.email?.trim().toLowerCase();
+      const localEmail = getUserEmail();
+      const activeEmail = sessionEmail || localEmail;
 
       if (userId) {
         // 1. Inserisci o collega il libro nella tabella `books`
@@ -256,12 +417,26 @@ export function useBooks() {
           // 2. Inserisci nella libreria dell'utente `user_books`
           await supabase.from('user_books').insert([{
             user_id: userId,
+            user_email: activeEmail || null,
             book_id: bookInsertData[0].id,
             status: newBook.status || 'Da leggere',
             pages_read: newBook.pagesRead || 0,
             start_date: newBook.startDate || null,
             end_date: newBook.endDate || null
           }]);
+
+          // 3. Inserisci anche in `libreria_personale` per retrocompatibilità con MAIN
+          try {
+            await supabase.from('libreria_personale').insert([{
+              user_id: userId,
+              user_email: activeEmail || null,
+              book_id: bookInsertData[0].id,
+              title: newBook.title,
+              author: newBook.author,
+              cover_url: newBook.coverUrl,
+              status: newBook.status || 'Da leggere'
+            }]);
+          } catch (_) {}
 
           const latest = getLatestLocalBooks();
           const finalBooks = latest.map(b => b.id === tempId ? { ...b, id: createdBookId } : b);
@@ -296,6 +471,13 @@ export function useBooks() {
           .delete()
           .eq('book_id', id)
           .eq('user_id', userId);
+
+        try {
+          await supabase
+            .from('libreria_personale')
+            .delete()
+            .or(`book_id.eq.${id},id.eq.${id}`);
+        } catch (_) {}
       }
     } catch (e) {
       console.warn('Errore eliminazione Supabase:', e);
@@ -350,6 +532,15 @@ export function useBooks() {
             })
             .eq('book_id', id)
             .eq('user_id', userId);
+
+          try {
+            await supabase
+              .from('libreria_personale')
+              .update({
+                status: (updatedBookRef as Book).status
+              })
+              .or(`book_id.eq.${id},id.eq.${id}`);
+          } catch (_) {}
         }
       } catch (e) {
         console.warn('Errore aggiornamento stato Supabase:', e);
@@ -393,6 +584,15 @@ export function useBooks() {
             })
             .eq('book_id', id)
             .eq('user_id', userId);
+
+          try {
+            await supabase
+              .from('libreria_personale')
+              .update({
+                status: (updatedBookRef as Book).status
+              })
+              .or(`book_id.eq.${id},id.eq.${id}`);
+          } catch (_) {}
         }
       } catch (e) {
         console.warn('Errore sincronizzazione pagine lette Supabase:', e);
@@ -434,6 +634,18 @@ export function useBooks() {
             })
             .eq('book_id', updatedBook.id)
             .eq('user_id', userId);
+
+          try {
+            await supabase
+              .from('libreria_personale')
+              .update({
+                title: updatedBook.title,
+                author: updatedBook.author,
+                cover_url: updatedBook.coverUrl,
+                status: updatedBook.status
+              })
+              .or(`book_id.eq.${updatedBook.id},id.eq.${updatedBook.id}`);
+          } catch (_) {}
         }
       } catch (e) {
         console.warn('Errore aggiornamento libro Supabase:', e);

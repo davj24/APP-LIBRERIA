@@ -45,8 +45,11 @@ export class SupabaseProfileRepository {
 
     const { error } = await supabase
       .from('profiles')
-      .update(payload)
-      .eq('id', userId);
+      .upsert({
+        id: userId,
+        ...payload,
+        updated_at: new Date().toISOString()
+      });
 
     if (error) {
       console.error('Errore updateProfile:', error);
