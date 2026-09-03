@@ -95,6 +95,19 @@ const BANNER_PRESETS = [
   { name: 'Notte Stellata', class: 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900' }
 ];
 
+const IOS_AVATAR_PRESETS = [
+  { name: 'Viola Indaco', color: 'bg-gradient-to-tr from-indigo-600 to-violet-600' },
+  { name: 'Verde Smeraldo', color: 'bg-gradient-to-tr from-emerald-600 to-green-500' },
+  { name: 'Arancio Caldo', color: 'bg-gradient-to-tr from-amber-500 to-orange-500' },
+  { name: 'Rosa Pastello', color: 'bg-gradient-to-tr from-rose-500 to-pink-500' },
+  { name: 'Azzurro Cielo', color: 'bg-gradient-to-tr from-sky-400 to-blue-500' },
+  { name: 'Nero Antracite', color: 'bg-gradient-to-tr from-neutral-800 to-neutral-950' },
+  { name: 'Viola Scuro', color: 'bg-gradient-to-tr from-purple-800 to-indigo-950' },
+  { name: 'Verde Menta', color: 'bg-gradient-to-tr from-teal-400 to-emerald-400' },
+  { name: 'Rosso Corallo', color: 'bg-gradient-to-tr from-rose-500 to-red-500' },
+  { name: 'Marrone Moka', color: 'bg-gradient-to-tr from-stone-700 to-amber-900' }
+];
+
 export type WidgetCategory = 'statistiche' | 'abitudini' | 'libreria' | 'note';
 
 export interface WidgetDefinition {
@@ -416,6 +429,7 @@ export const ProfilePage: React.FC = () => {
       name: draftProfile.name,
       bio: draftProfile.bio,
       avatarUrl: draftProfile.avatarUrl,
+      avatarColor: draftProfile.avatarColor,
       bannerUrl: draftProfile.bannerUrl,
       selectedWidgets: draftProfile.selectedWidgets,
       favoriteGenres: draftProfile.favoriteGenres,
@@ -834,20 +848,71 @@ export const ProfilePage: React.FC = () => {
                  </div>
                  
                  <div className="px-6 flex flex-col pb-6">
-                   <div className="-mt-14 mb-6 relative inline-block self-start">
-                     <div className={`h-28 w-28 rounded-full border-4 border-white dark:border-neutral-900 ${draftProfile.avatarUrl ? 'bg-neutral-300 dark:bg-neutral-700' : (draftProfile.avatarColor?.startsWith('bg-') ? draftProfile.avatarColor : `bg-gradient-to-tr ${draftProfile.avatarColor || 'from-indigo-600 to-violet-500'}`)} flex items-center justify-center font-black text-3xl text-white shadow-sm overflow-hidden`}>
-                       {draftProfile.avatarUrl ? (
-                         <img src={draftProfile.avatarUrl} alt={draftProfile.name} className="w-full h-full object-cover" />
-                       ) : (
-                         <span>{draftProfile.name ? draftProfile.name.trim().charAt(0).toUpperCase() : 'D'}</span>
+                   <div className="-mt-14 mb-4 flex items-end justify-between">
+                     <div className="relative inline-block self-start">
+                       <div className={`h-28 w-28 rounded-full border-4 border-white dark:border-neutral-900 ${draftProfile.avatarUrl ? 'bg-neutral-300 dark:bg-neutral-700' : (draftProfile.avatarColor?.startsWith('bg-') ? draftProfile.avatarColor : `bg-gradient-to-tr ${draftProfile.avatarColor || 'from-indigo-600 to-violet-500'}`)} flex items-center justify-center font-black text-3xl text-white shadow-sm overflow-hidden`}>
+                         {draftProfile.avatarUrl ? (
+                           <img src={draftProfile.avatarUrl} alt={draftProfile.name} className="w-full h-full object-cover" />
+                         ) : (
+                           <span>{draftProfile.name ? draftProfile.name.trim().charAt(0).toUpperCase() : 'D'}</span>
+                         )}
+                       </div>
+                       <div 
+                         onClick={() => setImagePickerType('avatar')}
+                         className="absolute bottom-0 right-0 rounded-full bg-black/50 hover:bg-black/70 p-2 text-white border-2 border-white dark:border-neutral-900 backdrop-blur-md cursor-pointer transition-colors shadow-md"
+                         title="Carica Foto Profilo"
+                       >
+                         <Camera size={14} />
+                       </div>
+                     </div>
+
+                     {draftProfile.avatarUrl && (
+                       <button
+                         type="button"
+                         onClick={() => setDraftProfile(prev => ({ ...prev, avatarUrl: '' }))}
+                         className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 hover:bg-rose-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+                       >
+                         <Trash2 size={13} />
+                         <span>Rimuovi Foto</span>
+                       </button>
+                     )}
+                   </div>
+
+                   {/* Palette Colori Avatar iOS */}
+                   <div className="mb-5 p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60 space-y-2">
+                     <div className="flex items-center justify-between">
+                       <span className="text-xs font-bold text-neutral-600 dark:text-neutral-400">
+                         Colore Avatar:
+                       </span>
+                       {draftProfile.avatarUrl && (
+                         <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                           (Foto attiva - tocca un colore per reimpostarlo)
+                         </span>
                        )}
                      </div>
-                     <div 
-                       onClick={() => setImagePickerType('avatar')}
-                       className="absolute bottom-0 right-0 rounded-full bg-black/50 hover:bg-black/70 p-2 text-white border-2 border-white dark:border-neutral-900 backdrop-blur-md cursor-pointer transition-colors shadow-md"
-                       title="Cambia Foto Profilo"
-                     >
-                       <Camera size={14} />
+                     <div className="flex flex-wrap gap-2">
+                       {IOS_AVATAR_PRESETS.map((preset) => {
+                         const isSelected = draftProfile.avatarColor === preset.color && !draftProfile.avatarUrl;
+                         return (
+                           <button
+                             key={preset.name}
+                             type="button"
+                             onClick={() => {
+                               setDraftProfile(prev => ({
+                                 ...prev,
+                                 avatarColor: preset.color,
+                                 avatarUrl: ''
+                               }));
+                             }}
+                             title={preset.name}
+                             className={`w-7 h-7 rounded-full ${preset.color} transition-all transform cursor-pointer ${
+                               isSelected
+                                 ? 'ring-2 ring-offset-2 ring-[#31362F] dark:ring-white scale-110 shadow-sm'
+                                 : 'opacity-80 hover:opacity-100 hover:scale-105'
+                             }`}
+                           />
+                         );
+                       })}
                      </div>
                    </div>
 
