@@ -34,6 +34,9 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isFlashOn, setIsFlashOn] = useState(false);
 
+  // ID dinamico e univoco per evitare collisioni quando sono montate più istanze nel DOM
+  const scannerContainerId = useRef(`qr-reader-${Math.random().toString(36).substring(2, 9)}`).current;
+
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const nativeDetectorRef = useRef<any>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -77,7 +80,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   }, [isOpen]);
 
   const startScanner = async () => {
-    const element = document.getElementById("qr-reader");
+    const element = document.getElementById(scannerContainerId);
     if (!element) return;
 
     try {
@@ -98,7 +101,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
 
       if (!html5QrcodeRef.current) {
-        html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
+        html5QrcodeRef.current = new Html5Qrcode(scannerContainerId, {
           formatsToSupport: supportedFormats,
           verbose: false
         });
@@ -198,7 +201,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   };
 
   const toggleFlash = async () => {
-    const element = document.getElementById("qr-reader");
+    const element = document.getElementById(scannerContainerId);
     const videoEl = element?.querySelector('video') as HTMLVideoElement | null;
     if (videoEl && videoEl.srcObject) {
       const stream = videoEl.srcObject as MediaStream;
@@ -246,6 +249,21 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
+    }
+
+    // Spegni forzatamente tutti i track hardware video WebRTC per evitare indicatori camera accesi
+    const element = document.getElementById(scannerContainerId);
+    const videoEl = element?.querySelector('video') as HTMLVideoElement | null;
+    if (videoEl && videoEl.srcObject) {
+      try {
+        const stream = videoEl.srcObject as MediaStream;
+        stream.getTracks().forEach(track => {
+          track.stop();
+        });
+        videoEl.srcObject = null;
+      } catch (err) {
+        console.warn("Forced video track shutdown error:", err);
+      }
     }
 
     if (html5QrcodeRef.current) {
@@ -402,7 +420,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     let decodedText: string | null = null;
 
     if (!html5QrcodeRef.current) {
-      html5QrcodeRef.current = new Html5Qrcode("qr-reader", {
+      html5QrcodeRef.current = new Html5Qrcode(scannerContainerId, {
         formatsToSupport: supportedFormats,
         verbose: false
       });
@@ -610,7 +628,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             <div className="relative my-3 aspect-[4/3] w-full rounded-2xl bg-[#151814] overflow-hidden border border-[#383532] dark:border-[#4A4743]/60 flex items-center justify-center shrink-0 shadow-inner">
               {/* Contenitore HTML5 QR Code a Schermo Intero (Nessun mirino html5-qrcode interno duplicato) */}
               <div
-                id="qr-reader"
+                id={scannerContainerId}
                 className="w-full h-full object-cover [&_#qr-shaded-region]:!hidden [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover [&_video]:!rounded-2xl [&_canvas]:!hidden [&_#qr-reader__scan_region]:!border-none [&_#qr-reader]:!border-none [&_#qr-reader]:!bg-transparent [&_#qr-reader]:!p-0"
               />
 

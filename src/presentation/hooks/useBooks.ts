@@ -358,8 +358,13 @@ export function useBooks() {
   // Salva ogni modifica nel localStorage e notifica gli altri hook
   const saveBooksLocally = (newBooks: Book[]) => {
     setBooks(newBooks);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newBooks));
-    window.dispatchEvent(new Event(UPDATE_EVENT));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newBooks));
+      window.dispatchEvent(new Event(UPDATE_EVENT));
+    } catch (storageErr) {
+      console.warn('Impossibile salvare i libri in localStorage (quota superata o storage disabilitato):', storageErr);
+      window.dispatchEvent(new Event(UPDATE_EVENT));
+    }
   };
 
   /**

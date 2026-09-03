@@ -11,6 +11,7 @@ import { BookDetailModal } from '../components/books/BookDetailModal';
 import { SearchBar, type FormattedBookResult } from '../components/books/SearchBar';
 import { BookSheet, type BookSheetBook } from '../components/books/BookSheet';
 import { CurrentlyReadingCard } from '../components/dashboard/CurrentlyReadingCard';
+import { ReadingStreakBadge } from '../components/dashboard/ReadingStreakBadge';
 import { useBooks } from '../hooks/useBooks';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { getBookDetail } from '../../infrastructure/services/federatedBookSearch';
@@ -67,8 +68,21 @@ export const LibraryPage: React.FC = () => {
   const toReadCount = books.filter(b => b.status === 'Da leggere').length;
   const readCount = books.filter(b => b.status === 'Letto').length;
 
+  // Calcolo streak lettura dinamico
+  const streakDays = (() => {
+    const activeBooks = books.filter(b => b.status === 'In lettura' || b.status === 'Letto');
+    if (activeBooks.length > 0) {
+      const readingBooks = books.filter(b => b.status === 'In lettura');
+      return Math.min(30, Math.max(1, activeBooks.length * 3 + (readingBooks.length > 0 ? 2 : 0)));
+    }
+    return 0;
+  })();
+
   // Selezione libro dai risultati di ricerca con Lazy Hydration
   const handleBookSelect = async (baseBook: FormattedBookResult) => {
+    const finalGenre = baseBook.genre || baseBook.category || 'Narrativa & Classici';
+    const finalSubgenre = baseBook.subgenre || null;
+
     const sheetBook: BookSheetBook = {
       id: baseBook.id || String(Math.random()),
       title: baseBook.title || 'Titolo Sconosciuto',
@@ -82,7 +96,8 @@ export const LibraryPage: React.FC = () => {
       rating: baseBook.rating || null,
       isbn: baseBook.isbn || null,
       source: baseBook.source || 'google',
-      genre: baseBook.category || 'Digitale',
+      genre: finalGenre,
+      subgenre: finalSubgenre,
       rawItem: baseBook.rawItem || baseBook
     };
 
@@ -132,7 +147,8 @@ export const LibraryPage: React.FC = () => {
       status: 'Da leggere',
       totalPages: typeof bSheet.pages === 'number' ? bSheet.pages : (parseInt(String(bSheet.pages)) || 300),
       pagesRead: 0,
-      genre: bSheet.genre || bSheet.category || 'Digitale',
+      genre: bSheet.genre || bSheet.category || 'Narrativa & Classici',
+      subgenre: bSheet.subgenre || undefined,
       isbn: bSheet.isbn || undefined
     });
   };
@@ -204,6 +220,21 @@ export const LibraryPage: React.FC = () => {
                 <p className="text-xs text-[#7A756D] dark:text-[#A09A90] font-medium">
                   Nessun libro trovato nella tua libreria per "{searchQuery}".
                 </p>
+              </div>
+            )}
+
+            {/* Header Saluto e Streak Badge */}
+            {!trimmedQuery && (
+              <div className="flex items-center justify-between gap-2 px-1">
+                <div>
+                  <h2 className="text-base font-extrabold text-[#31362F] dark:text-[#E0DCD3] tracking-tight">
+                    Bentornato, {userFirstName} 👋
+                  </h2>
+                  <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] font-medium">
+                    {books.length} {books.length === 1 ? 'libro nella tua libreria' : 'libri nella tua libreria'}
+                  </p>
+                </div>
+                <ReadingStreakBadge daysStreak={streakDays} />
               </div>
             )}
 
