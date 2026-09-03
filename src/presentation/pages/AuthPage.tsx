@@ -158,11 +158,8 @@ export const AuthPage: React.FC = () => {
 
       {/* L'ISOLA CENTRALE (Central Floating Elevated Card) */}
       <main className="my-auto z-10 max-w-md w-full">
-        <div className="bg-[#FCFBF8] dark:bg-[#201E1C] rounded-[32px] p-6 sm:p-8 border border-[#E2DDD2]/80 dark:border-[#383430] shadow-[0_24px_60px_-15px_rgba(49,54,47,0.16),0_10px_24px_-10px_rgba(49,54,47,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_24px_60px_-15px_rgba(0,0,0,0.65),0_10px_24px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.06)] space-y-6 relative overflow-hidden">
+        <div className="bg-[#FCFBF8] dark:bg-[#201E1C] rounded-3xl p-6 sm:p-8 border border-[#E2DDD2] dark:border-[#383430] shadow-[0_16px_40px_-10px_rgba(49,54,47,0.12),0_4px_16px_rgba(49,54,47,0.06)] dark:shadow-[0_16px_40px_-10px_rgba(0,0,0,0.55),0_4px_16px_rgba(0,0,0,0.35)] space-y-6 relative overflow-hidden">
           
-          {/* Ambient Glow Inside Island */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#5C6B55]/15 rounded-full blur-xl pointer-events-none" />
-
           {/* Slide Content inside the Island */}
           <AnimatePresence mode="wait">
             <motion.div
@@ -281,10 +278,11 @@ export const AuthPage: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="relative w-full max-w-md bg-[#FCFBF8] dark:bg-[#201E1C] rounded-t-3xl sm:rounded-3xl p-6 border-t sm:border border-[#EBE5D9] dark:border-[#383430] shadow-[0_-20px_50px_rgba(0,0,0,0.22)] sm:shadow-[0_25px_70px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:sm:shadow-[0_25px_70px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.06)] space-y-5 max-h-[90vh] overflow-y-auto z-10"
+              className="relative w-full max-w-md bg-[#FCFBF8] dark:bg-[#201E1C] rounded-t-3xl sm:rounded-3xl border-t sm:border border-[#EBE5D9] dark:border-[#383430] shadow-[0_-12px_35px_rgba(0,0,0,0.15)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.25)] overflow-hidden z-10"
             >
-              {/* Drag Handle Top for Mobile */}
-              <div className="w-12 h-1.5 bg-[#DCD5C6] dark:bg-[#4A4743] rounded-full mx-auto sm:hidden mb-2" />
+              <div className="p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+                {/* Drag Handle Top for Mobile */}
+                <div className="w-12 h-1.5 bg-[#DCD5C6] dark:bg-[#4A4743] rounded-full mx-auto sm:hidden mb-2" />
 
               {/* Header Modal */}
               <div className="flex items-center justify-between pb-2 border-b border-[#EBE5D9] dark:border-[#383430]">
@@ -442,7 +440,8 @@ export const AuthPage: React.FC = () => {
                   )}
                 </button>
               </form>
-            </motion.div>
+            </div>
+          </motion.div>
           </div>
         )}
       </AnimatePresence>
