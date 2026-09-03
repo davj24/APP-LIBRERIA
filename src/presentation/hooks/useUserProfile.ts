@@ -15,14 +15,14 @@ export interface UserProfile {
 }
 
 const DEFAULT_PROFILE: UserProfile = {
-  name: 'Nuovo Lettore',
+  name: 'Lettore BiblioDesk',
   bio: 'Appassionato di lettura su BiblioDesk',
   readingGoal: 24,
   avatarColor: 'from-indigo-600 to-violet-500',
   selectedWidgets: ['read_count', 'reading_count'],
   favoriteGenres: ['Fantasy & Magia', 'Narrativa & Classici'],
   favoriteSubgenres: {},
-  isCompleted: false
+  isCompleted: true
 };
 
 const STORAGE_KEY = 'bibliodesk_user_profile';
@@ -36,6 +36,7 @@ function getLatestLocalProfile(): UserProfile {
       return {
         ...DEFAULT_PROFILE,
         ...parsed,
+        isCompleted: parsed.isCompleted !== undefined ? parsed.isCompleted : true,
         selectedWidgets: Array.isArray(parsed.selectedWidgets)
           ? parsed.selectedWidgets
           : DEFAULT_PROFILE.selectedWidgets,

@@ -25,22 +25,25 @@ function AppContent() {
     const checkExistingProfile = async (user: any) => {
       if (!user?.id) return;
       try {
+        const meta = user.user_metadata || {};
+        const userName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Lettore';
+        const userAvatar = meta.avatar_url || meta.picture || undefined;
+
         const { data } = await supabase
           .from('profiles')
           .select('id, full_name, username, avatar_url, bio')
           .eq('id', user.id)
           .maybeSingle();
 
-        if (data && (data.full_name || data.username)) {
-          updateProfile({
-            name: data.full_name || data.username,
-            bio: data.bio || '',
-            avatarUrl: data.avatar_url || undefined,
-            isCompleted: true
-          });
-        }
+        updateProfile({
+          name: data?.full_name || data?.username || userName,
+          bio: data?.bio || 'Appassionato di lettura su BiblioDesk',
+          avatarUrl: data?.avatar_url || userAvatar,
+          isCompleted: true
+        });
       } catch (e) {
         console.warn('Errore verifica profilo esistente:', e);
+        updateProfile({ isCompleted: true });
       }
     };
 
