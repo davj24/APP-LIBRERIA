@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Mail, Lock, Eye, EyeOff, Sparkles, AlertCircle, 
-  CheckCircle2, ArrowRight, Loader2, Users, Flame, X 
+  CheckCircle2, ArrowRight, Loader2, Users, Flame, X, UserPlus, LogIn 
 } from 'lucide-react';
 import { supabase } from '../../infrastructure/supabase/client';
 import { GoogleAuthButton } from '../components/auth/GoogleAuthButton';
@@ -14,6 +14,7 @@ interface OnboardingSlide {
   badge: string;
   icon: React.ReactNode;
   accentGradient: string;
+  glowShadow: string;
 }
 
 const ONBOARDING_SLIDES: OnboardingSlide[] = [
@@ -23,7 +24,8 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     title: 'Organizza e traccia ogni tua lettura',
     subtitle: 'Scansiona il codice a barre o la copertina con la fotocamera. Mantieni in ordine i tuoi libri tra Da Leggere, In Lettura e Letti.',
     icon: <BookOpen className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />,
-    accentGradient: 'from-emerald-500/20 via-teal-500/10 to-transparent'
+    accentGradient: 'from-emerald-500/20 via-teal-500/10 to-transparent',
+    glowShadow: 'shadow-[0_16px_36px_-8px_rgba(16,185,129,0.25)] dark:shadow-[0_16px_36px_-8px_rgba(16,185,129,0.18)]'
   },
   {
     id: 1,
@@ -31,7 +33,8 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     title: 'Condividi spunti e recensioni reali',
     subtitle: 'Scopri cosa stanno leggendo i tuoi amici, pubblica i tuoi takeaway ed entra a far parte di una vera community di lettori appassionati.',
     icon: <Users className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />,
-    accentGradient: 'from-indigo-500/20 via-purple-500/10 to-transparent'
+    accentGradient: 'from-indigo-500/20 via-purple-500/10 to-transparent',
+    glowShadow: 'shadow-[0_16px_36px_-8px_rgba(99,102,241,0.25)] dark:shadow-[0_16px_36px_-8px_rgba(99,102,241,0.18)]'
   },
   {
     id: 2,
@@ -39,7 +42,8 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     title: 'Costruisci l’abitudine di leggere ogni giorno',
     subtitle: 'Imposta i tuoi obiettivi annuali, aggiorna le pagine raggiunte e mantieni attiva la tua streak quotidiana di lettura.',
     icon: <Flame className="w-10 h-10 text-amber-600 dark:text-amber-400" />,
-    accentGradient: 'from-amber-500/20 via-orange-500/10 to-transparent'
+    accentGradient: 'from-amber-500/20 via-orange-500/10 to-transparent',
+    glowShadow: 'shadow-[0_16px_36px_-8px_rgba(245,158,11,0.25)] dark:shadow-[0_16px_36px_-8px_rgba(245,158,11,0.18)]'
   }
 ];
 
@@ -138,7 +142,7 @@ export const AuthPage: React.FC = () => {
       {/* Header Brand Top */}
       <header className="pt-2 sm:pt-4 flex items-center justify-between z-10 w-full max-w-md">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-[#5C6B55] text-white flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 rounded-2xl bg-[#5C6B55] text-white flex items-center justify-center shadow-[0_8px_20px_-4px_rgba(92,107,85,0.45)] ring-2 ring-white/60 dark:ring-[#383430]">
             <BookOpen size={20} />
           </div>
           <div>
@@ -154,7 +158,7 @@ export const AuthPage: React.FC = () => {
 
       {/* L'ISOLA CENTRALE (Central Floating Elevated Card) */}
       <main className="my-auto z-10 max-w-md w-full">
-        <div className="bg-[#FCFBF8] dark:bg-[#201E1C] rounded-[32px] p-6 sm:p-8 border border-[#E2DDD2] dark:border-[#383430] shadow-2xl space-y-6 relative overflow-hidden">
+        <div className="bg-[#FCFBF8] dark:bg-[#201E1C] rounded-[32px] p-6 sm:p-8 border border-[#E2DDD2]/80 dark:border-[#383430] shadow-[0_24px_60px_-15px_rgba(49,54,47,0.16),0_10px_24px_-10px_rgba(49,54,47,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_24px_60px_-15px_rgba(0,0,0,0.65),0_10px_24px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.06)] space-y-6 relative overflow-hidden">
           
           {/* Ambient Glow Inside Island */}
           <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#5C6B55]/15 rounded-full blur-xl pointer-events-none" />
@@ -170,14 +174,14 @@ export const AuthPage: React.FC = () => {
               className="text-center space-y-4 flex flex-col items-center"
             >
               {/* Badge */}
-              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-[#EFECE6] dark:bg-[#272422] text-[#5C6B55] dark:text-[#A8BB9C] border border-[#DCD5C6] dark:border-[#4A4743]/60 shadow-xs">
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-[#EFECE6] dark:bg-[#272422] text-[#5C6B55] dark:text-[#A8BB9C] border border-[#DCD5C6] dark:border-[#4A4743]/60 shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
                 <Sparkles size={13} />
                 {activeSlideData.badge}
               </span>
 
               {/* Icon Box */}
               <div className="relative my-1">
-                <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-b ${activeSlideData.accentGradient} bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743] shadow-md flex items-center justify-center`}>
+                <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-b ${activeSlideData.accentGradient} bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743] ${activeSlideData.glowShadow} shadow-[inset_0_1px_2px_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08)] flex items-center justify-center transition-all duration-500`}>
                   {activeSlideData.icon}
                 </div>
               </div>
@@ -203,7 +207,7 @@ export const AuthPage: React.FC = () => {
                 onClick={() => setCurrentSlide(slide.id)}
                 className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
                   currentSlide === slide.id
-                    ? 'w-7 bg-[#5C6B55] dark:bg-[#A8BB9C]'
+                    ? 'w-7 bg-[#5C6B55] dark:bg-[#A8BB9C] shadow-[0_2px_8px_rgba(92,107,85,0.45)] dark:shadow-[0_2px_8px_rgba(168,187,156,0.45)]'
                     : 'w-2 bg-[#DCD5C6] dark:bg-[#4A4743] hover:bg-[#B0BEA9]'
                 }`}
                 aria-label={`Slide ${slide.id + 1}`}
@@ -225,22 +229,24 @@ export const AuthPage: React.FC = () => {
               />
             </div>
 
-            {/* Tasti Secondari per Email: Non ho un account & Ho già un account */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Tasti Secondari per Email: Registrati & Accedi */}
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => handleOpenAuth('signup')}
-                className="py-2.5 px-3 rounded-2xl bg-[#EFECE6] dark:bg-[#272422] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold border border-[#E2DDD2] dark:border-[#36322E] flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                className="py-3 px-3 rounded-2xl bg-[#F5F2EC] dark:bg-[#272422] hover:bg-[#EAE5DC] dark:hover:bg-[#302D2A] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold border border-[#E0DBD0] dark:border-[#3A3632] flex items-center justify-center gap-1.5 shadow-[0_2px_8px_rgba(49,54,47,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_4px_14px_rgba(49,54,47,0.1)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 cursor-pointer"
               >
-                <span>Non ho un account</span>
+                <UserPlus size={14} className="text-[#5C6B55] dark:text-[#A8BB9C] shrink-0" />
+                <span>Registrati</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleOpenAuth('signin')}
-                className="py-2.5 px-3 rounded-2xl bg-[#EFECE6] dark:bg-[#272422] hover:bg-[#EBE5D9] dark:hover:bg-[#383532] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold border border-[#E2DDD2] dark:border-[#36322E] flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                className="py-3 px-3 rounded-2xl bg-[#F5F2EC] dark:bg-[#272422] hover:bg-[#EAE5DC] dark:hover:bg-[#302D2A] text-[#31362F] dark:text-[#E0DCD3] text-xs font-bold border border-[#E0DBD0] dark:border-[#3A3632] flex items-center justify-center gap-1.5 shadow-[0_2px_8px_rgba(49,54,47,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_4px_14px_rgba(49,54,47,0.1)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 cursor-pointer"
               >
-                <span>Ho già un account</span>
+                <LogIn size={14} className="text-[#7A756D] dark:text-[#9A9488] shrink-0" />
+                <span>Accedi</span>
               </button>
             </div>
           </div>
@@ -275,7 +281,7 @@ export const AuthPage: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="relative w-full max-w-md bg-[#FCFBF8] dark:bg-[#201E1C] rounded-t-3xl sm:rounded-3xl p-6 border-t sm:border border-[#EBE5D9] dark:border-[#383430] shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto z-10"
+              className="relative w-full max-w-md bg-[#FCFBF8] dark:bg-[#201E1C] rounded-t-3xl sm:rounded-3xl p-6 border-t sm:border border-[#EBE5D9] dark:border-[#383430] shadow-[0_-20px_50px_rgba(0,0,0,0.22)] sm:shadow-[0_25px_70px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:sm:shadow-[0_25px_70px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.06)] space-y-5 max-h-[90vh] overflow-y-auto z-10"
             >
               {/* Drag Handle Top for Mobile */}
               <div className="w-12 h-1.5 bg-[#DCD5C6] dark:bg-[#4A4743] rounded-full mx-auto sm:hidden mb-2" />
@@ -293,14 +299,14 @@ export const AuthPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAuthModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#7A756D] dark:text-[#E0DCD3] flex items-center justify-center hover:bg-[#DCD5C6] cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#7A756D] dark:text-[#E0DCD3] flex items-center justify-center hover:bg-[#DCD5C6] dark:hover:bg-[#44403C] shadow-[0_1px_3px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.5)] transition-all cursor-pointer"
                 >
                   <X size={18} />
                 </button>
               </div>
 
               {/* Mode Selector Tabs (Accedi / Registrati) */}
-              <div className="flex bg-[#EFECE6] dark:bg-[#272422] p-1 rounded-2xl border border-[#E2DDD2] dark:border-[#36322E]">
+              <div className="flex bg-[#EFECE6] dark:bg-[#272422] p-1 rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
                 <button
                   type="button"
                   onClick={() => {
@@ -310,7 +316,7 @@ export const AuthPage: React.FC = () => {
                   }}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                     mode === 'signin'
-                      ? 'bg-[#5C6B55] text-white shadow-sm'
+                      ? 'bg-[#5C6B55] text-white shadow-[0_3px_10px_rgba(92,107,85,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]'
                       : 'text-[#7A756D] dark:text-[#9A9488] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
                   }`}
                 >
@@ -325,7 +331,7 @@ export const AuthPage: React.FC = () => {
                   }}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                     mode === 'signup'
-                      ? 'bg-[#5C6B55] text-white shadow-sm'
+                      ? 'bg-[#5C6B55] text-white shadow-[0_3px_10px_rgba(92,107,85,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]'
                       : 'text-[#7A756D] dark:text-[#9A9488] hover:text-[#31362F] dark:hover:text-[#E0DCD3]'
                   }`}
                 >
@@ -355,7 +361,7 @@ export const AuthPage: React.FC = () => {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-semibold flex items-start gap-2"
+                    className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-semibold flex items-start gap-2 shadow-xs"
                   >
                     <AlertCircle size={16} className="shrink-0 mt-0.5" />
                     <span>{errorMsg}</span>
@@ -367,7 +373,7 @@ export const AuthPage: React.FC = () => {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-start gap-2"
+                    className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-start gap-2 shadow-xs"
                   >
                     <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-emerald-500" />
                     <span>{successMsg}</span>
@@ -389,7 +395,7 @@ export const AuthPage: React.FC = () => {
                       placeholder="nome@esempio.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-[#F4F1EA] dark:bg-[#272422] border border-[#E2DDD2] dark:border-[#36322E] rounded-2xl text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] focus:outline-none focus:ring-2 focus:ring-[#5C6B55]"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-[#F4F1EA] dark:bg-[#272422] border border-[#E2DDD2] dark:border-[#36322E] rounded-2xl text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-2 focus:ring-[#5C6B55] focus:shadow-[0_0_0_3px_rgba(92,107,85,0.15)] transition-all"
                     />
                   </div>
                 </div>
@@ -406,7 +412,7 @@ export const AuthPage: React.FC = () => {
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm bg-[#F4F1EA] dark:bg-[#272422] border border-[#E2DDD2] dark:border-[#36322E] rounded-2xl text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] focus:outline-none focus:ring-2 focus:ring-[#5C6B55]"
+                      className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm bg-[#F4F1EA] dark:bg-[#272422] border border-[#E2DDD2] dark:border-[#36322E] rounded-2xl text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-2 focus:ring-[#5C6B55] focus:shadow-[0_0_0_3px_rgba(92,107,85,0.15)] transition-all"
                     />
                     <button
                       type="button"
@@ -421,7 +427,7 @@ export const AuthPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3.5 px-4 bg-[#5C6B55] hover:bg-[#475441] text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer active:scale-98"
+                  className="w-full py-3.5 px-4 bg-[#5C6B55] hover:bg-[#475441] text-white rounded-2xl font-bold text-xs sm:text-sm shadow-[0_8px_20px_-4px_rgba(92,107,85,0.45),inset_0_1px_0_rgba(255,255,255,0.25)] hover:shadow-[0_12px_26px_-4px_rgba(92,107,85,0.55)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_2px_6px_rgba(92,107,85,0.3)] flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 cursor-pointer"
                 >
                   {isLoading ? (
                     <>
