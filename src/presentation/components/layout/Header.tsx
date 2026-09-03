@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Settings, Megaphone } from 'lucide-react';
+import { Settings, Megaphone } from 'lucide-react';
 import type { TabType } from './BottomNav';
 import { useUserProfile } from '../../hooks/useUserProfile';
 
@@ -66,7 +66,9 @@ export const Header: React.FC<HeaderProps> = ({
             {profile.avatarUrl ? (
               <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
             ) : (
-              <User className="w-5 h-5" />
+              <div className={`w-full h-full ${profile.avatarColor?.startsWith('bg-') ? profile.avatarColor : `bg-gradient-to-tr ${profile.avatarColor || 'from-indigo-600 to-violet-500'}`} flex items-center justify-center text-white font-black text-sm`}>
+                <span>{profile.name ? profile.name.trim().charAt(0).toUpperCase() : 'D'}</span>
+              </div>
             )}
           </button>
 

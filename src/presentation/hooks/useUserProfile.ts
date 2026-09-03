@@ -29,14 +29,32 @@ const DEFAULT_PROFILE: UserProfile = {
 const STORAGE_KEY = 'bibliodesk_user_profile';
 const UPDATE_EVENT = 'bibliodesk_profile_updated';
 
+export function isGoogleAvatarUrl(url?: string): boolean {
+  if (!url) return false;
+  return url.includes('googleusercontent.com') || url.includes('google.com/');
+}
+
+export function sanitizeAvatarUrl(url?: string): string | undefined {
+  if (!url || isGoogleAvatarUrl(url)) return undefined;
+  return url;
+}
+
 export function getLatestLocalProfile(): UserProfile {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+      // Rimuovi SEMPRE e IMMEDIATAMENTE l'avatar di Google se presente in localStorage
+      if (parsed.avatarUrl && isGoogleAvatarUrl(parsed.avatarUrl)) {
+        delete parsed.avatarUrl;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        } catch (_) {}
+      }
       return {
         ...DEFAULT_PROFILE,
         ...parsed,
+        avatarUrl: sanitizeAvatarUrl(parsed.avatarUrl),
         isCompleted: parsed.isCompleted !== undefined ? parsed.isCompleted : true,
         selectedWidgets: Array.isArray(parsed.selectedWidgets)
           ? parsed.selectedWidgets
@@ -76,12 +94,15 @@ export function useUserProfile() {
 
       if (!error && data) {
         const current = getLatestLocalProfile();
+        // Mai accettare l'avatar di Google
+        const cleanRemoteAvatar = sanitizeAvatarUrl(data.avatar_url);
+
         const merged: UserProfile = {
           ...current,
-          name: data.full_name || data.username || current.name,
+          name: (data.username && !data.username.includes('@') ? data.username : (data.full_name || current.name)),
           bio: data.bio || current.bio,
           readingGoal: data.reading_goal || current.readingGoal,
-          avatarUrl: data.avatar_url || current.avatarUrl,
+          avatarUrl: cleanRemoteAvatar || sanitizeAvatarUrl(current.avatarUrl),
           bannerUrl: data.banner_url || current.bannerUrl,
           favoriteGenres: Array.isArray(data.favorite_genres) && data.favorite_genres.length > 0 ? data.favorite_genres : current.favoriteGenres,
           favoriteSubgenres: (data.favorite_subgenres && typeof data.favorite_subgenres === 'object') ? data.favorite_subgenres : current.favoriteSubgenres,

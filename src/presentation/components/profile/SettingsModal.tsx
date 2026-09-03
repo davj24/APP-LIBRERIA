@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Settings, Database, Smartphone, ShieldCheck, RefreshCw, Sun, Moon, 
   LogOut, Trash2, ShieldAlert, Loader2, Code2, Lock, KeyRound, ChevronDown, 
-  ChevronUp, Terminal, CheckCircle2, AlertCircle, Wrench, Megaphone
+  ChevronUp, Terminal, CheckCircle2, AlertCircle, Wrench, Megaphone, User, SlidersHorizontal
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useRegisterModal } from '../../context/ModalContext';
+import { useUserProfile } from '../../hooks/useUserProfile';
 import { supabase } from '../../../infrastructure/supabase/client';
 
 interface SettingsModalProps {
@@ -21,6 +22,7 @@ const DEV_PASSWORD = 'dev2026';
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onOpenAnnouncements }) => {
   useRegisterModal(isOpen);
   const { isDarkMode, toggleTheme } = useTheme();
+  const { updateProfile } = useUserProfile();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -166,6 +168,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             </div>
 
 
+
+            {/* Riconfigurazione Profilo */}
+            <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl p-4 border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 text-[#5C6B55] dark:text-[#A8BB9C] flex items-center justify-center">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-[#4A4743] dark:text-[#E0DCD3]">Riconfigura Profilo</h4>
+                    <p className="text-xs text-[#7A756D] dark:text-[#A09A90]">
+                      Riapri la procedura guidata per reimpostare nickname e avatar
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateProfile({ isCompleted: false, avatarUrl: undefined });
+                    onClose();
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#5C6B55] hover:bg-[#4d5a47] active:scale-95 text-white font-bold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Riconfigura</span>
+                </button>
+              </div>
+            </div>
 
             {/* Account & Logout Section */}
             <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl p-4 border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-3">

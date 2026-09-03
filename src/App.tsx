@@ -13,7 +13,7 @@ import { StatsPage } from './presentation/pages/StatsPage';
 import { ProfilePage } from './presentation/pages/ProfilePage';
 import { AuthPage } from './presentation/pages/AuthPage';
 import { OnboardingWizard } from './presentation/components/auth/OnboardingWizard';
-import { useUserProfile, getLatestLocalProfile } from './presentation/hooks/useUserProfile';
+import { useUserProfile, getLatestLocalProfile, sanitizeAvatarUrl } from './presentation/hooks/useUserProfile';
 
 function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
@@ -26,10 +26,8 @@ function AppContent() {
       if (!user?.id) return;
       try {
         const currentLocal = getLatestLocalProfile();
-        const isDefaultLocalName = !currentLocal.name || 
-          currentLocal.name === 'Lettore BiblioDesk' || 
-          currentLocal.name === 'Nuovo Lettore' || 
-          currentLocal.name === 'Lettore';
+        const meta = user.user_metadata || {};
+        const googleFullName = meta.full_name || meta.name;
 
         const { data } = await supabase
           .from('profiles')
@@ -37,12 +35,12 @@ function AppContent() {
           .eq('id', user.id)
           .maybeSingle();
 
-        // 1. Massima priorità: se su Supabase c'è già il profilo configurato
-        if (data && (data.full_name || data.username)) {
+        // 1. Massima priorità: username o nome personalizzato presente su Supabase (diverso dal nome Google)
+        if (data && (data.username || (data.full_name && data.full_name !== googleFullName))) {
           updateProfile({
-            name: data.full_name || data.username,
+            name: data.username || data.full_name,
             bio: data.bio || currentLocal.bio,
-            avatarUrl: data.avatar_url || currentLocal.avatarUrl,
+            avatarUrl: sanitizeAvatarUrl(data.avatar_url),
             readingGoal: data.reading_goal || currentLocal.readingGoal,
             favoriteGenres: Array.isArray(data.favorite_genres) && data.favorite_genres.length > 0 ? data.favorite_genres : currentLocal.favoriteGenres,
             favoriteSubgenres: data.favorite_subgenres || currentLocal.favoriteSubgenres,
@@ -53,26 +51,28 @@ function AppContent() {
           return;
         }
 
-        // 2. Seconda priorità: se l'utente aveva già configurato un nome/avatar personalizzato in locale
-        if (!isDefaultLocalName) {
+        // 2. Seconda priorità: nome personalizzato locale (che NON sia il nome imposto da Google o default generico)
+        const isDefaultOrGoogleName = !currentLocal.name || 
+          currentLocal.name === 'Lettore BiblioDesk' || 
+          currentLocal.name === 'Nuovo Lettore' || 
+          currentLocal.name === 'Lettore' ||
+          (googleFullName && currentLocal.name.trim().toLowerCase() === googleFullName.trim().toLowerCase());
+
+        if (!isDefaultOrGoogleName) {
           updateProfile({
             ...currentLocal,
+            avatarUrl: sanitizeAvatarUrl(currentLocal.avatarUrl),
             isCompleted: true
           });
           return;
         }
 
-        // 3. Fallback per account totalmente vergine: proponi nome da OAuth senza sovrascrivere avatar personalizzato
-        const meta = user.user_metadata || {};
-        const fallbackName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Lettore BiblioDesk';
-
+        // 3. Se l'avatar locale era stato contaminato da Google, ripuliscilo subito
         updateProfile({
-          name: fallbackName,
-          isCompleted: true
+          avatarUrl: undefined
         });
       } catch (e) {
         console.warn('Errore verifica profilo esistente:', e);
-        updateProfile({ isCompleted: true });
       }
     };
 

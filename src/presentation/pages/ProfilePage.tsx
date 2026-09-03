@@ -338,6 +338,7 @@ export const ProfilePage: React.FC = () => {
     bio: userProfile.bio ?? '',
     bannerColor: userProfile.bannerUrl ? '' : 'bg-neutral-200 dark:bg-neutral-800',
     avatarUrl: userProfile.avatarUrl || '',
+    avatarColor: userProfile.avatarColor || 'from-indigo-600 to-violet-500',
     bannerUrl: userProfile.bannerUrl || '',
     selectedWidgets: Array.isArray(userProfile.selectedWidgets) ? userProfile.selectedWidgets : ['read_count', 'reading_count'],
     favoriteGenres: Array.isArray(userProfile.favoriteGenres) ? userProfile.favoriteGenres : ['Fantasy & Magia', 'Narrativa & Classici'],
@@ -352,6 +353,7 @@ export const ProfilePage: React.FC = () => {
       bio: userProfile.bio ?? '',
       bannerColor: userProfile.bannerUrl ? '' : 'bg-neutral-200 dark:bg-neutral-800',
       avatarUrl: userProfile.avatarUrl || '',
+      avatarColor: userProfile.avatarColor || 'from-indigo-600 to-violet-500',
       bannerUrl: userProfile.bannerUrl || '',
       selectedWidgets: Array.isArray(userProfile.selectedWidgets) ? userProfile.selectedWidgets : ['read_count', 'reading_count'],
       favoriteGenres: Array.isArray(userProfile.favoriteGenres) ? userProfile.favoriteGenres : ['Fantasy & Magia', 'Narrativa & Classici'],
@@ -685,7 +687,7 @@ export const ProfilePage: React.FC = () => {
          
          <div className="px-6 pb-6">
            <div className="flex justify-between items-end -mt-12 mb-4">
-             <div className="relative h-24 w-24 rounded-full border-4 border-white dark:border-neutral-900 bg-neutral-300 dark:bg-neutral-700 flex items-center justify-center font-black text-2xl text-neutral-700 dark:text-neutral-200 shadow-sm overflow-hidden">
+             <div className={`relative h-24 w-24 rounded-full border-4 border-white dark:border-neutral-900 ${profile.avatarUrl ? 'bg-neutral-300 dark:bg-neutral-700' : (profile.avatarColor?.startsWith('bg-') ? profile.avatarColor : `bg-gradient-to-tr ${profile.avatarColor || 'from-indigo-600 to-violet-500'}`)} flex items-center justify-center font-black text-2xl text-white shadow-sm overflow-hidden`}>
                {profile.avatarUrl ? (
                  <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
                ) : (
@@ -833,7 +835,7 @@ export const ProfilePage: React.FC = () => {
                  
                  <div className="px-6 flex flex-col pb-6">
                    <div className="-mt-14 mb-6 relative inline-block self-start">
-                     <div className="h-28 w-28 rounded-full border-4 border-white dark:border-neutral-900 bg-neutral-300 dark:bg-neutral-700 flex items-center justify-center font-black text-3xl text-neutral-700 dark:text-neutral-200 shadow-sm overflow-hidden">
+                     <div className={`h-28 w-28 rounded-full border-4 border-white dark:border-neutral-900 ${draftProfile.avatarUrl ? 'bg-neutral-300 dark:bg-neutral-700' : (draftProfile.avatarColor?.startsWith('bg-') ? draftProfile.avatarColor : `bg-gradient-to-tr ${draftProfile.avatarColor || 'from-indigo-600 to-violet-500'}`)} flex items-center justify-center font-black text-3xl text-white shadow-sm overflow-hidden`}>
                        {draftProfile.avatarUrl ? (
                          <img src={draftProfile.avatarUrl} alt={draftProfile.name} className="w-full h-full object-cover" />
                        ) : (
