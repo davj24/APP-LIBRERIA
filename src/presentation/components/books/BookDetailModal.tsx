@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { Book, BookStatus } from '../../../domain/models/Book';
 import { GENRES_MAP } from '../../../domain/constants/genres';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -146,21 +147,36 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
     ? Math.min(100, Math.round((book.pagesRead / book.totalPages) * 100))
     : 0;
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && book && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs p-0 sm:p-4"
+        <div
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 touch-none overscroll-none"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
         >
+          {/* Backdrop Scuro */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            onTouchMove={(e) => e.preventDefault()}
+            className="absolute inset-0 bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs cursor-pointer"
+          />
+
+          {/* Dialog Modale */}
           <motion.div
             initial={{ y: "100%", opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: "100%", opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-[92vh] overflow-y-auto flex flex-col transition-colors"
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-[92vh] overflow-y-auto overscroll-contain flex flex-col transition-colors"
           >
             {/* Header Hero Cover Banner */}
             <div className="relative bg-[#31362F] dark:bg-[#252924] text-white min-h-[160px] p-5 flex items-end justify-between overflow-hidden">
@@ -654,8 +670,9 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
 
             </div>
           </motion.div>
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };

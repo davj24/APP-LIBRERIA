@@ -65,15 +65,21 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const originalBodyOverflow = document.body.style.overflow;
       const originalBodyTouchAction = document.body.style.touchAction;
       const originalDocOverflow = document.documentElement.style.overflow;
+      const originalBodyOverscroll = document.body.style.overscrollBehavior;
+      const originalDocOverscroll = document.documentElement.style.overscrollBehavior;
 
       document.body.style.overflow = 'hidden';
       document.body.style.touchAction = 'none';
       document.documentElement.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'none';
+      document.documentElement.style.overscrollBehavior = 'none';
 
       return () => {
         document.body.style.overflow = originalBodyOverflow;
         document.body.style.touchAction = originalBodyTouchAction;
         document.documentElement.style.overflow = originalDocOverflow;
+        document.body.style.overscrollBehavior = originalBodyOverscroll;
+        document.documentElement.style.overscrollBehavior = originalDocOverscroll;
       };
     }
   }, [isModalOpen]);

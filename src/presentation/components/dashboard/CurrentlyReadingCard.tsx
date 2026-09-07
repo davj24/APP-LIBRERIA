@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { Book, BookStatus } from '../../../domain/models/Book';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { BookOpen, Clock, CheckCircle2, Edit3, X, Save } from 'lucide-react';
@@ -19,7 +20,6 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPageModalOpen, setIsPageModalOpen] = useState(false);
-  const [isInputFocused, setIsInputFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   useRegisterModal(isPageModalOpen);
 
@@ -202,198 +202,208 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
       </div>
 
       {/* Modale Avanzamento Pagine: 'A che pagina sei arrivato?' */}
-      <AnimatePresence>
-        {isPageModalOpen && (() => {
-          const parsedVal = parseInt(pageInput, 10);
-          const currentTarget = !isNaN(parsedVal) ? Math.max(0, Math.min(totalPages, parsedVal)) : pagesRead;
-          const diff = currentTarget - pagesRead;
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isPageModalOpen && (() => {
+            const parsedVal = parseInt(pageInput, 10);
+            const currentTarget = !isNaN(parsedVal) ? Math.max(0, Math.min(totalPages, parsedVal)) : pagesRead;
+            const diff = currentTarget - pagesRead;
 
-          return (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                inputRef.current?.blur();
-                setIsPageModalOpen(false);
-              }}
-              className={`fixed inset-0 z-50 flex justify-center bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs p-3 sm:p-4 transition-all duration-200 ${
-                isInputFocused
-                  ? 'items-start pt-8 sm:pt-0 sm:items-center'
-                  : 'items-end sm:items-center'
-              }`}
-            >
-              <motion.div
-                initial={{ y: "100%", opacity: 0, scale: 0.95 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                exit={{ y: "100%", opacity: 0, scale: 0.95 }}
-                transition={{ type: "spring", damping: 28, stiffness: 320 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4 select-none"
+            return (
+              <div
+                className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 touch-none overscroll-none"
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                onTouchMove={(e) => {
+                  if (e.target === e.currentTarget) {
+                    e.preventDefault();
+                  }
+                }}
               >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between border-b border-[#EBE5D9] dark:border-[#4A4743]/50 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-2xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] flex items-center justify-center shadow-xs">
-                      <BookOpen className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-extrabold text-[#4A4743] dark:text-[#E0DCD3]">
-                        Segna Avanzamento
-                      </h3>
-                      <p className="text-[11px] font-semibold text-[#7A756D] dark:text-[#A09A90] truncate max-w-[220px]">
-                        {currentBook.title}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      inputRef.current?.blur();
-                      setIsPageModalOpen(false);
-                    }}
-                    className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                {/* Backdrop Scuro Fisso (impedisce qualsiasi scroll/discesa di sfondo) */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => {
+                    inputRef.current?.blur();
+                    setIsPageModalOpen(false);
+                  }}
+                  onTouchMove={(e) => e.preventDefault()}
+                  className="absolute inset-0 bg-[#31362F]/70 dark:bg-black/85 backdrop-blur-xs cursor-pointer"
+                />
 
-                {/* Info posizione precedente */}
-                <div className="bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-[#7A756D] dark:text-[#A09A90]" />
-                    <span className="text-xs font-semibold text-[#7A756D] dark:text-[#A09A90]">
-                      Eri arrivato a:
-                    </span>
-                  </div>
-                  <span className="text-xs font-black text-[#4A4743] dark:text-[#E0DCD3]">
-                    Pagina {pagesRead} <span className="font-medium text-[#7A756D] dark:text-[#A09A90]">/ {totalPages} ({progress}%)</span>
-                  </span>
-                </div>
-
-                {/* Form Body */}
-                <form onSubmit={handleSavePageSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-extrabold text-[#4A4743] dark:text-[#E0DCD3] mb-1.5">
-                      A che pagina sei arrivato?
-                    </label>
-                    <div className="relative flex items-center">
-                      <input
-                        ref={inputRef}
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        min="0"
-                        max={totalPages}
-                        value={pageInput}
-                        onChange={(e) => setPageInput(e.target.value)}
-                        onFocus={() => setIsInputFocused(true)}
-                        onBlur={() => setIsInputFocused(false)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            inputRef.current?.blur();
-                          }
-                        }}
-                        autoFocus
-                        required
-                        className="w-full px-4 py-3 rounded-2xl border-2 border-[#B0BEA9] dark:border-[#5C6B55] bg-[#F4F1EA] dark:bg-[#2A2826] text-xl font-black text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] shadow-xs"
-                        placeholder="Inserisci la pagina attuale"
-                      />
-                      <span className="absolute right-4 text-xs font-bold text-[#7A756D] dark:text-[#A09A90]">
-                        / {totalPages} pag.
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Calcolo automatico in tempo reale */}
-                  <div className="min-h-[36px] flex items-center justify-center">
-                    {diff > 0 && currentTarget < totalPages && (
-                      <div className="w-full py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
-                        <span>📖 Lette in questa sessione:</span>
-                        <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
-                          +{diff} pagine ({Math.round((currentTarget / totalPages) * 100)}%)
-                        </span>
+                {/* Modale Centrata Stabile (ancorata al centro, senza trascinamenti o discese verso il basso) */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="relative z-10 bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4 select-none max-h-[90vh] overflow-y-auto overscroll-contain"
+                >
+                  {/* Modal Header */}
+                  <div className="flex items-center justify-between border-b border-[#EBE5D9] dark:border-[#4A4743]/50 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-2xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] flex items-center justify-center shadow-xs">
+                        <BookOpen className="w-5 h-5" />
                       </div>
-                    )}
-                    {currentTarget >= totalPages && (
-                      <div className="w-full py-2 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-900 dark:text-amber-200 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
-                        <span>🎉 Complimenti! Fine del libro:</span>
-                        <span className="font-extrabold text-amber-700 dark:text-amber-300">
-                          Passa a Letto ✓
-                        </span>
+                      <div>
+                        <h3 className="text-base font-extrabold text-[#4A4743] dark:text-[#E0DCD3]">
+                          Segna Avanzamento
+                        </h3>
+                        <p className="text-[11px] font-semibold text-[#7A756D] dark:text-[#A09A90] truncate max-w-[220px]">
+                          {currentBook.title}
+                        </p>
                       </div>
-                    )}
-                    {diff < 0 && (
-                      <div className="w-full py-2 px-3 rounded-xl bg-neutral-500/10 border border-neutral-500/30 text-[#7A756D] dark:text-[#A09A90] text-xs font-medium flex items-center justify-between animate-in fade-in duration-200">
-                        <span>Indietro rispetto a prima:</span>
-                        <span className="font-bold">{diff} pagine</span>
-                      </div>
-                    )}
-                    {diff === 0 && (
-                      <span className="text-[11px] text-[#7A756D] dark:text-[#A09A90] font-medium">
-                        Inserisci la pagina che hai raggiunto per calcolare le pagine lette
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Pulsanti rapidi calcolati da posizione precedente */}
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setPageInput(String(Math.min(totalPages, pagesRead + 10)))}
-                      className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
-                    >
-                      +10 pag
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPageInput(String(Math.min(totalPages, pagesRead + 25)))}
-                      className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
-                    >
-                      +25 pag
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPageInput(String(Math.min(totalPages, pagesRead + 50)))}
-                      className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
-                    >
-                      +50 pag
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPageInput(String(totalPages))}
-                      className="flex-1 py-1.5 bg-[#B0BEA9]/60 dark:bg-[#5C6B55]/60 hover:bg-[#B0BEA9] dark:hover:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
-                    >
-                      Fine ({totalPages})
-                    </button>
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex gap-2.5 pt-2">
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
                         inputRef.current?.blur();
                         setIsPageModalOpen(false);
                       }}
-                      className="flex-1 py-3 rounded-xl border border-[#DCD5C6] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] font-semibold text-xs hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-colors cursor-pointer"
+                      className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      Annulla
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 py-3 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] font-bold text-xs hover:bg-[#A0AF99] shadow-md shadow-[#B0BEA9]/30 transition-all flex items-center justify-center gap-1.5 border border-[#A0AF99] dark:border-[#4D5A46] cursor-pointer active:scale-98"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Conferma (Arrivato a pag. {currentTarget})</span>
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
-                </form>
-              </motion.div>
-            </motion.div>
-          );
-        })()}
-      </AnimatePresence>
+
+                  {/* Info posizione precedente */}
+                  <div className="bg-[#F4F1EA] dark:bg-[#2A2826] p-3 rounded-2xl border border-[#EBE5D9] dark:border-[#4A4743]/50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[#7A756D] dark:text-[#A09A90]" />
+                      <span className="text-xs font-semibold text-[#7A756D] dark:text-[#A09A90]">
+                        Eri arrivato a:
+                      </span>
+                    </div>
+                    <span className="text-xs font-black text-[#4A4743] dark:text-[#E0DCD3]">
+                      Pagina {pagesRead} <span className="font-medium text-[#7A756D] dark:text-[#A09A90]">/ {totalPages} ({progress}%)</span>
+                    </span>
+                  </div>
+
+                  {/* Form Body */}
+                  <form onSubmit={handleSavePageSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-extrabold text-[#4A4743] dark:text-[#E0DCD3] mb-1.5">
+                        A che pagina sei arrivato?
+                      </label>
+                      <div className="relative flex items-center">
+                        <input
+                          ref={inputRef}
+                          type="number"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          min="0"
+                          max={totalPages}
+                          value={pageInput}
+                          onChange={(e) => setPageInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              inputRef.current?.blur();
+                            }
+                          }}
+                          autoFocus
+                          required
+                          className="w-full px-4 py-3 rounded-2xl border-2 border-[#B0BEA9] dark:border-[#5C6B55] bg-[#F4F1EA] dark:bg-[#2A2826] text-xl font-black text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55] shadow-xs"
+                          placeholder="Inserisci la pagina attuale"
+                        />
+                        <span className="absolute right-4 text-xs font-bold text-[#7A756D] dark:text-[#A09A90]">
+                          / {totalPages} pag.
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Calcolo automatico in tempo reale */}
+                    <div className="min-h-[36px] flex items-center justify-center">
+                      {diff > 0 && currentTarget < totalPages && (
+                        <div className="w-full py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
+                          <span>📖 Lette in questa sessione:</span>
+                          <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
+                            +{diff} pagine ({Math.round((currentTarget / totalPages) * 100)}%)
+                          </span>
+                        </div>
+                      )}
+                      {currentTarget >= totalPages && (
+                        <div className="w-full py-2 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-900 dark:text-amber-200 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
+                          <span>🎉 Complimenti! Fine del libro:</span>
+                          <span className="font-extrabold text-amber-700 dark:text-amber-300">
+                            Passa a Letto ✓
+                          </span>
+                        </div>
+                      )}
+                      {diff < 0 && (
+                        <div className="w-full py-2 px-3 rounded-xl bg-neutral-500/10 border border-neutral-500/30 text-[#7A756D] dark:text-[#A09A90] text-xs font-medium flex items-center justify-between animate-in fade-in duration-200">
+                          <span>Indietro rispetto a prima:</span>
+                          <span className="font-bold">{diff} pagine</span>
+                        </div>
+                      )}
+                      {diff === 0 && (
+                        <span className="text-[11px] text-[#7A756D] dark:text-[#A09A90] font-medium">
+                          Inserisci la pagina che hai raggiunto per calcolare le pagine lette
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Pulsanti rapidi calcolati da posizione precedente */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setPageInput(String(Math.min(totalPages, pagesRead + 10)))}
+                        className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        +10 pag
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPageInput(String(Math.min(totalPages, pagesRead + 25)))}
+                        className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        +25 pag
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPageInput(String(Math.min(totalPages, pagesRead + 50)))}
+                        className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        +50 pag
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPageInput(String(totalPages))}
+                        className="flex-1 py-1.5 bg-[#B0BEA9]/60 dark:bg-[#5C6B55]/60 hover:bg-[#B0BEA9] dark:hover:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        Fine ({totalPages})
+                      </button>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2.5 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          inputRef.current?.blur();
+                          setIsPageModalOpen(false);
+                        }}
+                        className="flex-1 py-3 rounded-xl border border-[#DCD5C6] dark:border-[#4A4743]/60 text-[#4A4743] dark:text-[#E0DCD3] font-semibold text-xs hover:bg-[#EBE5D9] dark:hover:bg-[#383532] transition-colors cursor-pointer"
+                      >
+                        Annulla
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-3 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] font-bold text-xs hover:bg-[#A0AF99] shadow-md shadow-[#B0BEA9]/30 transition-all flex items-center justify-center gap-1.5 border border-[#A0AF99] dark:border-[#4D5A46] cursor-pointer active:scale-98"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Conferma (Arrivato a pag. {currentTarget})</span>
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </div>
+            );
+          })()}
+        </AnimatePresence>,
+        document.body
+      )}
     </>
   );
 };
