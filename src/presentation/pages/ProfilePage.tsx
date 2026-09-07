@@ -335,14 +335,7 @@ export const ProfilePage: React.FC = () => {
   const isAnyOverlayOpen = isEditing || showWidgetLibraryModal || showCreateCollectionModal || isAllCollectionsModalOpen || openedCollection !== null || editingCollection !== null || imagePickerType !== null;
   useRegisterModal(isAnyOverlayOpen);
 
-  const [openSubgenreMap, setOpenSubgenreMap] = useState<Record<string, boolean>>({});
-
-  const toggleSubgenreDropdown = (genreName: string) => {
-    setOpenSubgenreMap(prev => ({
-      ...prev,
-      [genreName]: !prev[genreName]
-    }));
-  };
+  const [activeSubgenreGenre, setActiveSubgenreGenre] = useState<string | null>(null);
 
   const [expandedGenre, setExpandedGenre] = useState<string | null>(null);
 
@@ -420,6 +413,7 @@ export const ProfilePage: React.FC = () => {
 
   const handleOpenEdit = () => {
     setDraftProfile(profile);
+    setActiveSubgenreGenre(null);
     setIsEditing(true);
   };
 
@@ -456,6 +450,9 @@ export const ProfilePage: React.FC = () => {
         };
       }
     });
+    if (activeSubgenreGenre === genreName) {
+      setActiveSubgenreGenre(null);
+    }
   };
 
   const handleToggleSubgenre = (genreName: string, subName: string) => {
@@ -878,52 +875,52 @@ export const ProfilePage: React.FC = () => {
                      )}
                    </div>
 
-                   {/* Palette Colori Avatar iOS */}
-                   <div className="mb-5 p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60 space-y-2.5">
-                     <div className="flex items-center justify-between">
-                       <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
-                         <Palette size={14} />
-                         <span>Colore Icona Profilo:</span>
-                       </span>
-                       {draftProfile.avatarUrl ? (
-                         <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
-                           Foto attiva (clicca un colore per toglierla)
-                         </span>
-                       ) : (
-                         <span className="text-[10px] text-[#5C6B55] dark:text-[#A8BB9C] font-semibold">
-                           {IOS_AVATAR_PRESETS.find(p => p.color.includes(draftProfile.avatarColor?.replace('bg-gradient-to-tr ', '') || ''))?.name || 'Selezionato'}
-                         </span>
-                       )}
-                     </div>
-                     <div className="flex flex-wrap gap-2.5 pt-1">
-                       {IOS_AVATAR_PRESETS.map((preset) => {
-                         const normDraft = (draftProfile.avatarColor || '').replace('bg-gradient-to-tr ', '').trim();
-                         const normPreset = preset.color.replace('bg-gradient-to-tr ', '').trim();
-                         const isSelected = normDraft === normPreset && !draftProfile.avatarUrl;
-                         return (
-                           <button
-                             key={preset.name}
-                             type="button"
-                             onClick={() => {
-                               setDraftProfile(prev => ({
-                                 ...prev,
-                                 avatarColor: preset.color,
-                                 avatarUrl: ''
-                               }));
-                             }}
-                             title={preset.name}
-                             className={`w-8 h-8 rounded-full ${preset.color} flex items-center justify-center transition-all transform cursor-pointer ${
-                               isSelected
-                                 ? 'ring-3 ring-offset-2 ring-[#31362F] dark:ring-white scale-110 shadow-md'
-                                 : 'opacity-85 hover:opacity-100 hover:scale-105'
-                             }`}
-                           >
-                             {isSelected && <Check size={14} strokeWidth={3} className="text-white drop-shadow-sm" />}
-                           </button>
-                         );
-                       })}
-                     </div>
-                   </div>
+                    {/* Palette Colori Avatar (Minimal & Clean) */}
+                    <div className="mb-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                          <Palette size={13} className="text-neutral-400" />
+                          <span>Colore Icona Profilo</span>
+                        </span>
+                        {draftProfile.avatarUrl ? (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                            Foto attiva • tocca per cambiare
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-[#5C6B55] dark:text-[#A0AF99] font-medium">
+                            {IOS_AVATAR_PRESETS.find(p => p.color.includes(draftProfile.avatarColor?.replace('bg-gradient-to-tr ', '') || ''))?.name || 'Predefinito'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-0.5">
+                        {IOS_AVATAR_PRESETS.map((preset) => {
+                          const normDraft = (draftProfile.avatarColor || '').replace('bg-gradient-to-tr ', '').trim();
+                          const normPreset = preset.color.replace('bg-gradient-to-tr ', '').trim();
+                          const isSelected = normDraft === normPreset && !draftProfile.avatarUrl;
+                          return (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              onClick={() => {
+                                setDraftProfile(prev => ({
+                                  ...prev,
+                                  avatarColor: preset.color,
+                                  avatarUrl: ''
+                                }));
+                              }}
+                              title={preset.name}
+                              className={`w-7 h-7 rounded-full shrink-0 ${preset.color} flex items-center justify-center transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'ring-2 ring-offset-2 ring-[#5C6B55] dark:ring-white scale-110 shadow-xs'
+                                  : 'opacity-75 hover:opacity-100 hover:scale-105'
+                              }`}
+                            >
+                              {isSelected && <Check size={12} strokeWidth={3} className="text-white drop-shadow-xs" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
                    <div className="space-y-4 shrink-0">
                      <div className="relative group">
@@ -935,169 +932,144 @@ export const ProfilePage: React.FC = () => {
                        />
                        <PenLine className="absolute right-2 top-2 text-neutral-300 dark:text-neutral-600 opacity-50 pointer-events-none" size={16} />
                      </div>
-                     <div className="relative group">
-                       <textarea 
-                         value={draftProfile.bio} 
-                         onChange={(e) => setDraftProfile({...draftProfile, bio: e.target.value})}
-                         placeholder="La tua bio..."
-                         className="w-full bg-transparent text-sm text-neutral-500 dark:text-neutral-400 outline-none border-b border-transparent focus:border-neutral-400 dark:focus:border-neutral-500 min-h-[60px] resize-none pb-1 pr-8" 
-                       />
-                       <PenLine className="absolute right-2 top-0 text-neutral-300 dark:text-neutral-600 opacity-50 pointer-events-none" size={16} />
-                     </div>
-                   </div>
+                      <div className="relative group">
+                        <textarea 
+                          value={draftProfile.bio} 
+                          onChange={(e) => setDraftProfile({...draftProfile, bio: e.target.value})}
+                          placeholder="La tua bio..."
+                          className="w-full bg-transparent text-sm text-neutral-500 dark:text-neutral-400 outline-none border-b border-transparent focus:border-neutral-400 dark:focus:border-neutral-500 min-h-[60px] resize-none pb-1 pr-8" 
+                        />
+                        <PenLine className="absolute right-2 top-0 text-neutral-300 dark:text-neutral-600 opacity-50 pointer-events-none" size={16} />
+                      </div>
+                    </div>
 
-                   {/* GESTIONE GENERI & SOTTOGENERI PREFERITI */}
-                   <div className="mt-5 space-y-3">
-                     <div className="flex items-center justify-between">
-                       <span className="text-xs font-bold text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5">
-                         <Tag size={14} />
-                         <span>Generi & Sottogeneri Preferiti:</span>
-                       </span>
-                       <span className="text-[11px] text-neutral-400 font-medium">
-                         {draftProfile.favoriteGenres?.length || 0} selezionati
-                       </span>
-                     </div>
+                    {/* GESTIONE GENERI & SOTTOGENERI PREFERITI (Minimal) */}
+                    <div className="mt-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                          <Tag size={13} className="text-neutral-400" />
+                          <span>Generi & Sottogeneri</span>
+                        </span>
+                        <span className="text-[11px] text-neutral-400 font-medium">
+                          {draftProfile.favoriteGenres?.length || 0} selezionati
+                        </span>
+                      </div>
 
-                     {/* Generi Già Selezionati (Panoramica per visualizzarli e rimuoverli rapidamente) */}
-                     {draftProfile.favoriteGenres && draftProfile.favoriteGenres.length > 0 && (
-                       <div className="p-3 rounded-2xl bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border border-[#5C6B55]/30 space-y-1.5">
-                         <span className="text-[10px] font-extrabold text-[#5C6B55] dark:text-[#A0AF99] uppercase tracking-wider block">
-                           Generi Attualmente Selezionati:
-                         </span>
-                         <div className="flex flex-wrap gap-1.5">
-                           {draftProfile.favoriteGenres.map((gName) => {
-                             const subs = draftProfile.favoriteSubgenres?.[gName] || [];
-                             return (
-                               <div
-                                 key={gName}
-                                 className="px-2.5 py-1 rounded-full text-xs font-bold bg-white dark:bg-neutral-800 text-[#31362F] dark:text-[#E0DCD3] border border-[#5C6B55]/30 flex items-center gap-1.5 shadow-2xs"
-                               >
-                                 <span>{gName}</span>
-                                 {subs.length > 0 && (
-                                   <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#5C6B55] text-white">
-                                     {subs.length}
-                                   </span>
-                                 )}
-                                 <button
-                                   type="button"
-                                   onClick={() => handleToggleGenre(gName)}
-                                   className="w-4 h-4 rounded-full bg-neutral-200 dark:bg-neutral-700 hover:bg-rose-500 hover:text-white text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition-colors cursor-pointer"
-                                   title={`Rimuovi ${gName}`}
-                                 >
-                                   <X size={10} strokeWidth={3} />
-                                 </button>
-                               </div>
-                             );
-                           })}
-                         </div>
-                       </div>
-                     )}
+                      {/* Nuvola Compatta dei Generi */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.keys(GENRES_MAP).map((genreName) => {
+                          const isSelected = draftProfile.favoriteGenres?.includes(genreName);
+                          const subs = draftProfile.favoriteSubgenres?.[genreName] || [];
+                          const isPanelOpen = activeSubgenreGenre === genreName;
 
-                     {/* Lista Completa dei Generi con Pallino + Freccia Tendina Sottogeneri */}
-                     <div className="space-y-2.5">
-                       {Object.keys(GENRES_MAP).map((genreName) => {
-                         const isSelected = draftProfile.favoriteGenres?.includes(genreName);
-                         const subgenresAvailable = GENRES_MAP[genreName] || [];
-                         const selectedSubgenres = draftProfile.favoriteSubgenres?.[genreName] || [];
-                         const isDropdownOpen = !!openSubgenreMap[genreName];
+                          if (isSelected) {
+                            return (
+                              <div
+                                key={genreName}
+                                className={`inline-flex items-center rounded-full text-xs font-semibold pl-3 pr-1.5 py-1 border transition-all ${
+                                  isPanelOpen
+                                    ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs'
+                                    : 'bg-[#5C6B55]/15 dark:bg-[#5C6B55]/25 text-[#4D5B46] dark:text-[#B5C5AF] border-[#5C6B55]/30'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveSubgenreGenre(isPanelOpen ? null : genreName)}
+                                  className="flex items-center gap-1.5 cursor-pointer"
+                                  title={isPanelOpen ? "Chiudi sottogeneri" : "Modifica sottogeneri"}
+                                >
+                                  <span>{genreName}</span>
+                                  {subs.length > 0 && (
+                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                                      isPanelOpen ? 'bg-white/25 text-white' : 'bg-[#5C6B55]/20 dark:bg-[#5C6B55]/40 text-[#4D5B46] dark:text-[#B5C5AF]'
+                                    }`}>
+                                      {subs.length}
+                                    </span>
+                                  )}
+                                  {isPanelOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </button>
+                                
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleGenre(genreName);
+                                  }}
+                                  className="w-4 h-4 rounded-full ml-1 flex items-center justify-center hover:bg-black/15 dark:hover:bg-white/20 transition-colors cursor-pointer"
+                                  title={`Rimuovi ${genreName}`}
+                                >
+                                  <X size={11} strokeWidth={2.5} />
+                                </button>
+                              </div>
+                            );
+                          }
 
-                         return (
-                           <div
-                             key={genreName}
-                             className={`rounded-2xl p-3 border transition-all ${
-                               isSelected
-                                 ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55]/40'
-                                 : 'bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700/60'
-                             }`}
-                           >
-                             <div className="flex items-center justify-between">
-                               <span className={`text-xs font-bold ${isSelected ? 'text-[#5C6B55] dark:text-[#A0AF99]' : 'text-neutral-700 dark:text-neutral-300'}`}>
-                                 {genreName}
-                               </span>
+                          return (
+                            <button
+                              key={genreName}
+                              type="button"
+                              onClick={() => {
+                                handleToggleGenre(genreName);
+                                setActiveSubgenreGenre(genreName);
+                              }}
+                              className="px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/80 dark:hover:bg-neutral-700/80 border border-transparent transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              <Plus size={12} className="opacity-60" />
+                              <span>{genreName}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                               <div className="flex items-center gap-2">
-                                 {/* Tasto Freccia Tendina Sottogeneri */}
-                                 {subgenresAvailable.length > 0 && (
-                                   <button
-                                     type="button"
-                                     onClick={() => toggleSubgenreDropdown(genreName)}
-                                     className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                                       isDropdownOpen
-                                         ? 'bg-[#5C6B55] text-white border-[#5C6B55]'
-                                         : 'bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600 hover:bg-neutral-200'
-                                     }`}
-                                     title="Apri/chiudi sottogeneri"
-                                   >
-                                     <span className="text-[10px]">Sottogeneri</span>
-                                     {selectedSubgenres.length > 0 && (
-                                       <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-white/20 text-current">
-                                         {selectedSubgenres.length}
-                                       </span>
-                                     )}
-                                     {isDropdownOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                   </button>
-                                 )}
+                      {/* Sottogeneri Espansi (Pannello Minimal per Genere Attivo) */}
+                      <AnimatePresence>
+                        {activeSubgenreGenre && draftProfile.favoriteGenres?.includes(activeSubgenreGenre) && (
+                          <motion.div
+                            key={activeSubgenreGenre}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="p-3 rounded-2xl bg-[#5C6B55]/10 dark:bg-[#5C6B55]/15 border border-[#5C6B55]/25 space-y-2 overflow-hidden"
+                          >
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-[#5C6B55] dark:text-[#A0AF99] flex items-center gap-1.5">
+                                <Tag size={12} />
+                                <span>Sottogeneri di <span className="font-bold underline">{activeSubgenreGenre}</span></span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setActiveSubgenreGenre(null)}
+                                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-0.5 cursor-pointer"
+                                title="Chiudi"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
 
-                                 {/* Pallino di Selezione Genere (Solo selezione genere senza aprire la tendina) */}
-                                 <button
-                                   type="button"
-                                   onClick={() => handleToggleGenre(genreName)}
-                                   className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all cursor-pointer ${
-                                     isSelected
-                                       ? 'bg-[#5C6B55] border-[#5C6B55] text-white shadow-xs'
-                                       : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 bg-white dark:bg-neutral-800'
-                                   }`}
-                                   title={isSelected ? `Deseleziona ${genreName}` : `Seleziona ${genreName}`}
-                                 >
-                                   {isSelected && <Check size={14} strokeWidth={3} />}
-                                 </button>
-                               </div>
-                             </div>
-
-                             {/* Sottogeneri Opzionali in Tendina (Si aprono SOLO al click sulla freccia tendina) */}
-                             {isDropdownOpen && subgenresAvailable.length > 0 && (
-                               <div className="mt-2.5 pt-2 border-t border-[#5C6B55]/20 space-y-1.5">
-                                 <div className="flex items-center justify-between">
-                                   <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-wider block">
-                                     Seleziona Sottogeneri Preferiti (Opzionali):
-                                   </span>
-                                   {!isSelected && (
-                                     <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                                       (Seleziona anche il genere per salvarli)
-                                     </span>
-                                   )}
-                                 </div>
-                                 <div className="flex flex-wrap gap-1">
-                                   {subgenresAvailable.map((subName) => {
-                                     const isSubSelected = selectedSubgenres.includes(subName);
-                                     return (
-                                       <button
-                                         key={subName}
-                                         type="button"
-                                         onClick={() => {
-                                           if (!isSelected) {
-                                             handleToggleGenre(genreName);
-                                           }
-                                           handleToggleSubgenre(genreName, subName);
-                                         }}
-                                         className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
-                                           isSubSelected
-                                             ? 'bg-[#5C6B55] text-white border-[#5C6B55]'
-                                             : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-400'
-                                         }`}
-                                       >
-                                         {subName}
-                                       </button>
-                                     );
-                                   })}
-                                 </div>
-                               </div>
-                             )}
-                           </div>
-                         );
-                       })}
-                     </div>
-                   </div>
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              {(GENRES_MAP[activeSubgenreGenre] || []).map((subName) => {
+                                const isSubSelected = (draftProfile.favoriteSubgenres?.[activeSubgenreGenre] || []).includes(subName);
+                                return (
+                                  <button
+                                    key={subName}
+                                    type="button"
+                                    onClick={() => handleToggleSubgenre(activeSubgenreGenre, subName)}
+                                    className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
+                                      isSubSelected
+                                        ? 'bg-[#5C6B55] text-white border-[#5C6B55] font-semibold shadow-2xs'
+                                        : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-700/80 hover:border-neutral-300'
+                                    }`}
+                                  >
+                                    {subName}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
 
                    {/* GESTIONE WIDGET INSERITI */}
                    <div className="mt-5 space-y-2.5">
