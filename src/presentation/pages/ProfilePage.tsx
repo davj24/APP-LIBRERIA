@@ -331,8 +331,13 @@ export const ProfilePage: React.FC = () => {
   const [newCollIcon, setNewCollIcon] = useState<CollectionIconName>('Heart');
   const [newCollCover, setNewCollCover] = useState<string>(COVER_PRESETS[0].class);
 
+  // Modale Selettore Minimale Generi & Sottogeneri
+  const [showGenrePickerModal, setShowGenrePickerModal] = useState(false);
+  const [genreSearchQuery, setGenreSearchQuery] = useState('');
+  const [pickerExpandedGenre, setPickerExpandedGenre] = useState<string | null>(null);
+
   // Registra l'apertura di qualsiasi overlay per disabilitare lo swipe dei tab in App.tsx
-  const isAnyOverlayOpen = isEditing || showWidgetLibraryModal || showCreateCollectionModal || isAllCollectionsModalOpen || openedCollection !== null || editingCollection !== null || imagePickerType !== null;
+  const isAnyOverlayOpen = isEditing || showWidgetLibraryModal || showGenrePickerModal || showCreateCollectionModal || isAllCollectionsModalOpen || openedCollection !== null || editingCollection !== null || imagePickerType !== null;
   useRegisterModal(isAnyOverlayOpen);
 
   const [activeSubgenreGenre, setActiveSubgenreGenre] = useState<string | null>(null);
@@ -414,6 +419,9 @@ export const ProfilePage: React.FC = () => {
   const handleOpenEdit = () => {
     setDraftProfile(profile);
     setActiveSubgenreGenre(null);
+    setShowGenrePickerModal(false);
+    setGenreSearchQuery('');
+    setPickerExpandedGenre(null);
     setIsEditing(true);
   };
 
@@ -457,6 +465,10 @@ export const ProfilePage: React.FC = () => {
 
   const handleToggleSubgenre = (genreName: string, subName: string) => {
     setDraftProfile(prev => {
+      const currentGenres = prev.favoriteGenres || [];
+      const isGenreActive = currentGenres.includes(genreName);
+      const nextGenres = isGenreActive ? currentGenres : [...currentGenres, genreName];
+
       const currentSubMap = prev.favoriteSubgenres || {};
       const currentSubs = currentSubMap[genreName] || [];
       const updatedSubs = currentSubs.includes(subName)
@@ -465,9 +477,32 @@ export const ProfilePage: React.FC = () => {
 
       return {
         ...prev,
+        favoriteGenres: nextGenres,
         favoriteSubgenres: {
           ...currentSubMap,
           [genreName]: updatedSubs
+        }
+      };
+    });
+  };
+
+  const handleToggleAllSubgenres = (genreName: string) => {
+    const allSubs = GENRES_MAP[genreName] || [];
+    setDraftProfile(prev => {
+      const currentSubMap = prev.favoriteSubgenres || {};
+      const currentSubs = currentSubMap[genreName] || [];
+      const areAllSelected = allSubs.length > 0 && currentSubs.length === allSubs.length;
+
+      const currentGenres = prev.favoriteGenres || [];
+      const isGenreActive = currentGenres.includes(genreName);
+      const nextGenres = isGenreActive ? currentGenres : [...currentGenres, genreName];
+
+      return {
+        ...prev,
+        favoriteGenres: nextGenres,
+        favoriteSubgenres: {
+          ...currentSubMap,
+          [genreName]: areAllSelected ? [] : [...allSubs]
         }
       };
     });
@@ -943,132 +978,78 @@ export const ProfilePage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* GESTIONE GENERI & SOTTOGENERI PREFERITI (Minimal) */}
-                    <div className="mt-5 space-y-3">
+                    {/* GESTIONE GENERI & SOTTOGENERI PREFERITI (Minimal & Clean) */}
+                    <div className="mt-5 space-y-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5">
                           <Tag size={13} className="text-neutral-400" />
-                          <span>Generi & Sottogeneri</span>
+                          <span>Generi Preferiti</span>
                         </span>
-                        <span className="text-[11px] text-neutral-400 font-medium">
+                        <span className="text-[11px] font-medium text-neutral-400">
                           {draftProfile.favoriteGenres?.length || 0} selezionati
                         </span>
                       </div>
 
-                      {/* Nuvola Compatta dei Generi */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {Object.keys(GENRES_MAP).map((genreName) => {
-                          const isSelected = draftProfile.favoriteGenres?.includes(genreName);
-                          const subs = draftProfile.favoriteSubgenres?.[genreName] || [];
-                          const isPanelOpen = activeSubgenreGenre === genreName;
-
-                          if (isSelected) {
+                      {/* Pillole dei soli generi selezionati */}
+                      {draftProfile.favoriteGenres && draftProfile.favoriteGenres.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {draftProfile.favoriteGenres.map((genreName) => {
+                            const subs = draftProfile.favoriteSubgenres?.[genreName] || [];
                             return (
                               <div
                                 key={genreName}
-                                className={`inline-flex items-center rounded-full text-xs font-semibold pl-3 pr-1.5 py-1 border transition-all ${
-                                  isPanelOpen
-                                    ? 'bg-[#5C6B55] text-white border-[#5C6B55] shadow-xs'
-                                    : 'bg-[#5C6B55]/15 dark:bg-[#5C6B55]/25 text-[#4D5B46] dark:text-[#B5C5AF] border-[#5C6B55]/30'
-                                }`}
+                                className="inline-flex items-center gap-1 rounded-full text-xs font-semibold pl-2.5 pr-1.5 py-1 bg-[#5C6B55]/15 dark:bg-[#5C6B55]/25 text-[#4D5B46] dark:text-[#B5C5AF] border border-[#5C6B55]/30 transition-all shadow-2xs"
                               >
                                 <button
                                   type="button"
-                                  onClick={() => setActiveSubgenreGenre(isPanelOpen ? null : genreName)}
-                                  className="flex items-center gap-1.5 cursor-pointer"
-                                  title={isPanelOpen ? "Chiudi sottogeneri" : "Modifica sottogeneri"}
+                                  onClick={() => {
+                                    setPickerExpandedGenre(genreName);
+                                    setShowGenrePickerModal(true);
+                                  }}
+                                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 transition-opacity text-left"
+                                  title="Tocca per gestire i sottogeneri"
                                 >
                                   <span>{genreName}</span>
                                   {subs.length > 0 && (
-                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                                      isPanelOpen ? 'bg-white/25 text-white' : 'bg-[#5C6B55]/20 dark:bg-[#5C6B55]/40 text-[#4D5B46] dark:text-[#B5C5AF]'
-                                    }`}>
+                                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#5C6B55]/20 dark:bg-[#5C6B55]/40 text-[#4D5B46] dark:text-[#B5C5AF]">
                                       {subs.length}
                                     </span>
                                   )}
-                                  {isPanelOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                                 </button>
-                                
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleGenre(genreName);
-                                  }}
-                                  className="w-4 h-4 rounded-full ml-1 flex items-center justify-center hover:bg-black/15 dark:hover:bg-white/20 transition-colors cursor-pointer"
+                                  onClick={() => handleToggleGenre(genreName)}
+                                  className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/20 transition-colors cursor-pointer text-neutral-500 hover:text-rose-500 ml-0.5"
                                   title={`Rimuovi ${genreName}`}
                                 >
                                   <X size={11} strokeWidth={2.5} />
                                 </button>
                               </div>
                             );
-                          }
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700 text-center text-xs text-neutral-400">
+                          Nessun genere selezionato. Clicca sotto per personalizzare i tuoi gusti letterari.
+                        </div>
+                      )}
 
-                          return (
-                            <button
-                              key={genreName}
-                              type="button"
-                              onClick={() => {
-                                handleToggleGenre(genreName);
-                                setActiveSubgenreGenre(genreName);
-                              }}
-                              className="px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/80 dark:hover:bg-neutral-700/80 border border-transparent transition-all cursor-pointer flex items-center gap-1"
-                            >
-                              <Plus size={12} className="opacity-60" />
-                              <span>{genreName}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Sottogeneri Espansi (Pannello Minimal per Genere Attivo) */}
-                      <AnimatePresence>
-                        {activeSubgenreGenre && draftProfile.favoriteGenres?.includes(activeSubgenreGenre) && (
-                          <motion.div
-                            key={activeSubgenreGenre}
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="p-3 rounded-2xl bg-[#5C6B55]/10 dark:bg-[#5C6B55]/15 border border-[#5C6B55]/25 space-y-2 overflow-hidden"
-                          >
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-semibold text-[#5C6B55] dark:text-[#A0AF99] flex items-center gap-1.5">
-                                <Tag size={12} />
-                                <span>Sottogeneri di <span className="font-bold underline">{activeSubgenreGenre}</span></span>
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setActiveSubgenreGenre(null)}
-                                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-0.5 cursor-pointer"
-                                title="Chiudi"
-                              >
-                                <X size={13} />
-                              </button>
-                            </div>
-
-                            <div className="flex flex-wrap gap-1 pt-0.5">
-                              {(GENRES_MAP[activeSubgenreGenre] || []).map((subName) => {
-                                const isSubSelected = (draftProfile.favoriteSubgenres?.[activeSubgenreGenre] || []).includes(subName);
-                                return (
-                                  <button
-                                    key={subName}
-                                    type="button"
-                                    onClick={() => handleToggleSubgenre(activeSubgenreGenre, subName)}
-                                    className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
-                                      isSubSelected
-                                        ? 'bg-[#5C6B55] text-white border-[#5C6B55] font-semibold shadow-2xs'
-                                        : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-700/80 hover:border-neutral-300'
-                                    }`}
-                                  >
-                                    {subName}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                      {/* Tasto compatto per aprire il picker dedicato */}
+                      <button
+                        type="button"
+                        onClick={() => setShowGenrePickerModal(true)}
+                        className="w-full border border-dashed border-neutral-300 dark:border-neutral-700/80 hover:border-[#5C6B55] dark:hover:border-[#5C6B55] rounded-xl px-3.5 py-2.5 flex items-center justify-between text-neutral-700 dark:text-neutral-300 hover:bg-[#5C6B55]/5 dark:hover:bg-[#5C6B55]/10 transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-[#5C6B55]/15 dark:bg-[#5C6B55]/25 text-[#4D5B46] dark:text-[#B5C5AF] flex items-center justify-center">
+                            <SlidersHorizontal size={13} />
+                          </div>
+                          <span className="text-xs font-semibold">
+                            {draftProfile.favoriteGenres?.length ? 'Personalizza Generi & Sottogeneri' : 'Aggiungi Generi Preferiti'}
+                          </span>
+                        </div>
+                        <ChevronRight size={14} className="text-neutral-400 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
                     </div>
 
                    {/* GESTIONE WIDGET INSERITI */}
@@ -1815,6 +1796,218 @@ export const ProfilePage: React.FC = () => {
                   className="w-full py-3 rounded-2xl bg-[#B0BEA9] dark:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] font-bold text-xs hover:bg-[#A0AF99] transition-all shadow-md active:scale-98 cursor-pointer"
                 >
                   Conferma Selezione ({draftProfile.selectedWidgets.length}/2)
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODALE DEDICATO: SELEZIONE GENERI & SOTTOGENERI CON RICERCA RAPIDA */}
+      <AnimatePresence>
+        {showGenrePickerModal && (
+          <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowGenrePickerModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 50, scale: 0.95 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative z-10 w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-2xl border border-neutral-200 dark:border-neutral-800 space-y-3.5 max-h-[88vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#5C6B55]/15 dark:bg-[#5C6B55]/25 text-[#4D5B46] dark:text-[#B5C5AF] flex items-center justify-center font-bold">
+                    <Tag size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white leading-none">Generi & Sottogeneri</h3>
+                    <p className="text-[11px] text-neutral-400 mt-1">Scegli i generi e perfeziona con i sottogeneri</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-[#5C6B55]/15 dark:bg-[#5C6B55]/30 text-[#4D5B46] dark:text-[#B5C5AF] border border-[#5C6B55]/30">
+                    {draftProfile.favoriteGenres?.length || 0}
+                  </span>
+                  <button
+                    onClick={() => setShowGenrePickerModal(false)}
+                    className="rounded-full bg-neutral-100 dark:bg-neutral-800 p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+                    title="Chiudi"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Barra di Ricerca Istantanea */}
+              <div className="relative shrink-0">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                <input
+                  type="text"
+                  value={genreSearchQuery}
+                  onChange={(e) => setGenreSearchQuery(e.target.value)}
+                  placeholder="Cerca genere o sottogenere..."
+                  className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-[#5C6B55]"
+                />
+                {genreSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setGenreSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-0.5 cursor-pointer"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Lista Generi e Sottogeneri */}
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
+                {(() => {
+                  const query = genreSearchQuery.toLowerCase().trim();
+                  const filteredEntries = Object.entries(GENRES_MAP).filter(([genreName, subs]) => {
+                    if (!query) return true;
+                    if (genreName.toLowerCase().includes(query)) return true;
+                    return subs.some(sub => sub.toLowerCase().includes(query));
+                  });
+
+                  if (filteredEntries.length === 0) {
+                    return (
+                      <div className="py-10 text-center space-y-1">
+                        <p className="text-xs font-bold text-neutral-500 dark:text-neutral-400">
+                          Nessun genere o sottogenere trovato per "{genreSearchQuery}"
+                        </p>
+                        <p className="text-[11px] text-neutral-400">
+                          Prova con parole chiave come Romanzo, Giallo, Manga, Psicologia...
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return filteredEntries.map(([genreName, subs]) => {
+                    const isSelected = draftProfile.favoriteGenres?.includes(genreName);
+                    const selectedSubs = draftProfile.favoriteSubgenres?.[genreName] || [];
+                    
+                    // Se l'utente sta cercando e c'è un match sui sottogeneri, apriamo automaticamente
+                    const hasSubMatch = Boolean(query && subs.some(s => s.toLowerCase().includes(query)));
+                    const isExpanded = hasSubMatch || pickerExpandedGenre === genreName;
+
+                    return (
+                      <div
+                        key={genreName}
+                        className={`rounded-2xl border transition-all overflow-hidden ${
+                          isSelected
+                            ? 'border-[#5C6B55]/40 bg-[#5C6B55]/5 dark:bg-[#5C6B55]/10'
+                            : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30'
+                        }`}
+                      >
+                        {/* Riga Intestazione Genere */}
+                        <div className="p-3 flex items-center justify-between gap-2">
+                          <div
+                            onClick={() => handleToggleGenre(genreName)}
+                            className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer select-none"
+                          >
+                            <div className="shrink-0">
+                              {isSelected ? (
+                                <CheckCircle2 size={18} className="text-[#5C6B55] dark:text-[#A0AF99] fill-[#5C6B55]/20" />
+                              ) : (
+                                <div className="w-4.5 h-4.5 rounded-full border-2 border-neutral-300 dark:border-neutral-600" />
+                              )}
+                            </div>
+                            <span className={`text-xs font-bold truncate ${
+                              isSelected ? 'text-[#31362F] dark:text-[#E0DCD3]' : 'text-neutral-700 dark:text-neutral-300'
+                            }`}>
+                              {genreName}
+                            </span>
+                            {selectedSubs.length > 0 && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-[#5C6B55]/20 text-[#4D5B46] dark:text-[#B5C5AF] shrink-0">
+                                {selectedSubs.length}
+                              </span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setPickerExpandedGenre(isExpanded ? null : genreName)}
+                            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                            title={isExpanded ? "Comprimi sottogeneri" : "Mostra sottogeneri"}
+                          >
+                            <span className="text-[10px] font-medium text-neutral-400">
+                              {subs.length}
+                            </span>
+                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                          </button>
+                        </div>
+
+                        {/* Pannello Sottogeneri Espandibile */}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.18 }}
+                              className="px-3 pb-3 pt-0 border-t border-[#5C6B55]/15 dark:border-[#5C6B55]/20 mt-1"
+                            >
+                              <div className="flex items-center justify-between py-2 text-[11px] text-neutral-400">
+                                <span>Sottogeneri specifici:</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleAllSubgenres(genreName)}
+                                  className="text-[10px] font-bold text-[#5C6B55] dark:text-[#A0AF99] hover:underline cursor-pointer"
+                                >
+                                  {selectedSubs.length === subs.length ? 'Deseleziona tutti' : 'Seleziona tutti'}
+                                </button>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1.5">
+                                {subs.map((subName) => {
+                                  const isSubActive = selectedSubs.includes(subName);
+                                  const isSubMatch = Boolean(query && subName.toLowerCase().includes(query));
+
+                                  return (
+                                    <button
+                                      key={subName}
+                                      type="button"
+                                      onClick={() => handleToggleSubgenre(genreName, subName)}
+                                      className={`px-2.5 py-1 rounded-xl text-[11px] font-medium border transition-all cursor-pointer ${
+                                        isSubActive
+                                          ? 'bg-[#5C6B55] text-white border-[#5C6B55] font-semibold shadow-2xs'
+                                          : isSubMatch
+                                          ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700/60'
+                                          : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300'
+                                      }`}
+                                    >
+                                      {subName}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Tasto Fine / Conferma */}
+              <div className="pt-2 shrink-0 border-t border-neutral-100 dark:border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setShowGenrePickerModal(false)}
+                  className="w-full py-3 rounded-2xl bg-[#5C6B55] hover:bg-[#4D5B46] text-white font-bold text-xs transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Check size={15} strokeWidth={2.5} />
+                  <span>Conferma ({draftProfile.favoriteGenres?.length || 0} generi selezionati)</span>
                 </button>
               </div>
             </motion.div>
