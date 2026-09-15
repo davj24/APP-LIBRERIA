@@ -8,7 +8,7 @@ import { useRegisterModal } from '../../context/ModalContext';
 interface CurrentlyReadingCardProps {
   books: Book[];
   onUpdateStatus: (id: string, status: BookStatus) => void;
-  onUpdatePages?: (id: string, pagesRead: number) => void;
+  onUpdatePages?: (id: string, pagesRead: number, isStartingPoint?: boolean) => void;
 }
 
 export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
@@ -20,11 +20,13 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPageModalOpen, setIsPageModalOpen] = useState(false);
+  const [isStartingPoint, setIsStartingPoint] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   useRegisterModal(isPageModalOpen);
 
+  // Se la lista cambia o currentIndex è fuori scala, normalizziamo
   useEffect(() => {
-    if (currentIndex >= activeList.length) {
+    if (currentIndex >= activeList.length && activeList.length > 0) {
       setCurrentIndex(0);
     }
   }, [activeList.length, currentIndex]);
@@ -39,6 +41,7 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
   useEffect(() => {
     if (currentBook) {
       setPageInput(pagesRead.toString());
+      setIsStartingPoint(pagesRead === 0);
     }
   }, [currentBook?.id, pagesRead]);
 
@@ -92,7 +95,7 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
     if (!isNaN(val) && onUpdatePages) {
       const clampedVal = Math.max(0, Math.min(totalPages, val));
       const updatedStatus: BookStatus = clampedVal >= totalPages ? 'Letto' : 'In lettura';
-      onUpdatePages(currentBook.id, clampedVal);
+      onUpdatePages(currentBook.id, clampedVal, isStartingPoint);
       if (updatedStatus !== currentBook.status) {
         onUpdateStatus(currentBook.id, updatedStatus);
       }
@@ -314,35 +317,65 @@ export const CurrentlyReadingCard: React.FC<CurrentlyReadingCardProps> = ({
                     </div>
 
                     {/* Calcolo automatico in tempo reale */}
+                    {/* Calcolo automatico in tempo reale */}
                     <div className="min-h-[36px] flex items-center justify-center">
-                      {diff > 0 && currentTarget < totalPages && (
-                        <div className="w-full py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
-                          <span>📖 Lette in questa sessione:</span>
-                          <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
-                            +{diff} pagine ({Math.round((currentTarget / totalPages) * 100)}%)
+                      {isStartingPoint ? (
+                        <div className="w-full py-2 px-3 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-800 dark:text-sky-300 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
+                          <span>📍 Punto di partenza:</span>
+                          <span className="font-extrabold text-xs text-sky-700 dark:text-sky-300">
+                            Pag. {currentTarget} (nessuna pagina oggi)
                           </span>
                         </div>
-                      )}
-                      {currentTarget >= totalPages && (
-                        <div className="w-full py-2 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-900 dark:text-amber-200 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
-                          <span>🎉 Complimenti! Fine del libro:</span>
-                          <span className="font-extrabold text-amber-700 dark:text-amber-300">
-                            Passa a Letto ✓
-                          </span>
-                        </div>
-                      )}
-                      {diff < 0 && (
-                        <div className="w-full py-2 px-3 rounded-xl bg-neutral-500/10 border border-neutral-500/30 text-[#7A756D] dark:text-[#A09A90] text-xs font-medium flex items-center justify-between animate-in fade-in duration-200">
-                          <span>Indietro rispetto a prima:</span>
-                          <span className="font-bold">{diff} pagine</span>
-                        </div>
-                      )}
-                      {diff === 0 && (
-                        <span className="text-[11px] text-[#7A756D] dark:text-[#A09A90] font-medium">
-                          Inserisci la pagina che hai raggiunto per calcolare le pagine lette
-                        </span>
+                      ) : (
+                        <>
+                          {diff > 0 && currentTarget < totalPages && (
+                            <div className="w-full py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
+                              <span>📖 Lette in questa sessione:</span>
+                              <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
+                                +{diff} pagine ({Math.round((currentTarget / totalPages) * 100)}%)
+                              </span>
+                            </div>
+                          )}
+                          {currentTarget >= totalPages && (
+                            <div className="w-full py-2 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-900 dark:text-amber-200 text-xs font-bold flex items-center justify-between animate-in fade-in duration-200">
+                              <span>🎉 Complimenti! Fine del libro:</span>
+                              <span className="font-extrabold text-amber-700 dark:text-amber-300">
+                                Passa a Letto ✓
+                              </span>
+                            </div>
+                          )}
+                          {diff < 0 && (
+                            <div className="w-full py-2 px-3 rounded-xl bg-neutral-500/10 border border-neutral-500/30 text-[#7A756D] dark:text-[#A09A90] text-xs font-medium flex items-center justify-between animate-in fade-in duration-200">
+                              <span>Indietro rispetto a prima:</span>
+                              <span className="font-bold">{diff} pagine</span>
+                            </div>
+                          )}
+                          {diff === 0 && (
+                            <span className="text-[11px] text-[#7A756D] dark:text-[#A09A90] font-medium">
+                              Inserisci la pagina che hai raggiunto per calcolare le pagine lette
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
+
+                    {/* Toggle Punto di Partenza Pregresso */}
+                    <label className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/50 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isStartingPoint}
+                        onChange={(e) => setIsStartingPoint(e.target.checked)}
+                        className="rounded border-[#B0BEA9] text-[#5C6B55] focus:ring-[#5C6B55] w-4 h-4 cursor-pointer"
+                      />
+                      <div className="flex-1 text-left">
+                        <div className="text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3]">
+                          📍 Punto di partenza (lette prima di oggi)
+                        </div>
+                        <div className="text-[10px] text-[#7A756D] dark:text-[#A09A90]">
+                          Non sballa le statistiche: queste pagine non verranno contate oggi
+                        </div>
+                      </div>
+                    </label>
 
                     {/* Pulsanti rapidi calcolati da posizione precedente */}
                     <div className="flex items-center gap-1.5 pt-1">

@@ -19,6 +19,7 @@ import {
   type CollectionIconName, 
   type UserCollection 
 } from '../hooks/useCollections';
+import { calculateRealStreak, calculateAveragePace } from '../../infrastructure/services/readingSessionService';
 
 export const COLLECTION_ICONS: { name: CollectionIconName; label: string }[] = [
   { name: 'Heart', label: 'Cuore' },
@@ -397,13 +398,16 @@ export const ProfilePage: React.FC = () => {
     return sorted[0]?.[0] || 'Nessun genere';
   };
 
+  const realStreak = calculateRealStreak(books);
+  const realPace = calculateAveragePace(books);
+
   const widgetData = {
     readCount,
     readingCount,
     totalPages: calculatedTotalPages,
     readingGoal: userProfile.readingGoal || 24,
-    streakDays: 0,
-    averagePace: 0,
+    streakDays: realStreak,
+    averagePace: realPace,
     dominantGenre: getDominantGenre(),
     notesCount: 0,
     nextBookTitle: collections[0]?.items[0]?.title || 'Nessun libro in wishlist',
@@ -411,7 +415,7 @@ export const ProfilePage: React.FC = () => {
     timeSlotText: 'Nessuna sessione',
     primaryFormatText: 'Cartaceo',
     toReadCount: toReadCount,
-    maxStreakDays: 0,
+    maxStreakDays: Math.max(realStreak, 1),
     reReadsCount: 0
   };
 

@@ -68,6 +68,8 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const parsedPagesRead = pagesRead ? parseInt(pagesRead, 10) : 0;
+
     onConfirmSave({
       title: initialBook.title || 'Senza titolo',
       author: initialBook.author || 'Autore sconosciuto',
@@ -76,7 +78,8 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
       startDate: startDate || '',
       endDate: endDate || '',
       totalPages: totalPages ? parseInt(totalPages, 10) : undefined,
-      pagesRead: pagesRead ? parseInt(pagesRead, 10) : 0,
+      pagesRead: parsedPagesRead,
+      initialPagesRead: parsedPagesRead,
       genre: genre || 'Narrativa & Classici',
       subgenre: subgenre.trim() || undefined,
       isbn: initialBook.isbn,
@@ -194,6 +197,11 @@ export const RegisterBookModal: React.FC<RegisterBookModalProps> = ({
                       onChange={(e) => setPagesRead(e.target.value)}
                       className="w-full px-3 py-2 bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] outline-none focus:border-[#5C6B55]"
                     />
+                    {pagesRead && parseInt(pagesRead, 10) > 0 && (
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                        📍 Punto di partenza: le {pagesRead} pagine lette prima non verranno conteggiate oggi.
+                      </p>
+                    )}
                   </div>
                 )}
                 <div>

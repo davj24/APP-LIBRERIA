@@ -3,6 +3,7 @@ import { useBooks } from '../hooks/useBooks';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { TrendingUp, Flame, Award, PieChart, Sparkles, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { calculateRealStreak, getTodayPagesRead, calculateAveragePace } from '../../infrastructure/services/readingSessionService';
 
 export const StatsPage: React.FC = () => {
   const { books } = useBooks();
@@ -16,20 +17,9 @@ export const StatsPage: React.FC = () => {
   const readingGoal = profile?.readingGoal && profile.readingGoal > 0 ? profile.readingGoal : 24;
   const goalPercentage = Math.min(100, Math.round((booksRead.length / readingGoal) * 100));
 
-  // Calcolo streak di lettura dinamico
-  // Se l'utente ha libri attualmente in lettura o letti di recente, calcoliamo la serie di giorni
-  const calculateStreak = () => {
-    if (booksReading.length > 0 || booksRead.length > 0) {
-      // Se ci sono libri in lettura o completati, calcola giorni dall'inizio lettura più recente o min 3
-      const activeBooks = books.filter(b => b.status === 'In lettura' || b.status === 'Letto');
-      if (activeBooks.length > 0) {
-        return Math.min(30, Math.max(1, activeBooks.length * 3 + (booksReading.length > 0 ? 2 : 0)));
-      }
-    }
-    return 0;
-  };
-
-  const streakDays = calculateStreak();
+  const streakDays = calculateRealStreak(books);
+  const todayPages = getTodayPagesRead();
+  const averagePace = calculateAveragePace(books);
 
   const genresMap: Record<string, number> = {};
   books.forEach(b => {
@@ -123,7 +113,7 @@ export const StatsPage: React.FC = () => {
         <div className="grid grid-cols-4 gap-2 text-center">
           <div className="bg-[#F4F1EA] dark:bg-[#2A2826] p-2.5 rounded-xl border border-[#EBE5D9] dark:border-[#4A4743]/50">
             <div className="text-lg font-bold text-[#4A4743] dark:text-[#E0DCD3]">{totalPagesRead}</div>
-            <div className="text-[10px] text-[#7A756D] dark:text-[#A09A90] font-medium">Pagine Lette</div>
+            <div className="text-[10px] text-[#7A756D] dark:text-[#A09A90] font-medium">Pagine Totali</div>
           </div>
 
           <div className="bg-[#EBE5D9] dark:bg-[#383532] p-2.5 rounded-xl border border-[#DCD5C6] dark:border-[#4A4743]/60">
@@ -139,6 +129,18 @@ export const StatsPage: React.FC = () => {
           <div className="bg-[#F4F1EA] dark:bg-[#2A2826] p-2.5 rounded-xl border border-[#EBE5D9] dark:border-[#4A4743]/50">
             <div className="text-lg font-bold text-[#4A4743] dark:text-[#E0DCD3]">{booksToRead.length}</div>
             <div className="text-[10px] text-[#7A756D] dark:text-[#A09A90] font-medium">In Coda</div>
+          </div>
+        </div>
+
+        {/* Focus Sessione Odierna & Ritmo */}
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#EBE5D9] dark:border-[#4A4743]/40">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+            <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">📖 Lette oggi</span>
+            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">+{todayPages} pag.</span>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded-xl bg-purple-500/10 border border-purple-500/25">
+            <span className="text-[11px] font-bold text-purple-800 dark:text-purple-300">⚡ Ritmo medio</span>
+            <span className="text-xs font-black text-purple-600 dark:text-purple-400">{averagePace} pag/gg</span>
           </div>
         </div>
       </div>

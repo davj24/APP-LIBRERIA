@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Book, BookStatus } from '../../domain/models/Book';
 import { supabase } from '../../infrastructure/supabase/client';
+import { recordReadingProgress } from '../../infrastructure/services/readingSessionService';
 
 const STORAGE_KEY = 'bibliodesk_books_v1';
 const UPDATE_EVENT = 'bibliodesk_books_updated';
@@ -20,6 +21,7 @@ function mapDbRecordToBook(rec: any): Book {
     endDate: rec.end_date || rec.endDate || '',
     totalPages: rec.total_pages || rec.totalPages || undefined,
     pagesRead: rec.pages_read || rec.pagesRead || 0,
+    initialPagesRead: rec.initial_pages_read ?? rec.initialPagesRead ?? (rec.pages_read || rec.pagesRead || 0),
     genre: rec.genre || 'Narrativa',
     subgenre: rec.subgenre || undefined,
     rating: rec.rating || undefined,
@@ -372,10 +374,15 @@ export function useBooks() {
    */
   const addBookToLibrary = async (bookData: Omit<Book, 'id'>): Promise<{ success: boolean; book?: Book; error?: string }> => {
     const tempId = `book-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const initialPages = bookData.initialPagesRead !== undefined
+      ? bookData.initialPagesRead
+      : (bookData.pagesRead || 0);
+
     const newBook: Book = {
       ...bookData,
       id: tempId,
       pagesRead: bookData.pagesRead || 0,
+      initialPagesRead: initialPages,
       coverUrl: bookData.coverUrl ? bookData.coverUrl.trim() : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400'
     };
 
@@ -553,12 +560,14 @@ export function useBooks() {
     }
   };
 
-  const updateBookPages = async (id: string, pagesRead: number) => {
+  const updateBookPages = async (id: string, pagesRead: number, isStartingPoint: boolean = false) => {
     const current = getLatestLocalBooks();
     let updatedBookRef: Book | null = null;
+    let oldPages = 0;
 
     const updated = current.map(book => {
       if (book.id === id) {
+        oldPages = book.pagesRead || 0;
         let status = book.status;
         if (pagesRead > 0 && status === 'Da leggere') {
           status = 'In lettura';
@@ -566,13 +575,26 @@ export function useBooks() {
         if (book.totalPages && pagesRead >= book.totalPages) {
           status = 'Letto';
         }
-        updatedBookRef = { ...book, pagesRead, status };
+
+        const initialPages = isStartingPoint
+          ? pagesRead
+          : (book.initialPagesRead !== undefined ? book.initialPagesRead : oldPages);
+
+        updatedBookRef = {
+          ...book,
+          pagesRead,
+          status,
+          initialPagesRead: initialPages
+        };
         return updatedBookRef;
       }
       return book;
     });
 
     saveBooksLocally(updated);
+
+    // Registra la sessione solo se non è impostato come punto di partenza
+    recordReadingProgress(id, oldPages, pagesRead, isStartingPoint);
 
     if (updatedBookRef && !id.startsWith('temp-') && !id.startsWith('book-')) {
       try {

@@ -10,6 +10,7 @@ export interface Book {
   status: BookStatus;
   totalPages?: number;
   pagesRead?: number;
+  initialPagesRead?: number;
   rating?: number;
   genre?: string;
   subgenre?: string;

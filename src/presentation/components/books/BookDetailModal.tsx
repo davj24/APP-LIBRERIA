@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { useRegisterModal } from '../../context/ModalContext';
+import { recordReadingProgress } from '../../../infrastructure/services/readingSessionService';
 
 interface BookDetailModalProps {
   book: Book | null;
@@ -40,6 +41,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState<Partial<Book>>({});
   const [pageInputValue, setPageInputValue] = useState<string>('0');
+  const [isStartingPoint, setIsStartingPoint] = useState(false);
 
   useEffect(() => {
     if (book && isOpen) {
@@ -58,6 +60,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
         notes: book.notes || ''
       });
       setPageInputValue(String(book.pagesRead || 0));
+      setIsStartingPoint((book.pagesRead || 0) === 0);
       setIsEditing(false);
       setShowDeleteConfirm(false);
     }
@@ -79,13 +82,20 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
     }));
   };
 
-  const handleQuickPageUpdate = (newPages: number) => {
+  const handleQuickPageUpdate = (newPages: number, asStartingPoint: boolean = isStartingPoint) => {
     if (!book) return;
     const validPages = Math.max(0, Math.min(book.totalPages || 300, newPages));
     const newStatus: BookStatus = validPages >= (book.totalPages || 300) ? 'Letto' : validPages > 0 ? 'In lettura' : book.status;
+    const initialPages = asStartingPoint
+      ? validPages
+      : (book.initialPagesRead !== undefined ? book.initialPagesRead : (book.pagesRead || 0));
+
+    recordReadingProgress(book.id, book.pagesRead || 0, validPages, asStartingPoint);
+
     onUpdateBook({
       ...book,
       pagesRead: validPages,
+      initialPagesRead: initialPages,
       status: newStatus
     });
   };
@@ -93,6 +103,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!book) return;
+    const newPagesRead = Number(formData.pagesRead) || book.pagesRead;
     const updated: Book = {
       ...book,
       title: formData.title || book.title,
@@ -100,7 +111,8 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
       coverUrl: formData.coverUrl || book.coverUrl,
       status: (formData.status as BookStatus) || book.status,
       totalPages: Number(formData.totalPages) || book.totalPages,
-      pagesRead: Number(formData.pagesRead) || book.pagesRead,
+      pagesRead: newPagesRead,
+      initialPagesRead: book.initialPagesRead !== undefined ? book.initialPagesRead : newPagesRead,
       genre: formData.genre,
       subgenre: formData.subgenre || undefined,
       rating: formData.rating,
@@ -339,6 +351,14 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                           const parsed = parseInt(pageInputValue, 10);
                           const prev = book.pagesRead || 0;
                           if (!isNaN(parsed) && parsed !== prev) {
+                            if (isStartingPoint) {
+                              return (
+                                <div className="text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-500/10 px-2.5 py-1.5 rounded-lg flex items-center justify-between animate-in fade-in duration-150">
+                                  <span>📍 Punto di partenza:</span>
+                                  <span>Pag. {parsed} (non conta oggi)</span>
+                                </div>
+                              );
+                            }
                             const diff = parsed - prev;
                             if (diff > 0) {
                               return (
@@ -358,6 +378,20 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                           }
                           return null;
                         })()}
+
+                        {/* Toggle Punto di Partenza Pregresso */}
+                        <label className="flex items-center gap-2 p-2 rounded-xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/50 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={isStartingPoint}
+                            onChange={(e) => setIsStartingPoint(e.target.checked)}
+                            className="rounded border-[#B0BEA9] text-[#5C6B55] focus:ring-[#5C6B55] w-3.5 h-3.5 cursor-pointer"
+                          />
+                          <div className="flex-1 text-left text-[11px]">
+                            <span className="font-bold text-[#4A4743] dark:text-[#E0DCD3]">📍 Punto di partenza (lette prima)</span>
+                            <span className="text-[#7A756D] dark:text-[#A09A90] block text-[10px]">Non sballa le statistiche odierne</span>
+                          </div>
+                        </label>
 
                         {/* Quick helper pills */}
                         <div className="flex items-center gap-1.5 pt-1">
