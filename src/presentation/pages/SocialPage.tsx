@@ -92,24 +92,30 @@ export const SocialPage: React.FC = () => {
   const loadSocialData = async () => {
     setIsLoadingFeed(true);
     try {
-      // 1. Assicura che il profilo utente corrente sia inserito/aggiornato su Supabase profiles con sole colonne valide
+      // 1. Assicura che il profilo utente corrente sia inserito/aggiornato su Supabase profiles
       const { data: authData } = await supabase.auth.getUser();
       const currentUserId = authData?.user?.id;
-      if (currentUserId && profile?.name) {
-        const cleanName = profile.name.trim();
-        if (cleanName && cleanName !== 'Lettore BiblioDesk') {
-          try {
-            await supabase.from('profiles').upsert({
-              id: currentUserId,
-              username: cleanName,
-              full_name: cleanName,
-              avatar_url: profile.avatarUrl || null,
-              badge: profile.avatarColor || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
-              bio: profile.bio || ''
-            });
-          } catch {
-            // Sincronizzazione profilo in background
+      if (currentUserId) {
+        const userEmail = authData.user?.email || '';
+        const fallbackName = userEmail ? userEmail.split('@')[0] : 'Lettore';
+        const cleanName = (profile?.name && profile.name.trim() && profile.name.trim() !== 'Lettore BiblioDesk')
+          ? profile.name.trim()
+          : fallbackName;
+
+        try {
+          const { error: upsertErr } = await supabase.from('profiles').upsert({
+            id: currentUserId,
+            username: cleanName,
+            full_name: cleanName,
+            avatar_url: profile?.avatarUrl || null,
+            badge: profile?.avatarColor || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
+            bio: profile?.bio || ''
+          });
+          if (upsertErr) {
+            console.warn('Avviso sincronizzazione profilo Supabase:', upsertErr);
           }
+        } catch (e) {
+          console.warn('Errore sync profilo Supabase:', e);
         }
       }
 
