@@ -1,5 +1,6 @@
 import type { BookSearchPort } from '../../domain/ports/BookSearchPort';
 import type { BookSnippet, BookDetail } from '../../domain/models/Book';
+import { classifyBookGenre } from '../../domain/services/genreClassifier';
 
 /**
  * Adapter per l'integrazione dell'API pubblica di Open Library
@@ -26,6 +27,18 @@ export class OpenLibraryAdapter implements BookSearchPort {
           const bibData = await bibResp.json();
           const bookObj = bibData[bibKey];
           if (bookObj && bookObj.title) {
+            const subjects = bookObj.subjects
+              ? bookObj.subjects.map((s: any) => (typeof s === 'string' ? s : s.name)).filter(Boolean)
+              : [];
+            const desc = typeof bookObj.notes === 'string' ? bookObj.notes : bookObj.notes?.value || null;
+            const publishedYear = bookObj.publish_date ? bookObj.publish_date.substring(0, 4) : null;
+            const classified = classifyBookGenre({
+              subjects,
+              title: bookObj.title,
+              description: desc,
+              publishedYear,
+            });
+
             return [{
               id: `ol-isbn-${cleanIsbn}`,
               isbn: cleanIsbn,
@@ -33,10 +46,13 @@ export class OpenLibraryAdapter implements BookSearchPort {
               author: bookObj.authors ? bookObj.authors.map((a: any) => a.name).join(', ') : 'Autore non specificato',
               source: 'OpenLibrary',
               coverUrl: bookObj.cover?.medium || bookObj.cover?.large || `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-M.jpg`,
-              description: typeof bookObj.notes === 'string' ? bookObj.notes : bookObj.notes?.value || null,
+              description: desc,
               pageCount: bookObj.number_of_pages || null,
               publisher: bookObj.publishers ? bookObj.publishers.map((p: any) => p.name).join(', ') : null,
-              publishedYear: bookObj.publish_date ? bookObj.publish_date.substring(0, 4) : null,
+              publishedYear,
+              subjects,
+              genre: classified.genre,
+              subgenre: classified.subgenre,
             }];
           }
         }
@@ -64,6 +80,15 @@ export class OpenLibraryAdapter implements BookSearchPort {
         const coverUrl = doc.cover_i
           ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
           : null;
+        const subjects = doc.subject
+          ? (Array.isArray(doc.subject) ? doc.subject.slice(0, 10) : [doc.subject])
+          : [];
+        const publishedYear = doc.first_publish_year ? String(doc.first_publish_year) : null;
+        const classified = classifyBookGenre({
+          subjects,
+          title: doc.title,
+          publishedYear,
+        });
 
         return {
           id: key,
@@ -72,6 +97,10 @@ export class OpenLibraryAdapter implements BookSearchPort {
           author: doc.author_name ? doc.author_name.join(', ') : 'Autore sconosciuto',
           source: 'OpenLibrary',
           coverUrl,
+          publishedYear,
+          subjects,
+          genre: classified.genre,
+          subgenre: classified.subgenre,
         };
       });
     } catch (error) {

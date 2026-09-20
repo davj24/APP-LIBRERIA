@@ -13,7 +13,7 @@ import { StatsPage } from './presentation/pages/StatsPage';
 import { ProfilePage } from './presentation/pages/ProfilePage';
 import { AuthPage } from './presentation/pages/AuthPage';
 import { OnboardingWizard } from './presentation/components/auth/OnboardingWizard';
-import { useUserProfile } from './presentation/hooks/useUserProfile';
+import { useUserProfile, getLatestLocalProfile, sanitizeAvatarUrl } from './presentation/hooks/useUserProfile';
 
 function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
@@ -22,11 +22,82 @@ function AppContent() {
   const { profile, updateProfile } = useUserProfile();
 
   useEffect(() => {
+    const checkExistingProfile = async (user: any) => {
+      if (!user?.id) return;
+      try {
+        const currentLocal = getLatestLocalProfile();
+        const meta = user.user_metadata || {};
+        const googleFullName = meta.full_name || meta.name;
+
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, avatar_url, bio, reading_goal, favorite_genres, favorite_subgenres, selected_widgets, banner_url')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        // 1. Massima priorità: username o nome personalizzato presente su Supabase (diverso dal nome Google)
+        if (data && (data.username || (data.full_name && data.full_name !== googleFullName))) {
+          updateProfile({
+            name: data.username || data.full_name,
+            bio: data.bio || currentLocal.bio,
+            avatarUrl: sanitizeAvatarUrl(data.avatar_url),
+            readingGoal: data.reading_goal || currentLocal.readingGoal,
+            favoriteGenres: Array.isArray(data.favorite_genres) && data.favorite_genres.length > 0 ? data.favorite_genres : currentLocal.favoriteGenres,
+            favoriteSubgenres: data.favorite_subgenres || currentLocal.favoriteSubgenres,
+            selectedWidgets: Array.isArray(data.selected_widgets) && data.selected_widgets.length > 0 ? data.selected_widgets : currentLocal.selectedWidgets,
+            bannerUrl: data.banner_url || currentLocal.bannerUrl,
+            isCompleted: true
+          });
+          return;
+        }
+
+        // 2. Seconda priorità: nome personalizzato locale (che NON sia il nome imposto da Google o default generico)
+        const isDefaultOrGoogleName = !currentLocal.name || 
+          currentLocal.name === 'Lettore BiblioDesk' || 
+          currentLocal.name === 'Nuovo Lettore' || 
+          currentLocal.name === 'Lettore' ||
+          (googleFullName && currentLocal.name.trim().toLowerCase() === googleFullName.trim().toLowerCase());
+
+        // 3. Se l'avatar locale era stato contaminato da Google, ripuliscilo subito
+        if (!isDefaultOrGoogleName) {
+          updateProfile({
+            ...currentLocal,
+            avatarUrl: sanitizeAvatarUrl(currentLocal.avatarUrl),
+            isCompleted: true
+          });
+        } else {
+          updateProfile({
+            avatarUrl: undefined
+          });
+        }
+
+        // 4. Assicura sempre l'esistenza del record in Supabase 'profiles' per la ricerca sociale
+        const finalProfile = getLatestLocalProfile();
+        const effectiveName = finalProfile.name && !isDefaultOrGoogleName 
+          ? finalProfile.name 
+          : (user.email?.split('@')[0] || 'Lettore');
+
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          username: effectiveName,
+          full_name: effectiveName,
+          avatar_url: sanitizeAvatarUrl(finalProfile.avatarUrl),
+          badge: finalProfile.avatarColor || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
+          bio: finalProfile.bio || '',
+          reading_goal: finalProfile.readingGoal || 24,
+          updated_at: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('Errore verifica profilo esistente:', e);
+      }
+    };
+
     // 1. Recupera la sessione iniziale di Supabase al montaggio dell'app
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user?.email) {
         localStorage.setItem('bibliodesk_user_email', session.user.email.trim().toLowerCase());
+        checkExistingProfile(session.user);
       }
       setLoading(false);
     }).catch((err) => {
@@ -43,6 +114,7 @@ function AppContent() {
       setSession(session);
       if (session?.user?.email) {
         localStorage.setItem('bibliodesk_user_email', session.user.email.trim().toLowerCase());
+        checkExistingProfile(session.user);
       }
       setLoading(false);
 

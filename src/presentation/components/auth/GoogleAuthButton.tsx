@@ -52,7 +52,7 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
       type="button"
       onClick={handleGoogleLogin}
       disabled={loading}
-      className={`w-full py-3 px-4 bg-white dark:bg-[#2A2725] hover:bg-neutral-50 dark:hover:bg-[#33302D] text-[#3c4043] dark:text-[#E0DCD3] border border-[#dadce0] dark:border-[#4A4743] rounded-2xl font-bold text-xs sm:text-sm shadow-xs flex items-center justify-center gap-3 transition-all cursor-pointer disabled:opacity-50 active:scale-98 ${className}`}
+      className={`w-full py-3.5 px-4 bg-white dark:bg-[#262321] hover:bg-[#FAFAF9] dark:hover:bg-[#2E2B28] text-[#3c4043] dark:text-[#ECE7DE] border border-[#dadce0] dark:border-[#423E3A] rounded-2xl font-bold text-xs sm:text-sm shadow-[0_3px_10px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-[0_4px_14px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.06)] hover:shadow-[0_8px_22px_rgba(0,0,0,0.1),0_2px_6px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_3px_rgba(0,0,0,0.08)] flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:pointer-events-none ${className}`}
     >
       {loading ? (
         <Loader2 className="w-5 h-5 animate-spin text-[#5C6B55]" />

@@ -19,6 +19,7 @@ import {
   type CollectionIconName, 
   type UserCollection 
 } from '../hooks/useCollections';
+import { calculateRealStreak, calculateAveragePace } from '../../infrastructure/services/readingSessionService';
 
 export const COLLECTION_ICONS: { name: CollectionIconName; label: string }[] = [
   { name: 'Heart', label: 'Cuore' },
@@ -93,6 +94,19 @@ const BANNER_PRESETS = [
   { name: 'Verde Salvia', class: 'bg-[#5C6B55]' },
   { name: 'Tramonto', class: 'bg-gradient-to-r from-amber-500 to-rose-500' },
   { name: 'Notte Stellata', class: 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900' }
+];
+
+const IOS_AVATAR_PRESETS = [
+  { name: 'Viola Indaco', color: 'bg-gradient-to-tr from-indigo-600 to-violet-600' },
+  { name: 'Verde Smeraldo', color: 'bg-gradient-to-tr from-emerald-600 to-green-500' },
+  { name: 'Arancio Caldo', color: 'bg-gradient-to-tr from-amber-500 to-orange-500' },
+  { name: 'Rosa Pastello', color: 'bg-gradient-to-tr from-rose-500 to-pink-500' },
+  { name: 'Azzurro Cielo', color: 'bg-gradient-to-tr from-sky-400 to-blue-500' },
+  { name: 'Nero Antracite', color: 'bg-gradient-to-tr from-neutral-800 to-neutral-950' },
+  { name: 'Viola Scuro', color: 'bg-gradient-to-tr from-purple-800 to-indigo-950' },
+  { name: 'Verde Menta', color: 'bg-gradient-to-tr from-teal-400 to-emerald-400' },
+  { name: 'Rosso Corallo', color: 'bg-gradient-to-tr from-rose-500 to-red-500' },
+  { name: 'Marrone Moka', color: 'bg-gradient-to-tr from-stone-700 to-amber-900' }
 ];
 
 export type WidgetCategory = 'statistiche' | 'abitudini' | 'libreria' | 'note';
@@ -318,18 +332,15 @@ export const ProfilePage: React.FC = () => {
   const [newCollIcon, setNewCollIcon] = useState<CollectionIconName>('Heart');
   const [newCollCover, setNewCollCover] = useState<string>(COVER_PRESETS[0].class);
 
+  // Sezione Collassabile Generi & Sottogeneri
+  const [isGenresAccordionOpen, setIsGenresAccordionOpen] = useState(false);
+  const [genreSearchQuery, setGenreSearchQuery] = useState('');
+
   // Registra l'apertura di qualsiasi overlay per disabilitare lo swipe dei tab in App.tsx
   const isAnyOverlayOpen = isEditing || showWidgetLibraryModal || showCreateCollectionModal || isAllCollectionsModalOpen || openedCollection !== null || editingCollection !== null || imagePickerType !== null;
   useRegisterModal(isAnyOverlayOpen);
 
-  const [openSubgenreMap, setOpenSubgenreMap] = useState<Record<string, boolean>>({});
-
-  const toggleSubgenreDropdown = (genreName: string) => {
-    setOpenSubgenreMap(prev => ({
-      ...prev,
-      [genreName]: !prev[genreName]
-    }));
-  };
+  const [activeSubgenreGenre, setActiveSubgenreGenre] = useState<string | null>(null);
 
   const [expandedGenre, setExpandedGenre] = useState<string | null>(null);
 
@@ -338,6 +349,7 @@ export const ProfilePage: React.FC = () => {
     bio: userProfile.bio ?? '',
     bannerColor: userProfile.bannerUrl ? '' : 'bg-neutral-200 dark:bg-neutral-800',
     avatarUrl: userProfile.avatarUrl || '',
+    avatarColor: userProfile.avatarColor || 'from-indigo-600 to-violet-500',
     bannerUrl: userProfile.bannerUrl || '',
     selectedWidgets: Array.isArray(userProfile.selectedWidgets) ? userProfile.selectedWidgets : ['read_count', 'reading_count'],
     favoriteGenres: Array.isArray(userProfile.favoriteGenres) ? userProfile.favoriteGenres : ['Fantasy & Magia', 'Narrativa & Classici'],
@@ -352,6 +364,7 @@ export const ProfilePage: React.FC = () => {
       bio: userProfile.bio ?? '',
       bannerColor: userProfile.bannerUrl ? '' : 'bg-neutral-200 dark:bg-neutral-800',
       avatarUrl: userProfile.avatarUrl || '',
+      avatarColor: userProfile.avatarColor || 'from-indigo-600 to-violet-500',
       bannerUrl: userProfile.bannerUrl || '',
       selectedWidgets: Array.isArray(userProfile.selectedWidgets) ? userProfile.selectedWidgets : ['read_count', 'reading_count'],
       favoriteGenres: Array.isArray(userProfile.favoriteGenres) ? userProfile.favoriteGenres : ['Fantasy & Magia', 'Narrativa & Classici'],
@@ -385,13 +398,16 @@ export const ProfilePage: React.FC = () => {
     return sorted[0]?.[0] || 'Nessun genere';
   };
 
+  const realStreak = calculateRealStreak(books);
+  const realPace = calculateAveragePace(books);
+
   const widgetData = {
     readCount,
     readingCount,
     totalPages: calculatedTotalPages,
     readingGoal: userProfile.readingGoal || 24,
-    streakDays: 0,
-    averagePace: 0,
+    streakDays: realStreak,
+    averagePace: realPace,
     dominantGenre: getDominantGenre(),
     notesCount: 0,
     nextBookTitle: collections[0]?.items[0]?.title || 'Nessun libro in wishlist',
@@ -399,12 +415,15 @@ export const ProfilePage: React.FC = () => {
     timeSlotText: 'Nessuna sessione',
     primaryFormatText: 'Cartaceo',
     toReadCount: toReadCount,
-    maxStreakDays: 0,
+    maxStreakDays: Math.max(realStreak, 1),
     reReadsCount: 0
   };
 
   const handleOpenEdit = () => {
     setDraftProfile(profile);
+    setActiveSubgenreGenre(null);
+    setIsGenresAccordionOpen(false);
+    setGenreSearchQuery('');
     setIsEditing(true);
   };
 
@@ -414,6 +433,7 @@ export const ProfilePage: React.FC = () => {
       name: draftProfile.name,
       bio: draftProfile.bio,
       avatarUrl: draftProfile.avatarUrl,
+      avatarColor: draftProfile.avatarColor,
       bannerUrl: draftProfile.bannerUrl,
       selectedWidgets: draftProfile.selectedWidgets,
       favoriteGenres: draftProfile.favoriteGenres,
@@ -440,10 +460,17 @@ export const ProfilePage: React.FC = () => {
         };
       }
     });
+    if (activeSubgenreGenre === genreName) {
+      setActiveSubgenreGenre(null);
+    }
   };
 
   const handleToggleSubgenre = (genreName: string, subName: string) => {
     setDraftProfile(prev => {
+      const currentGenres = prev.favoriteGenres || [];
+      const isGenreActive = currentGenres.includes(genreName);
+      const nextGenres = isGenreActive ? currentGenres : [...currentGenres, genreName];
+
       const currentSubMap = prev.favoriteSubgenres || {};
       const currentSubs = currentSubMap[genreName] || [];
       const updatedSubs = currentSubs.includes(subName)
@@ -452,9 +479,32 @@ export const ProfilePage: React.FC = () => {
 
       return {
         ...prev,
+        favoriteGenres: nextGenres,
         favoriteSubgenres: {
           ...currentSubMap,
           [genreName]: updatedSubs
+        }
+      };
+    });
+  };
+
+  const handleToggleAllSubgenres = (genreName: string) => {
+    const allSubs = GENRES_MAP[genreName] || [];
+    setDraftProfile(prev => {
+      const currentSubMap = prev.favoriteSubgenres || {};
+      const currentSubs = currentSubMap[genreName] || [];
+      const areAllSelected = allSubs.length > 0 && currentSubs.length === allSubs.length;
+
+      const currentGenres = prev.favoriteGenres || [];
+      const isGenreActive = currentGenres.includes(genreName);
+      const nextGenres = isGenreActive ? currentGenres : [...currentGenres, genreName];
+
+      return {
+        ...prev,
+        favoriteGenres: nextGenres,
+        favoriteSubgenres: {
+          ...currentSubMap,
+          [genreName]: areAllSelected ? [] : [...allSubs]
         }
       };
     });
@@ -685,7 +735,7 @@ export const ProfilePage: React.FC = () => {
          
          <div className="px-6 pb-6">
            <div className="flex justify-between items-end -mt-12 mb-4">
-             <div className="relative h-24 w-24 rounded-full border-4 border-white dark:border-neutral-900 bg-neutral-300 dark:bg-neutral-700 flex items-center justify-center font-black text-2xl text-neutral-700 dark:text-neutral-200 shadow-sm overflow-hidden">
+             <div className={`relative h-24 w-24 rounded-full border-4 border-white dark:border-neutral-900 ${profile.avatarUrl ? 'bg-neutral-300 dark:bg-neutral-700' : (profile.avatarColor?.startsWith('bg-') ? profile.avatarColor : `bg-gradient-to-tr ${profile.avatarColor || 'from-indigo-600 to-violet-500'}`)} flex items-center justify-center font-black text-2xl text-white shadow-sm overflow-hidden`}>
                {profile.avatarUrl ? (
                  <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
                ) : (
@@ -811,7 +861,7 @@ export const ProfilePage: React.FC = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={cardSpring}
-              className="relative z-10 flex h-[80vh] w-full max-w-md flex-col rounded-[2rem] bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden ring-1 ring-neutral-200 dark:ring-neutral-800"
+              className="relative z-10 flex h-[88vh] max-h-[88vh] w-full max-w-md flex-col rounded-[2rem] bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden ring-1 ring-neutral-200 dark:ring-neutral-800"
             >
                <div className="flex-1 overflow-y-auto">
                  <div className="relative group shrink-0">
@@ -831,23 +881,83 @@ export const ProfilePage: React.FC = () => {
                    </div>
                  </div>
                  
-                 <div className="px-6 flex flex-col pb-6">
-                   <div className="-mt-14 mb-6 relative inline-block self-start">
-                     <div className="h-28 w-28 rounded-full border-4 border-white dark:border-neutral-900 bg-neutral-300 dark:bg-neutral-700 flex items-center justify-center font-black text-3xl text-neutral-700 dark:text-neutral-200 shadow-sm overflow-hidden">
-                       {draftProfile.avatarUrl ? (
-                         <img src={draftProfile.avatarUrl} alt={draftProfile.name} className="w-full h-full object-cover" />
-                       ) : (
-                         <span>{draftProfile.name ? draftProfile.name.trim().charAt(0).toUpperCase() : 'D'}</span>
-                       )}
+                 <div className="px-6 flex flex-col pb-36">
+                   <div className="-mt-14 mb-4 flex items-end justify-between">
+                     <div className="relative inline-block self-start">
+                       <div className={`h-28 w-28 rounded-full border-4 border-white dark:border-neutral-900 ${draftProfile.avatarUrl ? 'bg-neutral-300 dark:bg-neutral-700' : (draftProfile.avatarColor?.startsWith('bg-') ? draftProfile.avatarColor : `bg-gradient-to-tr ${draftProfile.avatarColor || 'from-indigo-600 to-violet-500'}`)} flex items-center justify-center font-black text-3xl text-white shadow-sm overflow-hidden`}>
+                         {draftProfile.avatarUrl ? (
+                           <img src={draftProfile.avatarUrl} alt={draftProfile.name} className="w-full h-full object-cover" />
+                         ) : (
+                           <span>{draftProfile.name ? draftProfile.name.trim().charAt(0).toUpperCase() : 'D'}</span>
+                         )}
+                       </div>
+                       <div 
+                         onClick={() => setImagePickerType('avatar')}
+                         className="absolute bottom-0 right-0 rounded-full bg-black/50 hover:bg-black/70 p-2 text-white border-2 border-white dark:border-neutral-900 backdrop-blur-md cursor-pointer transition-colors shadow-md"
+                         title="Carica Foto Profilo"
+                       >
+                         <Camera size={14} />
+                       </div>
                      </div>
-                     <div 
-                       onClick={() => setImagePickerType('avatar')}
-                       className="absolute bottom-0 right-0 rounded-full bg-black/50 hover:bg-black/70 p-2 text-white border-2 border-white dark:border-neutral-900 backdrop-blur-md cursor-pointer transition-colors shadow-md"
-                       title="Cambia Foto Profilo"
-                     >
-                       <Camera size={14} />
-                     </div>
+
+                     {draftProfile.avatarUrl && (
+                       <button
+                         type="button"
+                         onClick={() => setDraftProfile(prev => ({ ...prev, avatarUrl: '' }))}
+                         className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 hover:bg-rose-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+                       >
+                         <Trash2 size={13} />
+                         <span>Rimuovi Foto</span>
+                       </button>
+                     )}
                    </div>
+
+                    {/* Palette Colori Avatar (Minimal & Clean) */}
+                    <div className="mb-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                          <Palette size={13} className="text-neutral-400" />
+                          <span>Colore Icona Profilo</span>
+                        </span>
+                        {draftProfile.avatarUrl ? (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                            Foto attiva • tocca per cambiare
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-[#5C6B55] dark:text-[#A0AF99] font-medium">
+                            {IOS_AVATAR_PRESETS.find(p => p.color.includes(draftProfile.avatarColor?.replace('bg-gradient-to-tr ', '') || ''))?.name || 'Predefinito'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-0.5">
+                        {IOS_AVATAR_PRESETS.map((preset) => {
+                          const normDraft = (draftProfile.avatarColor || '').replace('bg-gradient-to-tr ', '').trim();
+                          const normPreset = preset.color.replace('bg-gradient-to-tr ', '').trim();
+                          const isSelected = normDraft === normPreset && !draftProfile.avatarUrl;
+                          return (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              onClick={() => {
+                                setDraftProfile(prev => ({
+                                  ...prev,
+                                  avatarColor: preset.color,
+                                  avatarUrl: ''
+                                }));
+                              }}
+                              title={preset.name}
+                              className={`w-7 h-7 rounded-full shrink-0 ${preset.color} flex items-center justify-center transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'ring-2 ring-offset-2 ring-[#5C6B55] dark:ring-white scale-110 shadow-xs'
+                                  : 'opacity-75 hover:opacity-100 hover:scale-105'
+                              }`}
+                            >
+                              {isSelected && <Check size={12} strokeWidth={3} className="text-white drop-shadow-xs" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
                    <div className="space-y-4 shrink-0">
                      <div className="relative group">
@@ -859,169 +969,240 @@ export const ProfilePage: React.FC = () => {
                        />
                        <PenLine className="absolute right-2 top-2 text-neutral-300 dark:text-neutral-600 opacity-50 pointer-events-none" size={16} />
                      </div>
-                     <div className="relative group">
-                       <textarea 
-                         value={draftProfile.bio} 
-                         onChange={(e) => setDraftProfile({...draftProfile, bio: e.target.value})}
-                         placeholder="La tua bio..."
-                         className="w-full bg-transparent text-sm text-neutral-500 dark:text-neutral-400 outline-none border-b border-transparent focus:border-neutral-400 dark:focus:border-neutral-500 min-h-[60px] resize-none pb-1 pr-8" 
-                       />
-                       <PenLine className="absolute right-2 top-0 text-neutral-300 dark:text-neutral-600 opacity-50 pointer-events-none" size={16} />
-                     </div>
-                   </div>
+                      <div className="relative group">
+                        <textarea 
+                          value={draftProfile.bio} 
+                          onChange={(e) => setDraftProfile({...draftProfile, bio: e.target.value})}
+                          placeholder="La tua bio..."
+                          className="w-full bg-transparent text-sm text-neutral-500 dark:text-neutral-400 outline-none border-b border-transparent focus:border-neutral-400 dark:focus:border-neutral-500 min-h-[60px] resize-none pb-1 pr-8" 
+                        />
+                        <PenLine className="absolute right-2 top-0 text-neutral-300 dark:text-neutral-600 opacity-50 pointer-events-none" size={16} />
+                      </div>
+                    </div>
 
-                   {/* GESTIONE GENERI & SOTTOGENERI PREFERITI */}
-                   <div className="mt-5 space-y-3">
-                     <div className="flex items-center justify-between">
-                       <span className="text-xs font-bold text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5">
-                         <Tag size={14} />
-                         <span>Generi & Sottogeneri Preferiti:</span>
-                       </span>
-                       <span className="text-[11px] text-neutral-400 font-medium">
-                         {draftProfile.favoriteGenres?.length || 0} selezionati
-                       </span>
-                     </div>
+                    {/* SEZIONE COLLASSABILE: GENERI & SOTTOGENERI PREFERITI */}
+                    <div className="mt-4 space-y-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setIsGenresAccordionOpen(!isGenresAccordionOpen)}
+                        className="w-full px-3.5 py-2.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200/90 dark:border-neutral-700/70 text-xs font-bold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-all flex items-center justify-between cursor-pointer shadow-2xs active:scale-[0.99]"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-xl bg-[#5C6B55]/15 dark:bg-[#5C6B55]/25 text-[#4D5B46] dark:text-[#B5C5AF] flex items-center justify-center">
+                            <Tag size={14} />
+                          </div>
+                          <div className="text-left">
+                            <span className="block font-bold text-xs text-neutral-900 dark:text-white leading-tight">
+                              Generi & Sottogeneri
+                            </span>
+                            <span className="text-[11px] text-neutral-400 font-medium block">
+                              {draftProfile.favoriteGenres?.length 
+                                ? `${draftProfile.favoriteGenres.length} ${draftProfile.favoriteGenres.length === 1 ? 'genere selezionato' : 'generi selezionati'}` 
+                                : 'Tocca per aprire e selezionare'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {draftProfile.favoriteGenres && draftProfile.favoriteGenres.length > 0 && (
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#5C6B55]/20 dark:bg-[#5C6B55]/35 text-[#4D5B46] dark:text-[#B5C5AF]">
+                              {draftProfile.favoriteGenres.length}
+                            </span>
+                          )}
+                          <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform duration-250 ease-out ${isGenresAccordionOpen ? 'rotate-180 text-neutral-700 dark:text-neutral-200' : ''}`} />
+                        </div>
+                      </button>
 
-                     {/* Generi Già Selezionati (Panoramica per visualizzarli e rimuoverli rapidamente) */}
-                     {draftProfile.favoriteGenres && draftProfile.favoriteGenres.length > 0 && (
-                       <div className="p-3 rounded-2xl bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border border-[#5C6B55]/30 space-y-1.5">
-                         <span className="text-[10px] font-extrabold text-[#5C6B55] dark:text-[#A0AF99] uppercase tracking-wider block">
-                           Generi Attualmente Selezionati:
-                         </span>
-                         <div className="flex flex-wrap gap-1.5">
-                           {draftProfile.favoriteGenres.map((gName) => {
-                             const subs = draftProfile.favoriteSubgenres?.[gName] || [];
-                             return (
-                               <div
-                                 key={gName}
-                                 className="px-2.5 py-1 rounded-full text-xs font-bold bg-white dark:bg-neutral-800 text-[#31362F] dark:text-[#E0DCD3] border border-[#5C6B55]/30 flex items-center gap-1.5 shadow-2xs"
-                               >
-                                 <span>{gName}</span>
-                                 {subs.length > 0 && (
-                                   <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#5C6B55] text-white">
-                                     {subs.length}
-                                   </span>
-                                 )}
-                                 <button
-                                   type="button"
-                                   onClick={() => handleToggleGenre(gName)}
-                                   className="w-4 h-4 rounded-full bg-neutral-200 dark:bg-neutral-700 hover:bg-rose-500 hover:text-white text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition-colors cursor-pointer"
-                                   title={`Rimuovi ${gName}`}
-                                 >
-                                   <X size={10} strokeWidth={3} />
-                                 </button>
-                               </div>
-                             );
-                           })}
-                         </div>
-                       </div>
-                     )}
+                      <AnimatePresence>
+                        {isGenresAccordionOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            className="overflow-hidden"
+                          >
+                            <div className="p-3 rounded-2xl bg-neutral-50/90 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/60 space-y-2.5 mt-1">
+                              {/* Barra di Ricerca Istantanea */}
+                              <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                                <input
+                                  type="text"
+                                  value={genreSearchQuery}
+                                  onChange={(e) => setGenreSearchQuery(e.target.value)}
+                                  placeholder="Cerca genere o sottogenere (es. Fantasy, Noir)..."
+                                  className="w-full pl-8.5 pr-7 py-1.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-xs font-medium text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-[#5C6B55]"
+                                />
+                                {genreSearchQuery && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setGenreSearchQuery('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-0.5 cursor-pointer"
+                                  >
+                                    <X size={13} />
+                                  </button>
+                                )}
+                              </div>
 
-                     {/* Lista Completa dei Generi con Pallino + Freccia Tendina Sottogeneri */}
-                     <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                       {Object.keys(GENRES_MAP).map((genreName) => {
-                         const isSelected = draftProfile.favoriteGenres?.includes(genreName);
-                         const subgenresAvailable = GENRES_MAP[genreName] || [];
-                         const selectedSubgenres = draftProfile.favoriteSubgenres?.[genreName] || [];
-                         const isDropdownOpen = !!openSubgenreMap[genreName];
+                              {/* Generi Attualmente Selezionati (Riepilogo Rapido) */}
+                              {draftProfile.favoriteGenres && draftProfile.favoriteGenres.length > 0 && !genreSearchQuery && (
+                                <div className="space-y-1 pt-0.5">
+                                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">
+                                    Generi Selezionati:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {draftProfile.favoriteGenres.map((gName) => {
+                                      const subsCount = (draftProfile.favoriteSubgenres?.[gName] || []).length;
+                                      return (
+                                        <span
+                                          key={gName}
+                                          className="inline-flex items-center gap-1 rounded-full text-[11px] font-semibold pl-2 pr-1 py-0.5 bg-[#5C6B55]/15 dark:bg-[#5C6B55]/25 text-[#4D5B46] dark:text-[#B5C5AF] border border-[#5C6B55]/30"
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveSubgenreGenre(activeSubgenreGenre === gName ? null : gName)}
+                                            className="cursor-pointer hover:underline"
+                                            title="Espandi/comprimi sottogeneri"
+                                          >
+                                            {gName} {subsCount > 0 && `(${subsCount})`}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleToggleGenre(gName)}
+                                            className="w-3.5 h-3.5 rounded-full hover:bg-black/10 dark:hover:bg-white/20 flex items-center justify-center text-neutral-400 hover:text-rose-500 transition-colors cursor-pointer"
+                                            title="Rimuovi"
+                                          >
+                                            <X size={10} strokeWidth={2.5} />
+                                          </button>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
 
-                         return (
-                           <div
-                             key={genreName}
-                             className={`rounded-2xl p-3 border transition-all ${
-                               isSelected
-                                 ? 'bg-[#5C6B55]/10 dark:bg-[#5C6B55]/20 border-[#5C6B55]/40'
-                                 : 'bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700/60'
-                             }`}
-                           >
-                             <div className="flex items-center justify-between">
-                               <span className={`text-xs font-bold ${isSelected ? 'text-[#5C6B55] dark:text-[#A0AF99]' : 'text-neutral-700 dark:text-neutral-300'}`}>
-                                 {genreName}
-                               </span>
+                              {/* Lista a scorrimento contenuto (max-h-56) per non occupare troppo spazio */}
+                              <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
+                                {(() => {
+                                  const query = genreSearchQuery.toLowerCase().trim();
+                                  const filteredEntries = Object.entries(GENRES_MAP).filter(([genreName, subs]) => {
+                                    if (!query) return true;
+                                    if (genreName.toLowerCase().includes(query)) return true;
+                                    return subs.some(sub => sub.toLowerCase().includes(query));
+                                  });
 
-                               <div className="flex items-center gap-2">
-                                 {/* Tasto Freccia Tendina Sottogeneri */}
-                                 {subgenresAvailable.length > 0 && (
-                                   <button
-                                     type="button"
-                                     onClick={() => toggleSubgenreDropdown(genreName)}
-                                     className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                                       isDropdownOpen
-                                         ? 'bg-[#5C6B55] text-white border-[#5C6B55]'
-                                         : 'bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600 hover:bg-neutral-200'
-                                     }`}
-                                     title="Apri/chiudi sottogeneri"
-                                   >
-                                     <span className="text-[10px]">Sottogeneri</span>
-                                     {selectedSubgenres.length > 0 && (
-                                       <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-white/20 text-current">
-                                         {selectedSubgenres.length}
-                                       </span>
-                                     )}
-                                     {isDropdownOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                   </button>
-                                 )}
+                                  if (filteredEntries.length === 0) {
+                                    return (
+                                      <p className="text-[11px] text-neutral-400 text-center py-4">
+                                        Nessun risultato trovato per "{genreSearchQuery}"
+                                      </p>
+                                    );
+                                  }
 
-                                 {/* Pallino di Selezione Genere (Solo selezione genere senza aprire la tendina) */}
-                                 <button
-                                   type="button"
-                                   onClick={() => handleToggleGenre(genreName)}
-                                   className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all cursor-pointer ${
-                                     isSelected
-                                       ? 'bg-[#5C6B55] border-[#5C6B55] text-white shadow-xs'
-                                       : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 bg-white dark:bg-neutral-800'
-                                   }`}
-                                   title={isSelected ? `Deseleziona ${genreName}` : `Seleziona ${genreName}`}
-                                 >
-                                   {isSelected && <Check size={14} strokeWidth={3} />}
-                                 </button>
-                               </div>
-                             </div>
+                                  return filteredEntries.map(([genreName, subs]) => {
+                                    const isSelected = draftProfile.favoriteGenres?.includes(genreName);
+                                    const selectedSubs = draftProfile.favoriteSubgenres?.[genreName] || [];
+                                    const hasSubMatch = Boolean(query && subs.some(s => s.toLowerCase().includes(query)));
+                                    const isSubExpanded = hasSubMatch || activeSubgenreGenre === genreName;
 
-                             {/* Sottogeneri Opzionali in Tendina (Si aprono SOLO al click sulla freccia tendina) */}
-                             {isDropdownOpen && subgenresAvailable.length > 0 && (
-                               <div className="mt-2.5 pt-2 border-t border-[#5C6B55]/20 space-y-1.5">
-                                 <div className="flex items-center justify-between">
-                                   <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-wider block">
-                                     Seleziona Sottogeneri Preferiti (Opzionali):
-                                   </span>
-                                   {!isSelected && (
-                                     <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                                       (Seleziona anche il genere per salvarli)
-                                     </span>
-                                   )}
-                                 </div>
-                                 <div className="flex flex-wrap gap-1">
-                                   {subgenresAvailable.map((subName) => {
-                                     const isSubSelected = selectedSubgenres.includes(subName);
-                                     return (
-                                       <button
-                                         key={subName}
-                                         type="button"
-                                         onClick={() => {
-                                           if (!isSelected) {
-                                             handleToggleGenre(genreName);
-                                           }
-                                           handleToggleSubgenre(genreName, subName);
-                                         }}
-                                         className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
-                                           isSubSelected
-                                             ? 'bg-[#5C6B55] text-white border-[#5C6B55]'
-                                             : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-400'
-                                         }`}
-                                       >
-                                         {subName}
-                                       </button>
-                                     );
-                                   })}
-                                 </div>
-                               </div>
-                             )}
-                           </div>
-                         );
-                       })}
-                     </div>
-                   </div>
+                                    return (
+                                      <div
+                                        key={genreName}
+                                        className={`rounded-xl border transition-all overflow-hidden ${
+                                          isSelected
+                                            ? 'border-[#5C6B55]/35 bg-[#5C6B55]/5 dark:bg-[#5C6B55]/15'
+                                            : 'border-neutral-200/80 dark:border-neutral-700/60 bg-white dark:bg-neutral-800/40'
+                                        }`}
+                                      >
+                                        <div className="p-2.5 flex items-center justify-between gap-2">
+                                          <div
+                                            onClick={() => handleToggleGenre(genreName)}
+                                            className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer select-none"
+                                          >
+                                            <div className="shrink-0">
+                                              {isSelected ? (
+                                                <CheckCircle2 size={16} className="text-[#5C6B55] dark:text-[#A0AF99] fill-[#5C6B55]/20" />
+                                              ) : (
+                                                <div className="w-4 h-4 rounded-full border border-neutral-300 dark:border-neutral-600" />
+                                              )}
+                                            </div>
+                                            <span className={`text-xs font-semibold truncate ${
+                                              isSelected ? 'text-[#31362F] dark:text-[#E0DCD3] font-bold' : 'text-neutral-700 dark:text-neutral-300'
+                                            }`}>
+                                              {genreName}
+                                            </span>
+                                            {selectedSubs.length > 0 && (
+                                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-[#5C6B55]/20 text-[#4D5B46] dark:text-[#B5C5AF] shrink-0">
+                                                {selectedSubs.length}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveSubgenreGenre(isSubExpanded ? null : genreName)}
+                                            className="p-1 rounded-md text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer flex items-center gap-1 shrink-0"
+                                            title={isSubExpanded ? "Comprimi" : "Espandi"}
+                                          >
+                                            <span className="text-[10px] text-neutral-400">
+                                              {subs.length}
+                                            </span>
+                                            {isSubExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                          </button>
+                                        </div>
+
+                                        {/* Sottogeneri */}
+                                        <AnimatePresence>
+                                          {isSubExpanded && (
+                                            <motion.div
+                                              initial={{ opacity: 0, height: 0 }}
+                                              animate={{ opacity: 1, height: 'auto' }}
+                                              exit={{ opacity: 0, height: 0 }}
+                                              transition={{ duration: 0.15 }}
+                                              className="px-2.5 pb-2.5 pt-0 border-t border-[#5C6B55]/15 dark:border-[#5C6B55]/20 mt-0.5"
+                                            >
+                                              <div className="flex items-center justify-between py-1.5 text-[10px] text-neutral-400">
+                                                <span>Sottogeneri:</span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleToggleAllSubgenres(genreName)}
+                                                  className="font-bold text-[#5C6B55] dark:text-[#A0AF99] hover:underline cursor-pointer"
+                                                >
+                                                  {selectedSubs.length === subs.length ? 'Deseleziona tutti' : 'Tutti'}
+                                                </button>
+                                              </div>
+
+                                              <div className="flex flex-wrap gap-1">
+                                                {subs.map((subName) => {
+                                                  const isSubActive = selectedSubs.includes(subName);
+                                                  return (
+                                                    <button
+                                                      key={subName}
+                                                      type="button"
+                                                      onClick={() => handleToggleSubgenre(genreName, subName)}
+                                                      className={`px-2 py-0.5 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+                                                        isSubActive
+                                                          ? 'bg-[#5C6B55] text-white border-[#5C6B55] font-semibold shadow-2xs'
+                                                          : 'bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300'
+                                                      }`}
+                                                    >
+                                                      {subName}
+                                                    </button>
+                                                  );
+                                                })}
+                                              </div>
+                                            </motion.div>
+                                          )}
+                                        </AnimatePresence>
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
 
                    {/* GESTIONE WIDGET INSERITI */}
                    <div className="mt-5 space-y-2.5">

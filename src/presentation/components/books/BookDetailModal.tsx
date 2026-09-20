@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { Book, BookStatus } from '../../../domain/models/Book';
 import { GENRES_MAP } from '../../../domain/constants/genres';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { useRegisterModal } from '../../context/ModalContext';
+import { recordReadingProgress } from '../../../infrastructure/services/readingSessionService';
 
 interface BookDetailModalProps {
   book: Book | null;
@@ -38,6 +40,8 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState<Partial<Book>>({});
+  const [pageInputValue, setPageInputValue] = useState<string>('0');
+  const [isStartingPoint, setIsStartingPoint] = useState(false);
 
   useEffect(() => {
     if (book && isOpen) {
@@ -55,6 +59,8 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
         endDate: book.endDate || '',
         notes: book.notes || ''
       });
+      setPageInputValue(String(book.pagesRead || 0));
+      setIsStartingPoint((book.pagesRead || 0) === 0);
       setIsEditing(false);
       setShowDeleteConfirm(false);
     }
@@ -76,13 +82,20 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
     }));
   };
 
-  const handleQuickPageUpdate = (newPages: number) => {
+  const handleQuickPageUpdate = (newPages: number, asStartingPoint: boolean = isStartingPoint) => {
     if (!book) return;
     const validPages = Math.max(0, Math.min(book.totalPages || 300, newPages));
     const newStatus: BookStatus = validPages >= (book.totalPages || 300) ? 'Letto' : validPages > 0 ? 'In lettura' : book.status;
+    const initialPages = asStartingPoint
+      ? validPages
+      : (book.initialPagesRead !== undefined ? book.initialPagesRead : (book.pagesRead || 0));
+
+    recordReadingProgress(book.id, book.pagesRead || 0, validPages, asStartingPoint);
+
     onUpdateBook({
       ...book,
       pagesRead: validPages,
+      initialPagesRead: initialPages,
       status: newStatus
     });
   };
@@ -90,6 +103,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!book) return;
+    const newPagesRead = Number(formData.pagesRead) || book.pagesRead;
     const updated: Book = {
       ...book,
       title: formData.title || book.title,
@@ -97,7 +111,8 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
       coverUrl: formData.coverUrl || book.coverUrl,
       status: (formData.status as BookStatus) || book.status,
       totalPages: Number(formData.totalPages) || book.totalPages,
-      pagesRead: Number(formData.pagesRead) || book.pagesRead,
+      pagesRead: newPagesRead,
+      initialPagesRead: book.initialPagesRead !== undefined ? book.initialPagesRead : newPagesRead,
       genre: formData.genre,
       subgenre: formData.subgenre || undefined,
       rating: formData.rating,
@@ -144,21 +159,36 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
     ? Math.min(100, Math.round((book.pagesRead / book.totalPages) * 100))
     : 0;
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && book && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs p-0 sm:p-4"
+        <div
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 touch-none overscroll-none"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
         >
+          {/* Backdrop Scuro */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            onTouchMove={(e) => e.preventDefault()}
+            className="absolute inset-0 bg-[#31362F]/60 dark:bg-black/80 backdrop-blur-xs cursor-pointer"
+          />
+
+          {/* Dialog Modale */}
           <motion.div
             initial={{ y: "100%", opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: "100%", opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-[92vh] overflow-y-auto flex flex-col transition-colors"
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 bg-[#FCFBF8] dark:bg-[#33302D] text-[#4A4743] dark:text-[#E0DCD3] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 max-h-[92vh] overflow-y-auto overscroll-contain flex flex-col transition-colors"
           >
             {/* Header Hero Cover Banner */}
             <div className="relative bg-[#31362F] dark:bg-[#252924] text-white min-h-[160px] p-5 flex items-end justify-between overflow-hidden">
@@ -279,26 +309,126 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                         <span>{book.totalPages} pagine totali</span>
                       </div>
 
-                      {/* Quick increment buttons */}
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          onClick={() => handleQuickPageUpdate((book.pagesRead || 0) + 10)}
-                          className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors"
-                        >
-                          +10 Pag.
-                        </button>
-                        <button
-                          onClick={() => handleQuickPageUpdate((book.pagesRead || 0) + 25)}
-                          className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-xs font-bold transition-colors"
-                        >
-                          +25 Pag.
-                        </button>
-                        <button
-                          onClick={() => handleQuickPageUpdate(book.totalPages || 300)}
-                          className="flex-1 py-1.5 bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] text-[#31362F] dark:text-[#E0DCD3] border border-[#A0AF99] dark:border-[#4D5A46] rounded-xl text-xs font-bold transition-colors"
-                        >
-                          Completato ✓
-                        </button>
+                      {/* Quick increment / 'A che pagina sei arrivato?' */}
+                      <div className="pt-2 border-t border-[#EBE5D9] dark:border-[#4A4743]/50 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-extrabold text-[#4A4743] dark:text-[#E0DCD3]">
+                            A che pagina sei arrivato?
+                          </label>
+                          <span className="text-[11px] font-semibold text-[#7A756D] dark:text-[#A09A90]">
+                            Max {book.totalPages} pag.
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            min="0"
+                            max={book.totalPages}
+                            value={pageInputValue}
+                            onChange={e => setPageInputValue(e.target.value)}
+                            className="flex-1 px-3 py-2 rounded-xl bg-[#F4F1EA] dark:bg-[#2A2826] border-2 border-[#B0BEA9] dark:border-[#5C6B55] text-sm font-black text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#5C6B55]"
+                            placeholder="es. 140"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const parsed = parseInt(pageInputValue, 10);
+                              if (!isNaN(parsed)) {
+                                handleQuickPageUpdate(parsed);
+                              }
+                            }}
+                            className="px-4 py-2 rounded-xl bg-[#B0BEA9] dark:bg-[#5C6B55] hover:bg-[#A0AF99] text-[#31362F] dark:text-[#E0DCD3] font-bold text-xs shadow-xs transition-colors cursor-pointer active:scale-98"
+                          >
+                            Salva
+                          </button>
+                        </div>
+
+                        {/* Live calculation feedback */}
+                        {(() => {
+                          const parsed = parseInt(pageInputValue, 10);
+                          const prev = book.pagesRead || 0;
+                          if (!isNaN(parsed) && parsed !== prev) {
+                            if (isStartingPoint) {
+                              return (
+                                <div className="text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-500/10 px-2.5 py-1.5 rounded-lg flex items-center justify-between animate-in fade-in duration-150">
+                                  <span>📍 Punto di partenza:</span>
+                                  <span>Pag. {parsed} (non conta oggi)</span>
+                                </div>
+                              );
+                            }
+                            const diff = parsed - prev;
+                            if (diff > 0) {
+                              return (
+                                <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1.5 rounded-lg flex items-center justify-between animate-in fade-in duration-150">
+                                  <span>📖 Lette in questa sessione:</span>
+                                  <span>+{diff} pagine</span>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div className="text-[11px] font-medium text-[#7A756D] dark:text-[#A09A90] bg-neutral-500/10 px-2.5 py-1.5 rounded-lg flex items-center justify-between animate-in fade-in duration-150">
+                                  <span>Torna indietro a pagina {parsed}:</span>
+                                  <span>{diff} pagine</span>
+                                </div>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
+
+                        {/* Toggle Punto di Partenza Pregresso */}
+                        <label className="flex items-center gap-2 p-2 rounded-xl bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#EBE5D9] dark:border-[#4A4743]/50 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={isStartingPoint}
+                            onChange={(e) => setIsStartingPoint(e.target.checked)}
+                            className="rounded border-[#B0BEA9] text-[#5C6B55] focus:ring-[#5C6B55] w-3.5 h-3.5 cursor-pointer"
+                          />
+                          <div className="flex-1 text-left text-[11px]">
+                            <span className="font-bold text-[#4A4743] dark:text-[#E0DCD3]">📍 Punto di partenza (lette prima)</span>
+                            <span className="text-[#7A756D] dark:text-[#A09A90] block text-[10px]">Non sballa le statistiche odierne</span>
+                          </div>
+                        </label>
+
+                        {/* Quick helper pills */}
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = Math.min(book.totalPages || 300, (book.pagesRead || 0) + 10);
+                              setPageInputValue(String(next));
+                              handleQuickPageUpdate(next);
+                            }}
+                            className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                          >
+                            +10 pag
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = Math.min(book.totalPages || 300, (book.pagesRead || 0) + 25);
+                              setPageInputValue(String(next));
+                              handleQuickPageUpdate(next);
+                            }}
+                            className="flex-1 py-1.5 bg-[#EBE5D9] dark:bg-[#383532] hover:bg-[#DCD5C6] dark:hover:bg-[#4A4743] text-[#4A4743] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                          >
+                            +25 pag
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = book.totalPages || 300;
+                              setPageInputValue(String(next));
+                              handleQuickPageUpdate(next);
+                            }}
+                            className="flex-1 py-1.5 bg-[#B0BEA9]/60 dark:bg-[#5C6B55]/60 hover:bg-[#B0BEA9] dark:hover:bg-[#5C6B55] text-[#31362F] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+                          >
+                            Fine ({book.totalPages})
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : null}
@@ -448,7 +578,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                   <div className={`grid gap-3 ${formData.status !== 'Da leggere' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     {formData.status !== 'Da leggere' && (
                       <div>
-                        <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">Pagine Lette</label>
+                        <label className="block text-xs font-bold text-[#4A4743] dark:text-[#E0DCD3] mb-1">A che pagina sei arrivato?</label>
                         <input
                           type="number"
                           inputMode="numeric"
@@ -574,8 +704,9 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
 
             </div>
           </motion.div>
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };

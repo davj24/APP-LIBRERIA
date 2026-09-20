@@ -148,11 +148,11 @@ export const CompactProfileSheet: React.FC<CompactProfileSheetProps> = ({
             {/* Header Profilo con Avatar e Identità */}
             <div className="flex items-start justify-between gap-4 pt-1">
               <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#5C6B55] to-[#788C71] text-white font-bold text-xl flex items-center justify-center shadow-md ring-4 ring-[#EBE5D9] dark:ring-[#383532] shrink-0 overflow-hidden">
+                <div className={`w-14 h-14 rounded-full ${profile.avatarUrl ? 'bg-neutral-300 dark:bg-neutral-700' : (profile.avatarColor?.startsWith('bg-') ? profile.avatarColor : `bg-gradient-to-tr ${profile.avatarColor || 'from-indigo-600 to-violet-500'}`)} text-white font-bold text-xl flex items-center justify-center shadow-md ring-4 ring-[#EBE5D9] dark:ring-[#383532] shrink-0 overflow-hidden`}>
                   {profile.avatarUrl ? (
                     <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span>{profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}</span>
+                    <span>{profile.name ? profile.name.trim().charAt(0).toUpperCase() : 'D'}</span>
                   )}
                 </div>
 

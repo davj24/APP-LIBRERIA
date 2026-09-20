@@ -166,7 +166,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             </div>
 
 
-
             {/* Account & Logout Section */}
             <div className="bg-[#F4F1EA] dark:bg-[#2A2826] rounded-2xl p-4 border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-3">
               <div className="flex items-center justify-between">

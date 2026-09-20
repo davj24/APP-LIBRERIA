@@ -38,7 +38,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   useRegisterModal(isCompactProfileOpen);
   useRegisterModal(isSettingsOpen);
   useRegisterModal(isAnnouncementsOpen);
-  useRegisterModal(isScannerOpen || isManualModalOpen);
 
   const { addBook } = useBooks();
 

@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   SlidersHorizontal, Target, BookOpen, Check, ArrowRight, ArrowLeft, User, PenLine, 
   BookCheck, PieChart, Bookmark, Rocket, LayoutGrid, Camera, Image as ImageIcon, Trash2, ShieldCheck, ChevronDown,
-  Flame, Trophy, Clock, Library, Brain
+  Flame, Trophy, Clock, Library, Brain, LogOut
 } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import type { UserProfile } from '../../hooks/useUserProfile';
+import { supabase } from '../../../infrastructure/supabase/client';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -220,25 +221,49 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.28, ease: iosEase }}
-        className="w-full max-w-md bg-[#FCFBF8] dark:bg-[#33302D] rounded-[2rem] p-5 sm:p-7 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 relative overflow-hidden isolate transform-gpu space-y-5"
+        className="w-full max-w-md bg-[#FCFBF8] dark:bg-[#201E1C] rounded-3xl p-5 sm:p-7 shadow-xl shadow-stone-900/10 dark:shadow-black/40 border border-[#EBE5D9] dark:border-[#383430] relative overflow-hidden space-y-5"
       >
-        {/* Glow di Sfondo perfetto */}
-        <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#5C6B55]/20 rounded-full blur-3xl pointer-events-none z-0" />
+        {/* Header Navigation with Back / Logout & Progress */}
+        <div className="space-y-3 relative z-10">
+          <div className="flex items-center justify-between pb-1 border-b border-[#EBE5D9] dark:border-[#383430]">
+            <button
+              type="button"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                localStorage.removeItem('bibliodesk_user_email');
+                window.location.reload();
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#EFECE6] dark:bg-[#272422] hover:bg-[#E5DFD4] dark:hover:bg-[#33302D] text-[#7A756D] dark:text-[#A09A90] hover:text-rose-600 dark:hover:text-rose-400 text-xs font-bold border border-[#E2DDD2] dark:border-[#383430] transition-colors cursor-pointer"
+              title="Torna alla schermata di accesso"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Torna all'accesso</span>
+            </button>
 
-        {/* Header Progress Wizard (4 Passi) */}
-        <div className="space-y-2.5 relative z-10">
+            <button
+              type="button"
+              onClick={() => {
+                completeOnboarding(formData);
+                onComplete();
+              }}
+              className="text-xs font-bold text-[#5C6B55] dark:text-[#A8BB9C] hover:underline cursor-pointer"
+            >
+              Salta configurazione →
+            </button>
+          </div>
+
           <div className="flex items-center justify-between text-xs font-bold text-[#7A756D] dark:text-[#A09A90]">
             <span className="flex items-center gap-1.5">
-              <SlidersHorizontal className="w-4 h-4 text-[#5C6B55] dark:text-[#A0AF99]" />
-              Configurazione Iniziale Profilo
+              <SlidersHorizontal className="w-4 h-4 text-[#5C6B55] dark:text-[#A8BB9C]" />
+              Configurazione Profilo
             </span>
             <span>Passo {step} di 4</span>
           </div>
 
           {/* Barra di Progresso */}
-          <div className="w-full h-2 rounded-full bg-[#EBE5D9] dark:bg-[#4A4743]/60 overflow-hidden">
+          <div className="w-full h-2 rounded-full bg-[#EBE5D9] dark:bg-[#383430] overflow-hidden">
             <motion.div
-              className="h-full bg-[#5C6B55] dark:bg-[#A0AF99] rounded-full"
+              className="h-full bg-[#5C6B55] dark:bg-[#A8BB9C] rounded-full"
               initial={{ width: '25%' }}
               animate={{ width: `${(step / 4) * 100}%` }}
               transition={{ duration: 0.28, ease: iosEase }}

@@ -92,6 +92,8 @@ export interface FormattedBookResult {
   year?: string | null;
   publisher?: string | null;
   category?: string | null;
+  genre?: string | null;
+  subgenre?: string | null;
   rating?: number | null;
   isbn?: string | null;
   source?: string;
@@ -161,9 +163,11 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
     };
   }, []);
 
-  // Fetching tramite federatedBookSearch (Google Books + Open Library + SBN)
+  // Fetching tramite federatedBookSearch (Google Books + Open Library + SBN) con Debounce e Anti-Race Condition
   useEffect(() => {
+    let isCancelled = false;
     const searchTerm = query.trim();
+
     if (!searchTerm || searchTerm.length < 2) {
       setResults([]);
       setStatus("idle");
@@ -177,6 +181,7 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
     const fetchBooks = async () => {
       try {
         const webBooks = await federatedBookSearch(searchTerm);
+        if (isCancelled) return;
         
         if (webBooks && webBooks.length > 0) {
           const formattedResults: FormattedBookResult[] = webBooks.map((wb) => ({
@@ -189,6 +194,8 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
             publisher: wb.publisher || null,
             year: wb.publishedYear || null,
             category: wb.genre || null,
+            genre: wb.genre || null,
+            subgenre: wb.subgenre || null,
             rating: null,
             isbn: wb.isbn || null,
             source: wb.source,
@@ -201,6 +208,7 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
           setStatus("error");
         }
       } catch (error) {
+        if (isCancelled) return;
         console.error('Errore durante la ricerca federata libri:', error);
         setResults([]);
         setStatus("error");
@@ -211,7 +219,10 @@ export function SearchBar({ value, onChange, onSelectGoogleBook, onSearchActive 
       fetchBooks();
     }, 350);
 
-    return () => clearTimeout(timer);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
   }, [query]);
 
   const handleSelectResult = (book: FormattedBookResult) => {

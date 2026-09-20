@@ -10,6 +10,7 @@ import { AddBookModal } from '../components/books/AddBookModal';
 import { CameraScannerModal } from '../components/books/CameraScannerModal';
 import { BookDetailModal } from '../components/books/BookDetailModal';
 import { Sparkles, BookOpen } from 'lucide-react';
+import { calculateRealStreak } from '../../infrastructure/services/readingSessionService';
 
 export const DashboardPage: React.FC = () => {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -26,15 +27,14 @@ export const DashboardPage: React.FC = () => {
     addBook,
     deleteBook,
     updateBookStatus,
+    updateBookPages,
     updateBook
   } = useBooks();
 
-  const handleQuickPageUpdate = (id: string, newPagesRead: number) => {
-    const targetBook = books.find(b => b.id === id);
-    if (targetBook) {
-      const updatedStatus = newPagesRead >= (targetBook.totalPages || 300) ? 'Letto' : 'In lettura';
-      updateBookStatus(id, updatedStatus);
-    }
+  const streakDays = calculateRealStreak(books);
+
+  const handleQuickPageUpdate = (id: string, newPagesRead: number, isStartingPoint?: boolean) => {
+    updateBookPages(id, newPagesRead, isStartingPoint);
   };
 
   return (
@@ -53,7 +53,7 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Animated Reading Streak Badge */}
-        <ReadingStreakBadge daysStreak={0} />
+        <ReadingStreakBadge daysStreak={streakDays} />
       </div>
 
       {/* Hero Reading Focus Card */}

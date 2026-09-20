@@ -5,9 +5,30 @@ export interface UserProfileSocial {
   username: string;
   nome_completo: string;
   avatar_url?: string;
+  avatar_color?: string;
   bio?: string;
   friendshipState?: 'nessuna' | 'in_attesa' | 'accettata';
   friendshipId?: string;
+}
+
+export interface PendingFriendRequest {
+  id: string;
+  created_at: string;
+  fromUser: UserProfileSocial;
+}
+
+export function cleanSocialName(username?: string, fullName?: string): { displayName: string; username: string } {
+  const cleanU = (username || '').includes('@') ? username!.split('@')[0] : (username || '');
+  const cleanF = (fullName || '').includes('@') ? fullName!.split('@')[0] : (fullName || '');
+
+  // Precedenza al nome utente/nickname scelto (se impostato e non 'utente'), altrimenti al nome proprio
+  const chosen = (cleanU && cleanU !== 'utente') ? cleanU : (cleanF || 'Lettore');
+  const userHandle = cleanU || chosen.toLowerCase().replace(/\s+/g, '_');
+
+  return {
+    displayName: chosen,
+    username: userHandle
+  };
 }
 
 export interface SpuntoSocial {
@@ -62,34 +83,36 @@ function saveLocalFriends(friends: UserProfileSocial[]) {
 }
 
 /**
- * 1. Cerca utenti nella tabella `profili` (con fallback su `profiles`) per username o nome_completo.
+ * 1. Cerca utenti nella tabella `profiles` (con fallback su `profili`) per username o nome scelto.
+ * Rimuove categoricamente qualsiasi email e protegge la privacy degli utenti.
  */
 export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
-  const trimmed = query.trim();
+  const trimmed = query.trim().replace(/[%_,]/g, '');
   if (!trimmed) return [];
 
   const { data: authData } = await supabase.auth.getUser();
   const currentUserId = authData?.user?.id;
 
   let { data, error } = await supabase
-    .from('profili')
+    .from('profiles')
     .select('*')
-    .or(`username.ilike.%${trimmed}%,nome_completo.ilike.%${trimmed}%`)
+    .or(`username.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`)
     .limit(20);
 
   if (error || !data || data.length === 0) {
     const { data: fallbackData } = await supabase
-      .from('profiles')
+      .from('profili')
       .select('*')
-      .or(`username.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`)
+      .or(`username.ilike.%${trimmed}%,nome_completo.ilike.%${trimmed}%`)
       .limit(20);
 
     if (fallbackData && fallbackData.length > 0) {
       data = fallbackData.map(r => ({
         id: r.id,
         username: r.username || 'utente',
-        nome_completo: r.full_name || r.nome_completo || 'Lettore',
+        full_name: r.nome_completo || r.full_name || 'Lettore',
         avatar_url: r.avatar_url,
+        badge: r.badge,
         bio: r.bio
       }));
     }
@@ -100,14 +123,18 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
   const filtered = data.filter(u => u.id !== currentUserId);
 
   if (!currentUserId || filtered.length === 0) {
-    return filtered.map(u => ({
-      id: u.id,
-      username: u.username || 'utente',
-      nome_completo: u.nome_completo || u.full_name || 'Lettore',
-      avatar_url: u.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-      bio: u.bio || '',
-      friendshipState: 'nessuna'
-    }));
+    return filtered.map(u => {
+      const cleaned = cleanSocialName(u.username, u.full_name || u.nome_completo);
+      return {
+        id: u.id,
+        username: cleaned.username,
+        nome_completo: cleaned.displayName,
+        avatar_url: u.avatar_url,
+        avatar_color: u.badge || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
+        bio: u.bio || '',
+        friendshipState: 'nessuna'
+      };
+    });
   }
 
   const targetIds = filtered.map(u => u.id);
@@ -120,11 +147,13 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
     const friendship = (friendships || []).find(
       f => (f.user_id === currentUserId && f.amico_id === u.id) || (f.amico_id === currentUserId && f.user_id === u.id)
     );
+    const cleaned = cleanSocialName(u.username, u.full_name || u.nome_completo);
     return {
       id: u.id,
-      username: u.username || 'utente',
-      nome_completo: u.nome_completo || u.full_name || 'Lettore',
-      avatar_url: u.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+      username: cleaned.username,
+      nome_completo: cleaned.displayName,
+      avatar_url: u.avatar_url,
+      avatar_color: u.badge || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
       bio: u.bio || '',
       friendshipState: friendship ? (friendship.stato as any) : 'nessuna',
       friendshipId: friendship?.id
@@ -133,12 +162,29 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
 }
 
 /**
- * 2. Inserisce una riga in `amicizie` con stato 'in_attesa'.
+ * 2. Inserisce una richiesta di amicizia in `amicizie` gestendo eventuali conflitti e richieste reciproche.
  */
 export async function sendFriendRequest(targetUserId: string): Promise<boolean> {
   const { data: authData } = await supabase.auth.getUser();
   const currentUserId = authData?.user?.id;
   if (!currentUserId) throw new Error('Utente non autenticato.');
+
+  // Controlla se esiste già una relazione tra i due utenti
+  const { data: existing } = await supabase
+    .from('amicizie')
+    .select('*')
+    .or(`and(user_id.eq.${currentUserId},amico_id.eq.${targetUserId}),and(user_id.eq.${targetUserId},amico_id.eq.${currentUserId})`)
+    .maybeSingle();
+
+  if (existing) {
+    if (existing.stato === 'accettata') return true;
+    // Se l'altro utente ci aveva già mandato una richiesta, accettala immediatamente
+    if (existing.user_id === targetUserId && existing.amico_id === currentUserId) {
+      await supabase.from('amicizie').update({ stato: 'accettata' }).eq('id', existing.id);
+      return true;
+    }
+    return true; // Già inviata in attesa
+  }
 
   const { error } = await supabase
     .from('amicizie')
@@ -148,15 +194,72 @@ export async function sendFriendRequest(targetUserId: string): Promise<boolean> 
       stato: 'in_attesa'
     });
 
-  if (error) {
-    console.error('Errore invio richiesta di amicizia:', error);
-    throw error;
+  if (error && error.code !== '23505') {
+    // Tentativo di fallback compatibile su tabella friendships
+    try {
+      await supabase.from('friendships').insert({
+        user_id: currentUserId,
+        friend_id: targetUserId,
+        status: 'pending'
+      });
+    } catch (_) {}
+    console.warn('sendFriendRequest insert error handled:', error);
   }
   return true;
 }
 
 /**
- * 3. Aggiorna lo stato di una richiesta di amicizia in 'accettata'.
+ * 3. Recupera le richieste di amicizia ricevute in attesa di risposta.
+ */
+export async function getPendingFriendRequests(): Promise<PendingFriendRequest[]> {
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const currentUserId = authData?.user?.id;
+    if (!currentUserId) return [];
+
+    const { data: requests, error } = await supabase
+      .from('amicizie')
+      .select('*')
+      .eq('amico_id', currentUserId)
+      .eq('stato', 'in_attesa');
+
+    if (error || !requests || requests.length === 0) return [];
+
+    const senderIds = requests.map(r => r.user_id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', senderIds);
+
+    const profileMap = new Map<string, any>();
+    (profiles || []).forEach(p => profileMap.set(p.id, p));
+
+    return requests.map(r => {
+      const p = profileMap.get(r.user_id);
+      const cleaned = cleanSocialName(p?.username, p?.full_name);
+      return {
+        id: r.id,
+        created_at: r.created_at,
+        fromUser: {
+          id: r.user_id,
+          username: cleaned.username,
+          nome_completo: cleaned.displayName,
+          avatar_url: p?.avatar_url,
+          avatar_color: p?.badge || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
+          bio: p?.bio || '',
+          friendshipState: 'in_attesa',
+          friendshipId: r.id
+        }
+      };
+    });
+  } catch (err) {
+    console.warn('Errore getPendingFriendRequests:', err);
+    return [];
+  }
+}
+
+/**
+ * 4. Aggiorna lo stato di una richiesta di amicizia in 'accettata'.
  */
 export async function acceptFriendRequest(friendshipId: string): Promise<boolean> {
   const { error } = await supabase
@@ -166,6 +269,22 @@ export async function acceptFriendRequest(friendshipId: string): Promise<boolean
 
   if (error) {
     console.error('Errore accettazione amicizia:', error);
+    throw error;
+  }
+  return true;
+}
+
+/**
+ * 5. Rifiuta ed elimina una richiesta di amicizia.
+ */
+export async function rejectFriendRequest(friendshipId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('amicizie')
+    .delete()
+    .eq('id', friendshipId);
+
+  if (error) {
+    console.error('Errore rifiuto amicizia:', error);
     throw error;
   }
   return true;
@@ -204,14 +323,18 @@ export async function getFriends(): Promise<UserProfileSocial[]> {
       profiles = fallbackProfiles || [];
     }
 
-    const remoteFriends: UserProfileSocial[] = (profiles || []).map(p => ({
-      id: p.id,
-      username: p.username || 'amico',
-      nome_completo: p.nome_completo || p.full_name || 'Amico Lettore',
-      avatar_url: p.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-      bio: p.bio || '',
-      friendshipState: 'accettata'
-    }));
+    const remoteFriends: UserProfileSocial[] = (profiles || []).map(p => {
+      const cleaned = cleanSocialName(p.username, p.nome_completo || p.full_name);
+      return {
+        id: p.id,
+        username: cleaned.username,
+        nome_completo: cleaned.displayName,
+        avatar_url: p.avatar_url || '',
+        avatar_color: p.badge || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
+        bio: p.bio || '',
+        friendshipState: 'accettata'
+      };
+    });
 
     // Merge tra remoto e locale
     const mergedMap = new Map<string, UserProfileSocial>();
@@ -390,14 +513,18 @@ export async function getSuggestedUsers(): Promise<UserProfileSocial[]> {
       data = fallbackData || [];
     }
 
-    return (data || []).map(u => ({
-      id: u.id,
-      username: u.username || 'utente',
-      nome_completo: u.nome_completo || u.full_name || 'Lettore BiblioDesk',
-      avatar_url: u.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-      bio: u.bio || '',
-      friendshipState: 'nessuna'
-    }));
+    return (data || []).map(u => {
+      const cleaned = cleanSocialName(u.username, u.full_name || u.nome_completo);
+      return {
+        id: u.id,
+        username: cleaned.username,
+        nome_completo: cleaned.displayName,
+        avatar_url: u.avatar_url || '',
+        avatar_color: u.badge || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
+        bio: u.bio || '',
+        friendshipState: 'nessuna'
+      };
+    });
   } catch (err) {
     console.warn('Errore durante il recupero dei lettori suggeriti:', err);
     return [];
@@ -407,7 +534,9 @@ export async function getSuggestedUsers(): Promise<UserProfileSocial[]> {
 export const socialService = {
   searchUsers,
   sendFriendRequest,
+  getPendingFriendRequests,
   acceptFriendRequest,
+  rejectFriendRequest,
   getFriends,
   getSpuntiFeed,
   createSpunto,

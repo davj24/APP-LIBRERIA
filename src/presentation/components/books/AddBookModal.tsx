@@ -41,6 +41,8 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
     const finalGenre = genre === 'ALTRO_CUSTOM' ? customGenre.trim() : genre.trim();
     const finalSubgenre = subgenre === 'ALTRO_CUSTOM' ? customSubgenre.trim() : subgenre.trim();
 
+    const parsedPagesRead = pagesRead ? parseInt(pagesRead, 10) : 0;
+
     onAddBook({
       title: title.trim(),
       author: author.trim(),
@@ -49,7 +51,8 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
       startDate: startDate || (status !== 'Da leggere' ? new Date().toISOString().split('T')[0] : ''),
       endDate: endDate || (status === 'Letto' ? new Date().toISOString().split('T')[0] : ''),
       totalPages: totalPages ? parseInt(totalPages, 10) : undefined,
-      pagesRead: pagesRead ? parseInt(pagesRead, 10) : undefined,
+      pagesRead: parsedPagesRead,
+      initialPagesRead: parsedPagesRead,
       genre: finalGenre || 'Narrativa & Classici',
       subgenre: finalSubgenre || undefined
     });
@@ -269,7 +272,7 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
 
                 <div>
                   <label className="block text-xs font-semibold text-[#4A4743] dark:text-[#E0DCD3] mb-1">
-                    Pagine Lette
+                    A che pagina sei arrivato?
                   </label>
                   <input
                     type="number"
@@ -281,6 +284,11 @@ export const AddBookModal: React.FC<AddBookModalProps> = ({ isOpen, onClose, onA
                     onChange={(e) => setPagesRead(e.target.value)}
                     className="w-full px-3 py-2 bg-[#F4F1EA] dark:bg-[#2A2826] border border-[#DCD5C6] dark:border-[#4A4743]/60 rounded-xl text-xs text-[#4A4743] dark:text-[#E0DCD3] focus:outline-none focus:border-[#B0BEA9] dark:focus:border-[#5C6B55]"
                   />
+                  {pagesRead && parseInt(pagesRead, 10) > 0 && (
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                      📍 Punto di partenza: le {pagesRead} pagine lette prima non verranno conteggiate oggi.
+                    </p>
+                  )}
                 </div>
               </div>
 
