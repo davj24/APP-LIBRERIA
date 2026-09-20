@@ -153,13 +153,7 @@ export function useUserProfile() {
                 username: updated.name,
                 bio: updated.bio || '',
                 avatar_url: updated.avatarUrl || null,
-                banner_url: updated.bannerUrl || null,
-                badge: updated.avatarColor || null,
-                reading_goal: updated.readingGoal || 24,
-                favorite_genres: updated.favoriteGenres || [],
-                favorite_subgenres: updated.favoriteSubgenres || {},
-                selected_widgets: updated.selectedWidgets || ['read_count', 'reading_count'],
-                updated_at: new Date().toISOString()
+                badge: updated.avatarColor || null
               })
             ).then(({ error }: any) => {
               if (error) console.warn('Sync profile to Supabase warning:', error);

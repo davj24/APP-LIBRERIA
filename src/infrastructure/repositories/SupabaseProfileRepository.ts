@@ -47,8 +47,7 @@ export class SupabaseProfileRepository {
       .from('profiles')
       .upsert({
         id: userId,
-        ...payload,
-        updated_at: new Date().toISOString()
+        ...payload
       });
 
     if (error) {

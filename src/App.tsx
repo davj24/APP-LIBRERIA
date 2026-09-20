@@ -31,7 +31,7 @@ function AppContent() {
 
         const { data } = await supabase
           .from('profiles')
-          .select('id, full_name, username, avatar_url, bio, reading_goal, favorite_genres, favorite_subgenres, selected_widgets, banner_url')
+          .select('id, full_name, username, avatar_url, bio, badge')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -41,11 +41,11 @@ function AppContent() {
             name: data.username || data.full_name,
             bio: data.bio || currentLocal.bio,
             avatarUrl: sanitizeAvatarUrl(data.avatar_url),
-            readingGoal: data.reading_goal || currentLocal.readingGoal,
-            favoriteGenres: Array.isArray(data.favorite_genres) && data.favorite_genres.length > 0 ? data.favorite_genres : currentLocal.favoriteGenres,
-            favoriteSubgenres: data.favorite_subgenres || currentLocal.favoriteSubgenres,
-            selectedWidgets: Array.isArray(data.selected_widgets) && data.selected_widgets.length > 0 ? data.selected_widgets : currentLocal.selectedWidgets,
-            bannerUrl: data.banner_url || currentLocal.bannerUrl,
+            readingGoal: currentLocal.readingGoal,
+            favoriteGenres: currentLocal.favoriteGenres,
+            favoriteSubgenres: currentLocal.favoriteSubgenres,
+            selectedWidgets: currentLocal.selectedWidgets,
+            bannerUrl: currentLocal.bannerUrl,
             isCompleted: true
           });
           return;
@@ -83,9 +83,7 @@ function AppContent() {
           full_name: effectiveName,
           avatar_url: sanitizeAvatarUrl(finalProfile.avatarUrl),
           badge: finalProfile.avatarColor || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
-          bio: finalProfile.bio || '',
-          reading_goal: finalProfile.readingGoal || 24,
-          updated_at: new Date().toISOString()
+          bio: finalProfile.bio || ''
         });
       } catch (e) {
         console.warn('Errore verifica profilo esistente:', e);

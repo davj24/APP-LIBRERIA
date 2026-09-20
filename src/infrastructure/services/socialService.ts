@@ -87,7 +87,7 @@ function saveLocalFriends(friends: UserProfileSocial[]) {
  * Rimuove categoricamente qualsiasi email e protegge la privacy degli utenti.
  */
 export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
-  const trimmed = query.trim().replace(/[%_,]/g, '');
+  const trimmed = query.trim().replace(/^@+/, '').replace(/[%_,]/g, '');
   if (!trimmed) return [];
 
   const { data: authData } = await supabase.auth.getUser();

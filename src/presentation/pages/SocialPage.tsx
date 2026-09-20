@@ -30,6 +30,7 @@ import {
 import { useBooks } from '../hooks/useBooks';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useRegisterModal } from '../context/ModalContext';
+import { supabase } from '../../infrastructure/supabase/client';
 
 export const SocialPage: React.FC = () => {
   const { profile } = useUserProfile();
@@ -91,6 +92,27 @@ export const SocialPage: React.FC = () => {
   const loadSocialData = async () => {
     setIsLoadingFeed(true);
     try {
+      // 1. Assicura che il profilo utente corrente sia inserito/aggiornato su Supabase profiles con sole colonne valide
+      const { data: authData } = await supabase.auth.getUser();
+      const currentUserId = authData?.user?.id;
+      if (currentUserId && profile?.name) {
+        const cleanName = profile.name.trim();
+        if (cleanName && cleanName !== 'Lettore BiblioDesk') {
+          try {
+            await supabase.from('profiles').upsert({
+              id: currentUserId,
+              username: cleanName,
+              full_name: cleanName,
+              avatar_url: profile.avatarUrl || null,
+              badge: profile.avatarColor || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
+              bio: profile.bio || ''
+            });
+          } catch {
+            // Sincronizzazione profilo in background
+          }
+        }
+      }
+
       const [friendsData, feedData, suggestedData, pendingData] = await Promise.all([
         socialService.getFriends(),
         socialService.getSpuntiFeed(),
@@ -342,6 +364,133 @@ export const SocialPage: React.FC = () => {
         </button>
       </header>
 
+      {/* BARRA DI RICERCA PRINCIPALE IN ALTO (ACCESSO IMMEDIATO APPENA SI ENTRA) */}
+      <section className="bg-[#EFECE6] dark:bg-[#272422] p-4 sm:p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <label htmlFor="search-readers-input" className="text-xs font-black uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
+            <Search size={15} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
+            <span>Cerca Persone & Amici</span>
+          </label>
+          {searchQuery.trim().length > 0 && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="text-[11px] font-bold text-[#5C6B55] dark:text-[#A8BB9C] hover:underline cursor-pointer flex items-center gap-0.5"
+            >
+              <X size={12} />
+              <span>Azzera</span>
+            </button>
+          )}
+        </div>
+
+        <div className="relative flex items-center">
+          <Search className="absolute left-3.5 w-4 h-4 text-[#7A756D] dark:text-[#9A9488] pointer-events-none" />
+          <input
+            id="search-readers-input"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cerca lettori per nome o username (es. marco o @mario)..."
+            className="w-full pl-10 pr-10 py-2.5 bg-[#F7F4EE] dark:bg-[#201E1C] text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] focus:outline-none focus:ring-2 focus:ring-[#5C6B55] transition-all shadow-inner"
+          />
+          {isSearching ? (
+            <Loader2 className="absolute right-3.5 w-4 h-4 text-[#5C6B55] animate-spin" />
+          ) : searchQuery.trim().length > 0 ? (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3.5 text-[#7A756D] hover:text-[#31362F] dark:hover:text-white cursor-pointer"
+            >
+              <X size={15} />
+            </button>
+          ) : null}
+        </div>
+
+        {/* RISULTATI RICERCA IMMEDIATI (SE ATTIVA) */}
+        {searchQuery.trim().length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-[#E2DDD2] dark:border-[#36322E]">
+            {searchResults.length === 0 && !isSearching ? (
+              <div className="text-center py-4 space-y-1">
+                <p className="text-xs text-[#7A756D] dark:text-[#9A9488] italic">
+                  Nessun utente trovato per "{searchQuery}".
+                </p>
+                <p className="text-[11px] text-[#9E988F]">
+                  Prova a digitare solo parte del nome o dello username.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {searchResults.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A] shadow-2xs"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {user.avatar_url ? (
+                        <img
+                          src={user.avatar_url}
+                          alt={user.nome_completo}
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-[#5C6B55]/30 shrink-0"
+                        />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-full ${user.avatar_color?.startsWith('bg-') ? user.avatar_color : `bg-gradient-to-tr ${user.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
+                          {user.nome_completo ? user.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                          {user.nome_completo}
+                        </h4>
+                        <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate">
+                          @{user.username}
+                        </p>
+                      </div>
+                    </div>
+
+                    {user.friendshipState === 'accettata' ? (
+                      <span className="px-3 py-1.5 bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold flex items-center gap-1 border border-[#B0BEA9]">
+                        <Check size={13} />
+                        Amico
+                      </span>
+                    ) : user.friendshipState === 'ricevuta' ? (
+                      <button
+                        onClick={() => handleAcceptFromUser(user)}
+                        className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+                      >
+                        <Check size={13} />
+                        <span>Accetta</span>
+                      </button>
+                    ) : user.friendshipState === 'in_attesa' ? (
+                      <button
+                        onClick={() => handleCancelOrRemove(user.id)}
+                        className="px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-rose-500/10 hover:text-rose-600 rounded-xl text-[11px] font-bold border border-amber-500/30 transition-all cursor-pointer group flex items-center gap-1"
+                        title="Clicca per annullare la richiesta"
+                      >
+                        <Check size={13} className="group-hover:hidden" />
+                        <X size={13} className="hidden group-hover:inline" />
+                        <span className="group-hover:hidden">Inviata</span>
+                        <span className="hidden group-hover:inline">Annulla</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSendFriendRequest(user.id)}
+                        disabled={sendingRequestTo === user.id}
+                        className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {sendingRequestTo === user.id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <UserPlus size={13} />
+                        )}
+                        <span>Aggiungi amico</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
       {/* SELETTORE TAB: I MIEI AMICI (PRIMARIO) vs COMMUNITY GLOBALE (SECONDARIO) */}
       <div className="flex items-center p-1 bg-[#EFECE6] dark:bg-[#272422] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs">
         <button
@@ -500,187 +649,83 @@ export const SocialPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* SCHEDA "CERCA & LETTORI CONSIGLIATI" */}
-              <section className="bg-[#EFECE6] dark:bg-[#272422] p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
-                    <Search size={15} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
-                    Cerca o Aggiungi Lettori
-                  </h3>
-                </div>
-
-                {/* Input Ricerca */}
-                <div className="relative flex items-center">
-                  <Search className="absolute left-3.5 w-4 h-4 text-[#7A756D] dark:text-[#9A9488] pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cerca per username o nome..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-[#F7F4EE] dark:bg-[#201E1C] text-xs font-semibold text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] focus:outline-none focus:ring-2 focus:ring-[#5C6B55] transition-all"
-                  />
-                  {isSearching && (
-                    <Loader2 className="absolute right-3.5 w-4 h-4 text-[#5C6B55] animate-spin" />
-                  )}
-                </div>
-
-                {/* Se search active: mostra risultati ricerca */}
-                {searchQuery.trim().length > 0 ? (
-                  <div className="space-y-2 pt-1 border-t border-[#E2DDD2] dark:border-[#36322E]">
-                    {searchResults.length === 0 && !isSearching ? (
-                      <p className="text-xs text-[#7A756D] dark:text-[#9A9488] text-center py-2 italic">
-                        Nessun utente trovato per "{searchQuery}".
-                      </p>
-                    ) : (
-                      searchResults.map((user) => (
-                        <div
-                          key={user.id}
-                          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            {user.avatar_url ? (
-                              <img
-                                src={user.avatar_url}
-                                alt={user.nome_completo}
-                                className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/30 shrink-0"
-                              />
-                            ) : (
-                              <div className={`w-9 h-9 rounded-full ${user.avatar_color?.startsWith('bg-') ? user.avatar_color : `bg-gradient-to-tr ${user.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
-                                {user.nome_completo ? user.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <h4 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
-                                {user.nome_completo}
-                              </h4>
-                              <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate">
-                                @{user.username}
-                              </p>
-                            </div>
-                          </div>
-
-                          {user.friendshipState === 'accettata' ? (
-                            <span className="px-3 py-1.5 bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold flex items-center gap-1 border border-[#B0BEA9]">
-                              <Check size={13} />
-                              Amico
-                            </span>
-                          ) : user.friendshipState === 'ricevuta' ? (
-                            <button
-                              onClick={() => handleAcceptFromUser(user)}
-                              className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
-                            >
-                              <Check size={13} />
-                              <span>Accetta</span>
-                            </button>
-                          ) : user.friendshipState === 'in_attesa' ? (
-                            <button
-                              onClick={() => handleCancelOrRemove(user.id)}
-                              className="px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-rose-500/10 hover:text-rose-600 rounded-xl text-[11px] font-bold border border-amber-500/30 transition-all cursor-pointer group flex items-center gap-1"
-                              title="Clicca per annullare la richiesta"
-                            >
-                              <Check size={13} className="group-hover:hidden" />
-                              <X size={13} className="hidden group-hover:inline" />
-                              <span className="group-hover:hidden">Inviata</span>
-                              <span className="hidden group-hover:inline">Annulla</span>
-                            </button>
+              {/* SCHEDA LETTORI CONSIGLIATI */}
+              {suggestedReaders.length > 0 && (
+                <section className="bg-[#EFECE6] dark:bg-[#272422] p-5 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] shadow-xs space-y-3">
+                  <span className="text-[11px] font-extrabold text-[#5C6B55] dark:text-[#A8BB9C] uppercase tracking-wider block">
+                    Lettori Consigliati per te
+                  </span>
+                  <div className="space-y-2.5">
+                    {suggestedReaders.map((reader) => (
+                      <div
+                        key={reader.id}
+                        className="flex items-center justify-between p-3 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {reader.avatar_url ? (
+                            <img
+                              src={reader.avatar_url}
+                              alt={reader.nome_completo}
+                              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#5C6B55]/40 shrink-0"
+                            />
                           ) : (
-                            <button
-                              onClick={() => handleSendFriendRequest(user.id)}
-                              disabled={sendingRequestTo === user.id}
-                              className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                            >
-                              {sendingRequestTo === user.id ? (
-                                <Loader2 size={13} className="animate-spin" />
-                              ) : (
-                                <UserPlus size={13} />
-                              )}
-                              <span>Aggiungi amico</span>
-                            </button>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                ) : (
-                  /* Se search vuota: mostra LETTORI CONSIGLIATI (se presenti su Supabase) */
-                  suggestedReaders.length > 0 ? (
-                    <div className="space-y-3 pt-2">
-                      <span className="text-[11px] font-extrabold text-[#5C6B55] dark:text-[#A8BB9C] uppercase tracking-wider block">
-                        Lettori Consigliati per te
-                      </span>
-                      <div className="space-y-2.5">
-                        {suggestedReaders.map((reader) => (
-                          <div
-                            key={reader.id}
-                            className="flex items-center justify-between p-3 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              {reader.avatar_url ? (
-                                <img
-                                  src={reader.avatar_url}
-                                  alt={reader.nome_completo}
-                                  className="w-10 h-10 rounded-full object-cover ring-2 ring-[#5C6B55]/40 shrink-0"
-                                />
-                              ) : (
-                                <div className={`w-10 h-10 rounded-full ${reader.avatar_color?.startsWith('bg-') ? reader.avatar_color : `bg-gradient-to-tr ${reader.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
-                                  {reader.nome_completo ? reader.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] truncate">
-                                  {reader.nome_completo}
-                                </h4>
-                                <p className="text-[10px] text-[#7A756D] dark:text-[#9A9488] truncate">
-                                  @{reader.username}
-                                </p>
-                              </div>
+                            <div className={`w-10 h-10 rounded-full ${reader.avatar_color?.startsWith('bg-') ? reader.avatar_color : `bg-gradient-to-tr ${reader.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
+                              {reader.nome_completo ? reader.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
                             </div>
-
-                            {reader.friendshipState === 'accettata' ? (
-                              <span className="px-3 py-1.5 bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold border border-[#B0BEA9]">
-                                <Check size={13} />
-                                Amico
-                              </span>
-                            ) : reader.friendshipState === 'ricevuta' ? (
-                              <button
-                                onClick={() => handleAcceptFromUser(reader)}
-                                className="px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
-                              >
-                                <Check size={13} />
-                                <span>Accetta</span>
-                              </button>
-                            ) : reader.friendshipState === 'in_attesa' ? (
-                              <button
-                                onClick={() => handleCancelOrRemove(reader.id)}
-                                className="px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-rose-500/10 hover:text-rose-600 rounded-xl text-[11px] font-bold border border-amber-500/30 transition-all cursor-pointer group flex items-center gap-1 shrink-0"
-                                title="Clicca per annullare la richiesta"
-                              >
-                                <Check size={13} className="group-hover:hidden" />
-                                <X size={13} className="hidden group-hover:inline" />
-                                <span className="group-hover:hidden">Inviata</span>
-                                <span className="hidden group-hover:inline">Annulla</span>
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleSendFriendRequest(reader.id)}
-                                disabled={sendingRequestTo === reader.id}
-                                className="px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-50"
-                              >
-                                {sendingRequestTo === reader.id ? (
-                                  <Loader2 size={13} className="animate-spin" />
-                                ) : (
-                                  <UserPlus size={13} />
-                                )}
-                                <span>Aggiungi</span>
-                              </button>
-                            )}
+                          )}
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-extrabold text-[#31362F] dark:text-[#E0DCD3] truncate">
+                              {reader.nome_completo}
+                            </h4>
+                            <p className="text-[10px] text-[#7A756D] dark:text-[#9A9488] truncate">
+                              @{reader.username}
+                            </p>
                           </div>
-                        ))}
+                        </div>
+
+                        {reader.friendshipState === 'accettata' ? (
+                          <span className="px-3 py-1.5 bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold border border-[#B0BEA9]">
+                            <Check size={13} />
+                            Amico
+                          </span>
+                        ) : reader.friendshipState === 'ricevuta' ? (
+                          <button
+                            onClick={() => handleAcceptFromUser(reader)}
+                            className="px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+                          >
+                            <Check size={13} />
+                            <span>Accetta</span>
+                          </button>
+                        ) : reader.friendshipState === 'in_attesa' ? (
+                          <button
+                            onClick={() => handleCancelOrRemove(reader.id)}
+                            className="px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-rose-500/10 hover:text-rose-600 rounded-xl text-[11px] font-bold border border-amber-500/30 transition-all cursor-pointer group flex items-center gap-1 shrink-0"
+                            title="Clicca per annullare la richiesta"
+                          >
+                            <Check size={13} className="group-hover:hidden" />
+                            <X size={13} className="hidden group-hover:inline" />
+                            <span className="group-hover:hidden">Inviata</span>
+                            <span className="hidden group-hover:inline">Annulla</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleSendFriendRequest(reader.id)}
+                            disabled={sendingRequestTo === reader.id}
+                            className="px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                          >
+                            {sendingRequestTo === reader.id ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                              <UserPlus size={13} />
+                            )}
+                            <span>Aggiungi</span>
+                          </button>
+                        )}
                       </div>
-                    </div>
-                  ) : null
-                )}
-              </section>
+                    ))}
+                  </div>
+                </section>
+              )}
 
 
 
@@ -766,108 +811,7 @@ export const SocialPage: React.FC = () => {
                 </div>
               )}
 
-              {/* BARRA "CERCA AMICI" */}
-              <section className="bg-[#EFECE6] dark:bg-[#272422] p-4 rounded-3xl border border-[#E2DDD2] dark:border-[#36322E] space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488] flex items-center gap-1.5">
-                    <Users size={15} className="text-[#5C6B55] dark:text-[#A8BB9C]" />
-                    I Tuoi Amici ({friendsList.length})
-                  </h2>
-                </div>
 
-                <div className="relative flex items-center">
-                  <Search className="absolute left-3.5 w-4 h-4 text-[#7A756D] dark:text-[#9A9488] pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cerca altri utenti per username o nome..."
-                    className="w-full pl-10 pr-4 py-2 bg-[#F7F4EE] dark:bg-[#201E1C] text-xs font-semibold text-[#31362F] dark:text-[#E0DCD3] placeholder-[#9E988F] rounded-2xl border border-[#E2DDD2] dark:border-[#36322E] focus:outline-none"
-                  />
-                  {isSearching && (
-                    <Loader2 className="absolute right-3.5 w-4 h-4 text-[#5C6B55] animate-spin" />
-                  )}
-                </div>
-
-                {/* Risultati ricerca in Caso B */}
-                {searchQuery.trim().length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-[#E2DDD2] dark:border-[#36322E]">
-                    {searchResults.length === 0 && !isSearching ? (
-                      <p className="text-xs text-[#7A756D] dark:text-[#9A9488] text-center py-2 italic">
-                        Nessun utente trovato per "{searchQuery}".
-                      </p>
-                    ) : (
-                      searchResults.map((user) => (
-                        <div
-                          key={user.id}
-                          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F7F4EE] dark:bg-[#201E1C] border border-[#E8E3D8] dark:border-[#312E2A]"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            {user.avatar_url ? (
-                              <img
-                                src={user.avatar_url}
-                                alt={user.nome_completo}
-                                className="w-9 h-9 rounded-full object-cover ring-2 ring-[#5C6B55]/30 shrink-0"
-                              />
-                            ) : (
-                              <div className={`w-9 h-9 rounded-full ${user.avatar_color?.startsWith('bg-') ? user.avatar_color : `bg-gradient-to-tr ${user.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-xs font-black text-white shrink-0 shadow-2xs`}>
-                                {user.nome_completo ? user.nome_completo.trim().charAt(0).toUpperCase() : 'L'}
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <h4 className="text-xs font-bold text-[#31362F] dark:text-[#E0DCD3] truncate">
-                                {user.nome_completo}
-                              </h4>
-                              <p className="text-[11px] text-[#7A756D] dark:text-[#9A9488] truncate">
-                                @{user.username}
-                              </p>
-                            </div>
-                          </div>
-
-                          {user.friendshipState === 'accettata' ? (
-                            <span className="px-3 py-1.5 bg-[#D8E2D5] dark:bg-[#3B4838] text-[#2D382B] dark:text-[#E0DCD3] rounded-xl text-[11px] font-bold flex items-center gap-1 border border-[#B0BEA9]">
-                              <Check size={13} />
-                              Amico
-                            </span>
-                          ) : user.friendshipState === 'ricevuta' ? (
-                            <button
-                              onClick={() => handleAcceptFromUser(user)}
-                              className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
-                            >
-                              <Check size={13} />
-                              <span>Accetta</span>
-                            </button>
-                          ) : user.friendshipState === 'in_attesa' ? (
-                            <button
-                              onClick={() => handleCancelOrRemove(user.id)}
-                              className="px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-rose-500/10 hover:text-rose-600 rounded-xl text-[11px] font-bold border border-amber-500/30 transition-all cursor-pointer group flex items-center gap-1"
-                              title="Clicca per annullare la richiesta"
-                            >
-                              <Check size={13} className="group-hover:hidden" />
-                              <X size={13} className="hidden group-hover:inline" />
-                              <span className="group-hover:hidden">Inviata</span>
-                              <span className="hidden group-hover:inline">Annulla</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleSendFriendRequest(user.id)}
-                              disabled={sendingRequestTo === user.id}
-                              className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                            >
-                              {sendingRequestTo === user.id ? (
-                                <Loader2 size={13} className="animate-spin" />
-                              ) : (
-                                <UserPlus size={13} />
-                              )}
-                              <span>Aggiungi amico</span>
-                            </button>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </section>
 
               {/* RIGA AMICI CONNESSI */}
               <section className="space-y-2">
