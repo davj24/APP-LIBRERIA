@@ -381,9 +381,6 @@ export const AnnouncementsModal: React.FC<AnnouncementsModalProps> = ({
             <div className="pt-3 border-t border-[#EBE5D9] dark:border-[#4A4743]/50 text-center shrink-0">
               <p className="text-[10px] text-[#7A756D] dark:text-[#9A9488] font-medium flex items-center justify-center gap-1">
                 <span>BiblioDesk Official Updates</span>
-                {!isDevUnlocked && (
-                  <span className="text-[#9A9488]">• Password Dev: <code className="bg-[#EBE5D9] dark:bg-[#383532] px-1 py-0.5 rounded font-mono text-[#31362F] dark:text-[#E0DCD3]">dev2026</code></span>
-                )}
               </p>
             </div>
           </motion.div>

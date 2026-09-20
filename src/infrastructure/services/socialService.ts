@@ -7,7 +7,7 @@ export interface UserProfileSocial {
   avatar_url?: string;
   avatar_color?: string;
   bio?: string;
-  friendshipState?: 'nessuna' | 'in_attesa' | 'accettata';
+  friendshipState?: 'nessuna' | 'in_attesa' | 'ricevuta' | 'accettata';
   friendshipId?: string;
 }
 
@@ -83,7 +83,7 @@ function saveLocalFriends(friends: UserProfileSocial[]) {
 }
 
 /**
- * 1. Cerca utenti nella tabella `profiles` (con fallback su `profili`) per username o nome scelto.
+ * 1. Cerca utenti nella tabella `profiles` per username o nome scelto.
  * Rimuove categoricamente qualsiasi email e protegge la privacy degli utenti.
  */
 export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
@@ -93,38 +93,21 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
   const { data: authData } = await supabase.auth.getUser();
   const currentUserId = authData?.user?.id;
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id, username, full_name, avatar_url, bio, badge')
     .or(`username.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`)
     .limit(20);
 
   if (error || !data || data.length === 0) {
-    const { data: fallbackData } = await supabase
-      .from('profili')
-      .select('*')
-      .or(`username.ilike.%${trimmed}%,nome_completo.ilike.%${trimmed}%`)
-      .limit(20);
-
-    if (fallbackData && fallbackData.length > 0) {
-      data = fallbackData.map(r => ({
-        id: r.id,
-        username: r.username || 'utente',
-        full_name: r.nome_completo || r.full_name || 'Lettore',
-        avatar_url: r.avatar_url,
-        badge: r.badge,
-        bio: r.bio
-      }));
-    }
+    return [];
   }
-
-  if (!data) return [];
 
   const filtered = data.filter(u => u.id !== currentUserId);
 
   if (!currentUserId || filtered.length === 0) {
     return filtered.map(u => {
-      const cleaned = cleanSocialName(u.username, u.full_name || u.nome_completo);
+      const cleaned = cleanSocialName(u.username, u.full_name);
       return {
         id: u.id,
         username: cleaned.username,
@@ -139,15 +122,25 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
 
   const targetIds = filtered.map(u => u.id);
   const { data: friendships } = await supabase
-    .from('amicizie')
+    .from('friendships')
     .select('*')
-    .or(`and(user_id.eq.${currentUserId},amico_id.in.(${targetIds.join(',')})),and(amico_id.eq.${currentUserId},user_id.in.(${targetIds.join(',')}))`);
+    .or(`and(user_id.eq.${currentUserId},friend_id.in.(${targetIds.join(',')})),and(friend_id.eq.${currentUserId},user_id.in.(${targetIds.join(',')}))`);
 
   return filtered.map(u => {
     const friendship = (friendships || []).find(
-      f => (f.user_id === currentUserId && f.amico_id === u.id) || (f.amico_id === currentUserId && f.user_id === u.id)
+      f => (f.user_id === currentUserId && f.friend_id === u.id) || (f.friend_id === currentUserId && f.user_id === u.id)
     );
-    const cleaned = cleanSocialName(u.username, u.full_name || u.nome_completo);
+    const cleaned = cleanSocialName(u.username, u.full_name);
+
+    let state: 'nessuna' | 'in_attesa' | 'ricevuta' | 'accettata' = 'nessuna';
+    if (friendship) {
+      if (friendship.status === 'accepted' || friendship.status === 'accettata') {
+        state = 'accettata';
+      } else if (friendship.status === 'pending' || friendship.status === 'in_attesa') {
+        state = friendship.user_id === currentUserId ? 'in_attesa' : 'ricevuta';
+      }
+    }
+
     return {
       id: u.id,
       username: cleaned.username,
@@ -155,55 +148,49 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
       avatar_url: u.avatar_url,
       avatar_color: u.badge || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
       bio: u.bio || '',
-      friendshipState: friendship ? (friendship.stato as any) : 'nessuna',
+      friendshipState: state,
       friendshipId: friendship?.id
     };
   });
 }
 
 /**
- * 2. Inserisce una richiesta di amicizia in `amicizie` gestendo eventuali conflitti e richieste reciproche.
+ * 2. Inserisce una richiesta di amicizia in `friendships` gestendo reciproci e conflitti.
  */
 export async function sendFriendRequest(targetUserId: string): Promise<boolean> {
   const { data: authData } = await supabase.auth.getUser();
   const currentUserId = authData?.user?.id;
   if (!currentUserId) throw new Error('Utente non autenticato.');
+  if (currentUserId === targetUserId) return false;
 
-  // Controlla se esiste già una relazione tra i due utenti
+  // Controlla se esiste già una relazione tra i due utenti nella tabella friendships
   const { data: existing } = await supabase
-    .from('amicizie')
+    .from('friendships')
     .select('*')
-    .or(`and(user_id.eq.${currentUserId},amico_id.eq.${targetUserId}),and(user_id.eq.${targetUserId},amico_id.eq.${currentUserId})`)
+    .or(`and(user_id.eq.${currentUserId},friend_id.eq.${targetUserId}),and(friend_id.eq.${currentUserId},user_id.eq.${targetUserId})`)
     .maybeSingle();
 
   if (existing) {
-    if (existing.stato === 'accettata') return true;
+    if (existing.status === 'accepted' || existing.status === 'accettata') return true;
     // Se l'altro utente ci aveva già mandato una richiesta, accettala immediatamente
-    if (existing.user_id === targetUserId && existing.amico_id === currentUserId) {
-      await supabase.from('amicizie').update({ stato: 'accettata' }).eq('id', existing.id);
+    if (existing.user_id === targetUserId && existing.friend_id === currentUserId) {
+      await supabase.from('friendships').update({ status: 'accepted' }).eq('id', existing.id);
       return true;
     }
     return true; // Già inviata in attesa
   }
 
   const { error } = await supabase
-    .from('amicizie')
+    .from('friendships')
     .insert({
       user_id: currentUserId,
-      amico_id: targetUserId,
-      stato: 'in_attesa'
+      friend_id: targetUserId,
+      status: 'pending'
     });
 
   if (error && error.code !== '23505') {
-    // Tentativo di fallback compatibile su tabella friendships
-    try {
-      await supabase.from('friendships').insert({
-        user_id: currentUserId,
-        friend_id: targetUserId,
-        status: 'pending'
-      });
-    } catch (_) {}
-    console.warn('sendFriendRequest insert error handled:', error);
+    console.error('Errore durante sendFriendRequest:', error);
+    throw error;
   }
   return true;
 }
@@ -218,17 +205,18 @@ export async function getPendingFriendRequests(): Promise<PendingFriendRequest[]
     if (!currentUserId) return [];
 
     const { data: requests, error } = await supabase
-      .from('amicizie')
+      .from('friendships')
       .select('*')
-      .eq('amico_id', currentUserId)
-      .eq('stato', 'in_attesa');
+      .eq('friend_id', currentUserId)
+      .in('status', ['pending', 'in_attesa'])
+      .order('created_at', { ascending: false });
 
     if (error || !requests || requests.length === 0) return [];
 
     const senderIds = requests.map(r => r.user_id);
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, username, full_name, avatar_url, bio, badge')
       .in('id', senderIds);
 
     const profileMap = new Map<string, any>();
@@ -247,7 +235,7 @@ export async function getPendingFriendRequests(): Promise<PendingFriendRequest[]
           avatar_url: p?.avatar_url,
           avatar_color: p?.badge || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
           bio: p?.bio || '',
-          friendshipState: 'in_attesa',
+          friendshipState: 'ricevuta',
           friendshipId: r.id
         }
       };
@@ -259,12 +247,12 @@ export async function getPendingFriendRequests(): Promise<PendingFriendRequest[]
 }
 
 /**
- * 4. Aggiorna lo stato di una richiesta di amicizia in 'accettata'.
+ * 4. Aggiorna lo stato di una richiesta di amicizia in 'accepted'.
  */
 export async function acceptFriendRequest(friendshipId: string): Promise<boolean> {
   const { error } = await supabase
-    .from('amicizie')
-    .update({ stato: 'accettata' })
+    .from('friendships')
+    .update({ status: 'accepted' })
     .eq('id', friendshipId);
 
   if (error) {
@@ -279,7 +267,7 @@ export async function acceptFriendRequest(friendshipId: string): Promise<boolean
  */
 export async function rejectFriendRequest(friendshipId: string): Promise<boolean> {
   const { error } = await supabase
-    .from('amicizie')
+    .from('friendships')
     .delete()
     .eq('id', friendshipId);
 
@@ -291,7 +279,31 @@ export async function rejectFriendRequest(friendshipId: string): Promise<boolean
 }
 
 /**
- * 4. Recupera l'elenco degli utenti con cui c'è un'amicizia accettata (con cache locale salvaguardata).
+ * 6. Rimuove l'amicizia o revoca la richiesta inviata tra due utenti.
+ */
+export async function removeFriendship(targetUserId: string): Promise<boolean> {
+  const { data: authData } = await supabase.auth.getUser();
+  const currentUserId = authData?.user?.id;
+  if (!currentUserId) return false;
+
+  const { error } = await supabase
+    .from('friendships')
+    .delete()
+    .or(`and(user_id.eq.${currentUserId},friend_id.eq.${targetUserId}),and(friend_id.eq.${currentUserId},user_id.eq.${targetUserId})`);
+
+  if (error) {
+    console.error('Errore rimozione amicizia:', error);
+    throw error;
+  }
+
+  // Aggiorna anche la cache locale rimuovendo l'utente
+  const local = getLocalFriends().filter(f => f.id !== targetUserId);
+  saveLocalFriends(local);
+  return true;
+}
+
+/**
+ * 7. Recupera l'elenco degli utenti con cui c'è un'amicizia accettata (con cache locale salvaguardata).
  */
 export async function getFriends(): Promise<UserProfileSocial[]> {
   const localFriends = getLocalFriends();
@@ -301,30 +313,28 @@ export async function getFriends(): Promise<UserProfileSocial[]> {
     if (!currentUserId) return localFriends;
 
     const { data: friendships, error } = await supabase
-      .from('amicizie')
+      .from('friendships')
       .select('*')
-      .eq('stato', 'accettata')
-      .or(`user_id.eq.${currentUserId},amico_id.eq.${currentUserId}`);
+      .in('status', ['accepted', 'accettata'])
+      .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`);
 
-    if (error || !friendships || friendships.length === 0) return localFriends;
+    if (error || !friendships || friendships.length === 0) return [];
 
-    const friendIds = friendships.map(f => (f.user_id === currentUserId ? f.amico_id : f.user_id));
+    const friendIds = friendships.map(f => (f.user_id === currentUserId ? f.friend_id : f.user_id));
 
-    let { data: profiles } = await supabase
-      .from('profili')
-      .select('*')
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url, bio, badge')
       .in('id', friendIds);
 
-    if (!profiles || profiles.length === 0) {
-      const { data: fallbackProfiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('id', friendIds);
-      profiles = fallbackProfiles || [];
-    }
+    const friendshipMap = new Map<string, string>();
+    friendships.forEach(f => {
+      const otherId = f.user_id === currentUserId ? f.friend_id : f.user_id;
+      friendshipMap.set(otherId, f.id);
+    });
 
     const remoteFriends: UserProfileSocial[] = (profiles || []).map(p => {
-      const cleaned = cleanSocialName(p.username, p.nome_completo || p.full_name);
+      const cleaned = cleanSocialName(p.username, p.full_name);
       return {
         id: p.id,
         username: cleaned.username,
@@ -332,20 +342,13 @@ export async function getFriends(): Promise<UserProfileSocial[]> {
         avatar_url: p.avatar_url || '',
         avatar_color: p.badge || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
         bio: p.bio || '',
-        friendshipState: 'accettata'
+        friendshipState: 'accettata',
+        friendshipId: friendshipMap.get(p.id)
       };
     });
 
-    // Merge tra remoto e locale
-    const mergedMap = new Map<string, UserProfileSocial>();
-    remoteFriends.forEach(f => mergedMap.set(f.id, f));
-    localFriends.forEach(f => {
-      if (!mergedMap.has(f.id)) mergedMap.set(f.id, f);
-    });
-
-    const merged = Array.from(mergedMap.values());
-    saveLocalFriends(merged);
-    return merged;
+    saveLocalFriends(remoteFriends);
+    return remoteFriends;
   } catch (err) {
     console.warn('Fallback amicizie a locale:', err);
     return localFriends;
@@ -353,7 +356,7 @@ export async function getFriends(): Promise<UserProfileSocial[]> {
 }
 
 /**
- * 5. Recupera gli ultimi spunti pubblicati unendo i dati del profilo autore (con cache locale salvaguardata).
+ * 8. Recupera gli ultimi spunti pubblicati unendo i dati del profilo autore (con cache locale salvaguardata).
  */
 export async function getSpuntiFeed(): Promise<SpuntoSocial[]> {
   const localSpunti = getLocalSpunti();
@@ -371,22 +374,14 @@ export async function getSpuntiFeed(): Promise<SpuntoSocial[]> {
 
     const profileMap: Record<string, { nome: string; avatar: string; username: string }> = {};
     if (userIds.length > 0) {
-      let { data: profiles } = await supabase
-        .from('profili')
-        .select('*')
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url, badge')
         .in('id', userIds);
-
-      if (!profiles || profiles.length === 0) {
-        const { data: fallbackProfiles } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', userIds);
-        profiles = fallbackProfiles || [];
-      }
 
       (profiles || []).forEach(p => {
         profileMap[p.id] = {
-          nome: p.nome_completo || p.full_name || p.username || 'Lettore BiblioDesk',
+          nome: p.full_name || p.username || 'Lettore BiblioDesk',
           avatar: p.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
           username: p.username || 'utente'
         };
@@ -407,7 +402,7 @@ export async function getSpuntiFeed(): Promise<SpuntoSocial[]> {
       autore_username: profileMap[s.user_id]?.username || 'utente'
     }));
 
-    // Merge a prova di bomba tra remoto e locale
+    // Merge tra remoto e locale
     const mergedMap = new Map<string, SpuntoSocial>();
     remoteSpunti.forEach(s => mergedMap.set(s.id, s));
     localSpunti.forEach(s => {
@@ -424,7 +419,7 @@ export async function getSpuntiFeed(): Promise<SpuntoSocial[]> {
 }
 
 /**
- * 6. Pubblica un nuovo spunto associato a auth.uid() con salvataggio locale immediato.
+ * 9. Pubblica un nuovo spunto associato a auth.uid() con salvataggio locale immediato.
  */
 export async function createSpunto(data: {
   libro_titolo: string;
@@ -478,7 +473,6 @@ export async function createSpunto(data: {
           created_at: inserted.created_at || newSpunto.created_at
         };
         const updatedLocal = [realSpunto, ...localCurrent.filter(s => s.id !== newSpunto.id)];
-        saveLocalFriends([]); // ping
         saveLocalSpunti(updatedLocal);
         return realSpunto;
       }
@@ -491,30 +485,50 @@ export async function createSpunto(data: {
 }
 
 /**
- * 7. Recupera lettori suggeriti reali dal database.
+ * 10. Recupera lettori suggeriti reali dal database con stato di amicizia aggiornato.
  */
 export async function getSuggestedUsers(): Promise<UserProfileSocial[]> {
   try {
     const { data: authData } = await supabase.auth.getUser();
     const currentUserId = authData?.user?.id;
 
-    let query = supabase.from('profili').select('*').limit(10);
+    let query = supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url, bio, badge')
+      .limit(10);
+
     if (currentUserId) {
       query = query.neq('id', currentUserId);
     }
 
-    let { data } = await query;
-    if (!data || data.length === 0) {
-      let fallbackQuery = supabase.from('profiles').select('*').limit(10);
-      if (currentUserId) {
-        fallbackQuery = fallbackQuery.neq('id', currentUserId);
-      }
-      const { data: fallbackData } = await fallbackQuery;
-      data = fallbackData || [];
+    const { data } = await query;
+    if (!data || data.length === 0) return [];
+
+    let friendships: any[] = [];
+    if (currentUserId && data.length > 0) {
+      const targetIds = data.map(u => u.id);
+      const { data: rels } = await supabase
+        .from('friendships')
+        .select('*')
+        .or(`and(user_id.eq.${currentUserId},friend_id.in.(${targetIds.join(',')})),and(friend_id.eq.${currentUserId},user_id.in.(${targetIds.join(',')}))`);
+      friendships = rels || [];
     }
 
-    return (data || []).map(u => {
-      const cleaned = cleanSocialName(u.username, u.full_name || u.nome_completo);
+    return data.map(u => {
+      const friendship = friendships.find(
+        f => (f.user_id === currentUserId && f.friend_id === u.id) || (f.friend_id === currentUserId && f.user_id === u.id)
+      );
+
+      let state: 'nessuna' | 'in_attesa' | 'ricevuta' | 'accettata' = 'nessuna';
+      if (friendship) {
+        if (friendship.status === 'accepted' || friendship.status === 'accettata') {
+          state = 'accettata';
+        } else if (friendship.status === 'pending' || friendship.status === 'in_attesa') {
+          state = friendship.user_id === currentUserId ? 'in_attesa' : 'ricevuta';
+        }
+      }
+
+      const cleaned = cleanSocialName(u.username, u.full_name);
       return {
         id: u.id,
         username: cleaned.username,
@@ -522,7 +536,8 @@ export async function getSuggestedUsers(): Promise<UserProfileSocial[]> {
         avatar_url: u.avatar_url || '',
         avatar_color: u.badge || 'bg-gradient-to-tr from-indigo-600 to-violet-600',
         bio: u.bio || '',
-        friendshipState: 'nessuna'
+        friendshipState: state,
+        friendshipId: friendship?.id
       };
     });
   } catch (err) {
@@ -537,6 +552,7 @@ export const socialService = {
   getPendingFriendRequests,
   acceptFriendRequest,
   rejectFriendRequest,
+  removeFriendship,
   getFriends,
   getSpuntiFeed,
   createSpunto,

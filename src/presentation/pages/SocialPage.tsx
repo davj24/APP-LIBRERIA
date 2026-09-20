@@ -79,7 +79,9 @@ export const SocialPage: React.FC = () => {
   const [publishError, setPublishError] = useState<string | null>(null);
 
   const { books: myBooks } = useBooks();
-  useRegisterModal(isCreateModalOpen || isAdviceModalOpen);
+  const [selectedFriend, setSelectedFriend] = useState<UserProfileSocial | null>(null);
+  const [isRemovingFriend, setIsRemovingFriend] = useState(false);
+  useRegisterModal(isCreateModalOpen || isAdviceModalOpen || !!selectedFriend);
 
   // Caricamento Iniziale Amici, Suggeriti, Richieste e Feed da Supabase
   useEffect(() => {
@@ -137,8 +139,11 @@ export const SocialPage: React.FC = () => {
       setSearchResults(prev =>
         prev.map(u => (u.id === targetUserId ? { ...u, friendshipState: 'in_attesa' } : u))
       );
+      setSuggestedReaders(prev =>
+        prev.map(u => (u.id === targetUserId ? { ...u, friendshipState: 'in_attesa' } : u))
+      );
       // Ricarica la lista per verificare se è già auto-accettata
-      setTimeout(() => loadSocialData(), 600);
+      setTimeout(() => loadSocialData(), 800);
     } catch (err: any) {
       console.warn('Errore non bloccante invio amicizia:', err);
       setSearchResults(prev =>
@@ -146,6 +151,46 @@ export const SocialPage: React.FC = () => {
       );
     } finally {
       setSendingRequestTo(null);
+    }
+  };
+
+  // Annulla richiesta di amicizia o rimuovi amico
+  const handleCancelOrRemove = async (targetUserId: string) => {
+    try {
+      setIsRemovingFriend(true);
+      await socialService.removeFriendship(targetUserId);
+      setSearchResults(prev =>
+        prev.map(u => (u.id === targetUserId ? { ...u, friendshipState: 'nessuna' } : u))
+      );
+      setSuggestedReaders(prev =>
+        prev.map(u => (u.id === targetUserId ? { ...u, friendshipState: 'nessuna' } : u))
+      );
+      setFriendsList(prev => prev.filter(f => f.id !== targetUserId));
+      setSelectedFriend(null);
+    } catch (err) {
+      console.error('Errore rimozione amicizia:', err);
+    } finally {
+      setIsRemovingFriend(false);
+    }
+  };
+
+  // Accetta richiesta da utente (da ricerca o suggeriti)
+  const handleAcceptFromUser = async (user: UserProfileSocial) => {
+    try {
+      if (user.friendshipId) {
+        await socialService.acceptFriendRequest(user.friendshipId);
+      } else {
+        await socialService.sendFriendRequest(user.id);
+      }
+      setSearchResults(prev =>
+        prev.map(u => (u.id === user.id ? { ...u, friendshipState: 'accettata' } : u))
+      );
+      setSuggestedReaders(prev =>
+        prev.map(u => (u.id === user.id ? { ...u, friendshipState: 'accettata' } : u))
+      );
+      await loadSocialData();
+    } catch (err) {
+      console.error('Errore accettazione da ricerca:', err);
     }
   };
 
@@ -309,6 +354,9 @@ export const SocialPage: React.FC = () => {
         >
           <Users size={15} />
           <span>I Miei Amici</span>
+          {pendingRequests.length > 0 && (
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title={`${pendingRequests.length} richieste ricevute`} />
+          )}
           {friendsList.length > 0 && (
             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
               activeTab === 'amici' ? 'bg-white/20 text-white' : 'bg-[#5C6B55]/15 text-[#5C6B55] dark:text-[#A8BB9C]'
@@ -516,10 +564,25 @@ export const SocialPage: React.FC = () => {
                               <Check size={13} />
                               Amico
                             </span>
+                          ) : user.friendshipState === 'ricevuta' ? (
+                            <button
+                              onClick={() => handleAcceptFromUser(user)}
+                              className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+                            >
+                              <Check size={13} />
+                              <span>Accetta</span>
+                            </button>
                           ) : user.friendshipState === 'in_attesa' ? (
-                            <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30">
-                              Richiesta inviata
-                            </span>
+                            <button
+                              onClick={() => handleCancelOrRemove(user.id)}
+                              className="px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-rose-500/10 hover:text-rose-600 rounded-xl text-[11px] font-bold border border-amber-500/30 transition-all cursor-pointer group flex items-center gap-1"
+                              title="Clicca per annullare la richiesta"
+                            >
+                              <Check size={13} className="group-hover:hidden" />
+                              <X size={13} className="hidden group-hover:inline" />
+                              <span className="group-hover:hidden">Inviata</span>
+                              <span className="hidden group-hover:inline">Annulla</span>
+                            </button>
                           ) : (
                             <button
                               onClick={() => handleSendFriendRequest(user.id)}
@@ -578,11 +641,25 @@ export const SocialPage: React.FC = () => {
                                 <Check size={13} />
                                 Amico
                               </span>
-                            ) : reader.friendshipState === 'in_attesa' ? (
-                              <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30 flex items-center gap-1">
+                            ) : reader.friendshipState === 'ricevuta' ? (
+                              <button
+                                onClick={() => handleAcceptFromUser(reader)}
+                                className="px-3.5 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+                              >
                                 <Check size={13} />
-                                Inviata
-                              </span>
+                                <span>Accetta</span>
+                              </button>
+                            ) : reader.friendshipState === 'in_attesa' ? (
+                              <button
+                                onClick={() => handleCancelOrRemove(reader.id)}
+                                className="px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-rose-500/10 hover:text-rose-600 rounded-xl text-[11px] font-bold border border-amber-500/30 transition-all cursor-pointer group flex items-center gap-1 shrink-0"
+                                title="Clicca per annullare la richiesta"
+                              >
+                                <Check size={13} className="group-hover:hidden" />
+                                <X size={13} className="hidden group-hover:inline" />
+                                <span className="group-hover:hidden">Inviata</span>
+                                <span className="hidden group-hover:inline">Annulla</span>
+                              </button>
                             ) : (
                               <button
                                 onClick={() => handleSendFriendRequest(reader.id)}
@@ -752,10 +829,25 @@ export const SocialPage: React.FC = () => {
                               <Check size={13} />
                               Amico
                             </span>
+                          ) : user.friendshipState === 'ricevuta' ? (
+                            <button
+                              onClick={() => handleAcceptFromUser(user)}
+                              className="px-3 py-1.5 bg-[#5C6B55] hover:bg-[#4D5A46] text-white rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+                            >
+                              <Check size={13} />
+                              <span>Accetta</span>
+                            </button>
                           ) : user.friendshipState === 'in_attesa' ? (
-                            <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30">
-                              Richiesta inviata
-                            </span>
+                            <button
+                              onClick={() => handleCancelOrRemove(user.id)}
+                              className="px-2.5 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-rose-500/10 hover:text-rose-600 rounded-xl text-[11px] font-bold border border-amber-500/30 transition-all cursor-pointer group flex items-center gap-1"
+                              title="Clicca per annullare la richiesta"
+                            >
+                              <Check size={13} className="group-hover:hidden" />
+                              <X size={13} className="hidden group-hover:inline" />
+                              <span className="group-hover:hidden">Inviata</span>
+                              <span className="hidden group-hover:inline">Annulla</span>
+                            </button>
                           ) : (
                             <button
                               onClick={() => handleSendFriendRequest(user.id)}
@@ -784,7 +876,12 @@ export const SocialPage: React.FC = () => {
                 </h3>
                 <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
                   {friendsList.map((friend) => (
-                    <div key={friend.id} className="flex flex-col items-center gap-1 shrink-0">
+                    <button
+                      key={friend.id}
+                      onClick={() => setSelectedFriend(friend)}
+                      className="flex flex-col items-center gap-1 shrink-0 p-1.5 rounded-2xl hover:bg-[#E8E3D8]/50 dark:hover:bg-[#36322E]/50 transition-colors cursor-pointer text-left focus:outline-none"
+                      title={`Visualizza profilo di ${friend.nome_completo}`}
+                    >
                       {friend.avatar_url ? (
                         <img
                           src={friend.avatar_url}
@@ -799,7 +896,7 @@ export const SocialPage: React.FC = () => {
                       <span className="text-[11px] font-bold text-[#31362F] dark:text-[#E0DCD3] truncate max-w-[65px]">
                         {friend.nome_completo.split(' ')[0]}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </section>
@@ -1269,6 +1366,79 @@ export const SocialPage: React.FC = () => {
                   )}
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODALE DETTAGLIO AMICO */}
+      <AnimatePresence>
+        {selectedFriend && (
+          <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedFriend(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative z-10 w-full max-w-sm bg-[#FCFBF8] dark:bg-[#2A2826] rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border border-[#EBE5D9] dark:border-[#4A4743]/60 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-[#EBE5D9] dark:border-[#4A4743]/50">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#7A756D] dark:text-[#9A9488]">
+                  Profilo Amico
+                </span>
+                <button
+                  onClick={() => setSelectedFriend(null)}
+                  className="w-8 h-8 rounded-full bg-[#EBE5D9] dark:bg-[#383532] text-[#4A4743] dark:text-[#E0DCD3] hover:bg-[#DCD5C6] flex items-center justify-center cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex flex-col items-center text-center space-y-2 py-2">
+                {selectedFriend.avatar_url ? (
+                  <img
+                    src={selectedFriend.avatar_url}
+                    alt={selectedFriend.nome_completo}
+                    className="w-20 h-20 rounded-full object-cover ring-4 ring-[#5C6B55]/30 shadow-md"
+                  />
+                ) : (
+                  <div className={`w-20 h-20 rounded-full ${selectedFriend.avatar_color?.startsWith('bg-') ? selectedFriend.avatar_color : `bg-gradient-to-tr ${selectedFriend.avatar_color || 'from-indigo-600 to-violet-600'}`} flex items-center justify-center text-2xl font-black text-white ring-4 ring-[#5C6B55]/30 shadow-md`}>
+                    {selectedFriend.nome_completo ? selectedFriend.nome_completo.trim().charAt(0).toUpperCase() : 'A'}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-base font-black text-[#2E332B] dark:text-[#ECE7DE]">
+                    {selectedFriend.nome_completo}
+                  </h3>
+                  <p className="text-xs text-[#7A756D] dark:text-[#9A9488]">
+                    @{selectedFriend.username}
+                  </p>
+                </div>
+                {selectedFriend.bio && (
+                  <p className="text-xs text-[#4A4743] dark:text-[#D5D0C5] bg-[#F7F4EE] dark:bg-[#201E1C] p-3 rounded-2xl border border-[#E8E3D8] dark:border-[#312E2A] italic">
+                    "{selectedFriend.bio}"
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-[#EBE5D9] dark:border-[#4A4743]/50 space-y-2">
+                <button
+                  onClick={() => handleCancelOrRemove(selectedFriend.id)}
+                  disabled={isRemovingFriend}
+                  className="w-full py-2.5 px-4 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 hover:dark:bg-rose-900/40 rounded-2xl text-xs font-bold transition-all border border-rose-200 dark:border-rose-900/50 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isRemovingFriend ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                  <span>Rimuovi dai miei amici</span>
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
