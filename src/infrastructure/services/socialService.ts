@@ -99,7 +99,12 @@ export async function searchUsers(query: string): Promise<UserProfileSocial[]> {
     .or(`username.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`)
     .limit(20);
 
-  if (error || !data || data.length === 0) {
+  if (error) {
+    console.warn('Errore ricerca utenti Supabase:', error);
+    return [];
+  }
+
+  if (!data || data.length === 0) {
     return [];
   }
 
